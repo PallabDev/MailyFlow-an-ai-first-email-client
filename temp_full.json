@@ -1,0 +1,137 @@
+{
+  "full": {
+    "id": "19eb80c1875949f1",
+    "threadId": "19eb80c1875949f1",
+    "labelIds": [
+      "UNREAD",
+      "CATEGORY_UPDATES",
+      "INBOX"
+    ],
+    "snippet": "Keep track of your Google Account data ookarmakarpallab1212@gmail.com You&#39;re receiving this email because you used Sign in with Google to sign in to Groq on 12 June at 00:22. This email summarises",
+    "payload": {
+      "mimeType": "multipart/alternative",
+      "headers": [
+        {
+          "name": "Delivered-To",
+          "value": "ookarmakarpallab1212@gmail.com"
+        },
+        {
+          "name": "Received",
+          "value": "by 2002:a05:612c:50cd:b0:5aa:812:bc2 with SMTP id v13csp476124vqa;        Thu, 11 Jun 2026 11:57:41 -0700 (PDT)"
+        },
+        {
+          "name": "X-Received",
+          "value": "by 2002:a05:620a:410a:b0:912:1:b415 with SMTP id af79cd13be357-9160accc3f8mr611287385a.26.1781204261279;        Thu, 11 Jun 2026 11:57:41 -0700 (PDT)"
+        },
+        {
+          "name": "ARC-Seal",
+          "value": "i=1; a=rsa-sha256; t=1781204261; cv=none;        d=google.com; s=arc-20240605;        b=aaO//9FcPnl6AUiw7t+sDrjw4Iq+r5iixlmfWy6XUsDmenDTZCgwxv0Q0aLR6pTHcl         iqnM5y/ClC5PyjRT640lbDQLXKamAiiBy+wvnpNxHvBfb0sHxjIVGUQ4RZ+wowC2MzB5         BXIXXqAm8nhYtYTY58swl3mgWqfISMTSttCecN75QjyJ9+QGFQtZxmLWt2SqwdyPFZZX         7gz4A7SXsLbsw8tnii+JhupE/A239LxPE8HOC6TSREdnGT1pzHYFezVmFKk345USYPkY         AaW4lhNPhexd11Bll36nhy+zznFSEYBq/qEmt83IrM03ue4hjzq2DB9fE12ymVEHQGNR         q+wg=="
+        },
+        {
+          "name": "ARC-Message-Signature",
+          "value": "i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;        h=to:from:subject:message-id:gmsai:list-unsubscribe         :list-unsubscribe-post:feedback-id:list-id:date:mime-version         :dkim-signature;        bh=dNPztJJqAalLAS9B/fzrh49IZX3oYd56XDGzTxZxgw0=;        fh=YycOi/I5zs++iP7TN9eLLKqWLZeAakiL5Zb7nDXrnwI=;        b=lQlyG16dnZGtVxR1RWJwb4ivxoCIkpqpVgd8UlRCfe8JI9Mps31/1YWufGqc+EtBy+         uZg1oZkAofYfNtan5vG79rcfX6kKDLAQztjBwoBt6HY16fH7gg4lHCPyi7qo0fayyo85         CJkXhVC3eiH8EwK57IdaqIhZ/0cdeGUSfY05ADHIn8BYydDJxDD2IP7LsumgmIj4Yvfa         tgh9rml9AO/mmOHNRQ7dNiwCv2NkFvq4IMsZIe9AlP3QKOm6S58fFilA8CZEQFjPZI/g         kQNxXwLUyvV0zj+t+R6YSF6nzq0JPFV6tJc2Q8B07Q3NyYpc1Xx1zlGQV2J0B0Crk2cm         ufSQ==;        dara=google.com"
+        },
+        {
+          "name": "ARC-Authentication-Results",
+          "value": "i=1; mx.google.com;       dkim=pass header.i=@google.com header.s=20251104 header.b=\"CL/KhJLG\";       spf=pass (google.com: domain of 3jqurahakadqdehufbo-qssekdjiweewbu.sec@scoutcamp.bounces.google.com designates 209.85.220.69 as permitted sender) smtp.mailfrom=3JQUrahAKADQdehUfbo-QSSekdjiWeeWbU.Sec@scoutcamp.bounces.google.com;       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=google.com;       dara=pass header.i=@gmail.com"
+        },
+        {
+          "name": "Return-Path",
+          "value": "<3JQUrahAKADQdehUfbo-QSSekdjiWeeWbU.Sec@scoutcamp.bounces.google.com>"
+        },
+        {
+          "name": "Received",
+          "value": "from mail-sor-f69.google.com (mail-sor-f69.google.com. [209.85.220.69])        by mx.google.com with SMTPS id af79cd13be357-9160ac8ebcesor342134785a.2.2026.06.11.11.57.41        for <ookarmakarpallab1212@gmail.com>        (Google Transport Security);        Thu, 11 Jun 2026 11:57:41 -0700 (PDT)"
+        },
+        {
+          "name": "Received-SPF",
+          "value": "pass (google.com: domain of 3jqurahakadqdehufbo-qssekdjiweewbu.sec@scoutcamp.bounces.google.com designates 209.85.220.69 as permitted sender) client-ip=209.85.220.69;"
+        },
+        {
+          "name": "Authentication-Results",
+          "value": "mx.google.com;       dkim=pass header.i=@google.com header.s=20251104 header.b=\"CL/KhJLG\";       spf=pass (google.com: domain of 3jqurahakadqdehufbo-qssekdjiweewbu.sec@scoutcamp.bounces.google.com designates 209.85.220.69 as permitted sender) smtp.mailfrom=3JQUrahAKADQdehUfbo-QSSekdjiWeeWbU.Sec@scoutcamp.bounces.google.com;       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=google.com;       dara=pass header.i=@gmail.com"
+        },
+        {
+          "name": "DKIM-Signature",
+          "value": "v=1; a=rsa-sha256; c=relaxed/relaxed;        d=google.com; s=20251104; t=1781204261; x=1781809061; dara=google.com;        h=to:from:subject:message-id:gmsai:list-unsubscribe         :list-unsubscribe-post:feedback-id:list-id:date:mime-version:from:to         :cc:subject:date:message-id:reply-to;        bh=dNPztJJqAalLAS9B/fzrh49IZX3oYd56XDGzTxZxgw0=;        b=CL/KhJLG7axB5eXuoJZd4bRetFkSAk7c2kFQSUqWSv1DHIkQcFbIlWNcNzMCtM3K3g         RvidHromLcn8YvmK6cyH+PF1k893/Cwn2eP6tBuslcvIVaO9RV7VXKakHmgurE4i0INS         7m+BXTzx1mVwsNigrUO1PDFVhzKlCV6Ub54PK3/BlVY3vKavUu1m2w4IBBtj19QWnLm3         UcdRKsKcOcyaYptI4zU1roFWwNUStJHtz49VR7IH5TAmlzJyWg9I8weZQioHHT9nRe6A         VfoE5fk761yzwSLRGkR+UQZKkytL8p0ntdWPS87L8gKfvRNvUc6FeTVJWQTnSc7ETwBg         BWDw=="
+        },
+        {
+          "name": "X-Google-DKIM-Signature",
+          "value": "v=1; a=rsa-sha256; c=relaxed/relaxed;        d=1e100.net; s=20251104; t=1781204261; x=1781809061;        h=to:from:subject:message-id:gmsai:list-unsubscribe         :list-unsubscribe-post:feedback-id:list-id:date:mime-version         :x-gm-message-state:from:to:cc:subject:date:message-id:reply-to;        bh=dNPztJJqAalLAS9B/fzrh49IZX3oYd56XDGzTxZxgw0=;        b=QvTD6NNS8S9movsMK4EQXgzul9J1J7RlnZEg/0OM60s5nQgfU5adIpjbPZzwPeVW5M         bOpGLePqGUGjUeUDqkFz8QqWv85FGbqd+7o6uc73S8zBzoXHZXTGuNMB3LwgCx5+DVlq         nmsKRRTJ+KpTARwxuv8D4KstfCZa01/Y8EPWQlAkFpEke25wM9uUJf8m9P7DbV2ilFMz         3Dyygd91MDbzMcmwWheWPJ55l04Gr6t4gKegGGslNTF9BGS3YOEY6VoTe10xN4SiRtIp         +D0Z4NU5xLkZyAV2anagtBTZ9LnD/POTRjMmlFnNNu7gwN9y0vgX3JcH2DmlLcIGTGO3         1vwQ=="
+        },
+        {
+          "name": "X-Gm-Message-State",
+          "value": "AOJu0YyGX+Qmb1snaGs2eNEACt9HucSkbpVWArtdFTG/a7X9Km6RIww4 Ye/yNAwHXTzFJA3k2HQjZgYXoz7hBAx8WP3+X5wFo/3ExWHzdlZQwnY79t5s"
+        },
+        {
+          "name": "MIME-Version",
+          "value": "1.0"
+        },
+        {
+          "name": "X-Received",
+          "value": "by 2002:a05:620a:460d:b0:915:673a:617b with SMTP id af79cd13be357-9160ab2cdf4mr671009485a.24.1781204261124; Thu, 11 Jun 2026 11:57:41 -0700 (PDT)"
+        },
+        {
+          "name": "Date",
+          "value": "Thu, 11 Jun 2026 11:57:41 -0700"
+        },
+        {
+          "name": "List-Id",
+          "value": "<98b5bb09ff6ac9c617e21f7ba54977101832eb6f2a63fd56caa2f008f240e7f6@google.com>"
+        },
+        {
+          "name": "Feedback-ID",
+          "value": "Pb03ba12bf7-8399789e22:C9149520350:M111205079-en:gamma"
+        },
+        {
+          "name": "List-Unsubscribe-Post",
+          "value": "List-Unsubscribe=One-Click"
+        },
+        {
+          "name": "List-Unsubscribe",
+          "value": "<https://myaccount.google.com/communication-preferences/auto/unsubscribe/gt/AOPyDKS-F3c1XoZZtAzz-lJbKkGEmpKdkkT0-N2yErwjhjIgK2IGYg7dKJvyVSH91WPId6qlGYoNwaXyVPO_7J1apGJX55jQBS1ycD6-VUrbxa75S32fG9qzvxum1uMbk2KD-91h9MkzwvwVvdZqap6c6iROT9n1NNOt04CHe8s1x_wWkPcN6ugeALY82sJjwf12HjqaTBPh29nYCWAwKo_5qpVIybEmrL3gXhqpGmkKy55tp9DZAyK5mqyHyHL8v73munn2L1wYrlKfaqJiSbaOJSDv-q2e43iMcaa5GSwLM95IgfxfF5thJpvJixEullo?utm_source=gm_header&utm_medium=email>"
+        },
+        {
+          "name": "gmsai",
+          "value": "false"
+        },
+        {
+          "name": "X-Google-Notification-Metadata",
+          "value": "EgA"
+        },
+        {
+          "name": "X-Notifications",
+          "value": "250676992487-952064420590-CONNECTION_SOURCE_OAUTH-1781203952"
+        },
+        {
+          "name": "X-Notifications-Bounce-Info",
+          "value": "AZJPhI2XTe-u7auoLydIrAqznSCsP4nU9iEMjoo8jvDNAhSnro1Y1UhY4Z6YVyHyeyw0ni9Dt5q2xUyxl_pX1OkrsRces9XLcjlEV0r0BE6uI2sA-rrgHMfpNzsfLg2nCz7pkRgePV1H_rLrteweJrpKsWSg05yxHIUcU9SGIz84M3l4qAEr7YXyH_P57GrRgJST23oOu3vszTOS5IKzFRYh_4J3KsX0LbYwVfkRSOlSiuKg-iEWaJTsPoQ2W_N_v4USt-ewAz-uccvJKVlncSB_KZFNojI75StM9S8Xh8tRsxEjkI0D0xQ-xmVUThSQ6ucFcDkJbO0ARvO7sWdltei9JY6G946oTvi4dmzFbL_TnFxvscEvcHtEW-lVWognfJ3xswWdmFI175I7OUzreoCXxxzcQ6k3z3UYspNY7hEReTGHtsf3l4Qj-M1MAWhkHx_H4dr2t1OojPhJBUSeqJ8nsphmxTlid0zYNLkVaZuVZj0beyf2Tzb40ppmC7ldfmzlGuFiVgPK0VRMvw4_tiLCXuD3Rgs0Nm0H_FHGNFAMn_pLgtbyiFk1tP6sLxzskyg3spV-To7gp1Tr0C6GZWdPokv__7ifZ7gtje_Wa3SmEzlZ1oAPHTgu-q86qwoMEUbsJVcH4AKKn-gcR3v8V_X4l2tb8dkdkNUjurpkzsSxdbsuiBCc24tfkBfWS9Lw0khTHBrVDKfyM2DrxvibOmJu02YiO2Huzm9i-bQzead45bTwnW_3zhBU9kdiOIRXi7Ra2PaPD5twwZvFYQLexGgvDQhiy2i84L9vWpOcmKJr1t9bl6l878zaPjYkRUkFUOsgqdfzq6ewQfIO0S8_PQBaY6BTBWXDAbaEXsAAZeZNW2OpzHwEEoYvnyIWaJLoDcIE1Y3kBSCAVQNjAwNjA0MDQxNTM1NTk2OTMzMg"
+        },
+        {
+          "name": "Message-ID",
+          "value": "<100fda17fd71a51b1976c61fbd02f03c35a97738-20376977-337030291@google.com>"
+        },
+        {
+          "name": "Subject",
+          "value": "You shared some Google Account data with Groq"
+        },
+        {
+          "name": "From",
+          "value": "Google <noreply-accounts@google.com>"
+        },
+        {
+          "name": "To",
+          "value": "ookarmakarpallab1212@gmail.com"
+        },
+        {
+          "name": "Content-Type",
+          "value": "multipart/alternative; boundary=\"00000000000041bcab0653feef8d\""
+        }
+      ]
+    },
+    "sizeEstimate": 85061,
+    "historyId": "2579530",
+    "internalDate": "1781204261000"
+  },
+  "msgId": "19eb80c1875949f1"
+}

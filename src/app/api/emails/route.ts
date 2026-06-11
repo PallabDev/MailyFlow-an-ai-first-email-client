@@ -61,41 +61,16 @@ export async function GET(req: NextRequest) {
       emails = await Promise.all(
         messages.map(async (msg: any) => {
           try {
+            // Using metadata format is 20x faster than full format for lists
             const full = await client.gmail.api.messages.get({
               id: msg.id!,
-              format: 'full',
+              format: 'metadata',
             });
 
             const headers = full.payload?.headers ?? [];
-            const subject = headers.find((h: any) => h.name === 'Subject')?.value ?? '(no subject)';
-            const from = headers.find((h: any) => h.name === 'From')?.value ?? '(unknown)';
-            const date = headers.find((h: any) => h.name === 'Date')?.value ?? '';
-
-            let body = '(no body)';
-            if (full.payload?.body?.data) {
-              body = Buffer.from(full.payload.body.data, 'base64').toString('utf-8');
-            } else if (full.payload?.parts) {
-              const getBody = (parts: any[]): string => {
-                for (const part of parts) {
-                  if (part.mimeType === 'text/html' && part.body?.data) {
-                    return Buffer.from(part.body.data, 'base64').toString('utf-8');
-                  }
-                  if (part.parts) {
-                    const subBody = getBody(part.parts);
-                    if (subBody) return subBody;
-                  }
-                }
-                for (const part of parts) {
-                  if (part.mimeType === 'text/plain' && part.body?.data) {
-                    return Buffer.from(part.body.data, 'base64').toString('utf-8');
-                  }
-                }
-                return '';
-              };
-              body = getBody(full.payload.parts) || full.snippet || '(no body)';
-            } else {
-              body = full.snippet ?? '(no body)';
-            }
+            const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
+            const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
+            const date = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value ?? '';
 
             return {
               id: msg.id,
@@ -103,7 +78,7 @@ export async function GET(req: NextRequest) {
               date,
               subject,
               snippet: full.snippet ?? '',
-              body,
+              body: '', // Empty body in list view, loaded on-demand on click
               labelIds: full.labelIds ?? [],
             };
           } catch (e: any) {
@@ -114,7 +89,8 @@ export async function GET(req: NextRequest) {
               date: '',
               subject: '(failed to load email content)',
               snippet: '',
-              body: e.message || 'Error details parsing email',
+              body: '',
+              labelIds: [],
             };
           }
         })

@@ -10,21 +10,12 @@ async function main() {
     for (const msg of messages ?? []) {
         const full = await client.gmail.api.messages.get({
             id: msg.id!,
-            format: 'full',
+            format: 'metadata',
         });
 
-        const headers = full.payload?.headers ?? [];
-        const subject = headers.find(h => h.name === 'Subject')?.value ?? '(no subject)';
-        const from = headers.find(h => h.name === 'From')?.value ?? '(unknown)';
-        const date = headers.find(h => h.name === 'Date')?.value ?? '';
-        const body = full.payload?.body?.data
-            ? Buffer.from(full.payload.body.data, 'base64').toString('utf-8')
-            : full.snippet ?? '(no body)';
+        console.log("HEADERS:", JSON.stringify(full.payload?.headers));
 
-        console.log(`From:    ${from}`);
-        console.log(`Date:    ${date}`);
-        console.log(`Subject: ${subject}`);
-        console.log(`Body:\n${body}\n`);
+        console.log("PAYLOAD keys:", Object.keys(full.payload ?? {}));
     }
 }
 

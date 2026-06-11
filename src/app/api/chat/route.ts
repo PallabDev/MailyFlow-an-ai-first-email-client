@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 // Setup OpenAI client pointing to Gemini compatibility endpoint
 const openai = new OpenAI({
   apiKey: process.env.GEMINI_API_KEY || '',
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+  baseURL: 'https://api.groq.com/openai/v1/',
 });
 
 export async function POST(req: NextRequest) {
@@ -138,7 +138,7 @@ Your goals:
 
     // Call OpenAI endpoint
     const response = await openai.chat.completions.create({
-      model: 'gemini-2.5-flash',
+      model: 'llama-3.1-8b-instant',
       messages: chatHistory as any,
       tools,
       tool_choice: 'auto',
@@ -167,8 +167,8 @@ Your goals:
                 msgs.slice(0, 5).map(async (msg: any) => {
                   try {
                     const full = await gmailClient.gmail.api.messages.get({ id: msg.id, format: 'full' });
-                    const subject = full.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || '(no subject)';
-                    const from = full.payload?.headers?.find((h: any) => h.name === 'From')?.value || '(unknown)';
+                    const subject = full.payload?.headers?.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '(no subject)';
+                    const from = full.payload?.headers?.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '(unknown)';
                     return `ID: ${msg.id}\nFrom: ${from}\nSubject: ${subject}\nSnippet: ${full.snippet || ''}\n`;
                   } catch {
                     return `ID: ${msg.id} (failed to load details)\n`;
@@ -235,7 +235,7 @@ Your goals:
 
       // Get final response from Gemini after executing tools
       const secondResponse = await openai.chat.completions.create({
-        model: 'gemini-2.5-flash',
+        model: 'llama-3.1-8b-instant',
         messages: chatHistory as any,
       });
 
