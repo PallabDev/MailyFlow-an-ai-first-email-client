@@ -1,4 +1,4 @@
-import { corsair } from './server/corsair';
+import { corsair } from '@/utils/corsair'
 
 async function main() {
     const client = corsair.withTenant('dev');

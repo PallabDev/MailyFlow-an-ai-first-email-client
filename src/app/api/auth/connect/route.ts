@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { corsair } from '@/utils/corsair';
+import { generateOAuthUrl } from 'corsair/oauth';
+
+export async function GET(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const plugin = searchParams.get('plugin');
+
+    if (!plugin || (plugin !== 'gmail' && plugin !== 'googlecalendar')) {
+      return NextResponse.json(
+        { error: 'Invalid or missing plugin parameter. Must be "gmail" or "googlecalendar".' },
+        { status: 400 }
+      );
+    }
+
+    const redirectUri = `${new URL(req.url).origin}/api/auth/callback`;
+
+    const { url } = await generateOAuthUrl(corsair, plugin, {
+      tenantId: userId,
+      redirectUri,
+    });
+
+    return NextResponse.redirect(url);
+  } catch (error: any) {
+    console.error('Error in connect API:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
