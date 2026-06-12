@@ -10,6 +10,60 @@ type AIAssistantProps = {
   };
 };
 
+function formatMessageContent(content: string): React.ReactNode {
+  const lines = content.split('\n');
+
+  return lines.map((line, lineIndex) => {
+    // If it's a list item (starts with - or * followed by space)
+    const isBulletList = /^\s*[-*]\s+(.*)/.exec(line);
+    
+    // Process markdown formatting inside the text (bold, italic, inline code)
+    const renderTextWithMarkdown = (text: string) => {
+      const parts: React.ReactNode[] = [];
+      let currentIndex = 0;
+      const tokenRegex = /(\*\*|\*|`)(.*?)\1/g;
+      let match;
+      
+      while ((match = tokenRegex.exec(text)) !== null) {
+        if (match.index > currentIndex) {
+          parts.push(text.substring(currentIndex, match.index));
+        }
+        
+        const [, token, innerText] = match;
+        if (token === '**') {
+          parts.push(<strong key={match.index} className="font-semibold text-slate-900">{innerText}</strong>);
+        } else if (token === '*') {
+          parts.push(<em key={match.index} className="italic text-slate-800">{innerText}</em>);
+        } else if (token === '`') {
+          parts.push(<code key={match.index} className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs text-rose-600 border border-slate-200/60">{innerText}</code>);
+        }
+        
+        currentIndex = tokenRegex.lastIndex;
+      }
+      
+      if (currentIndex < text.length) {
+        parts.push(text.substring(currentIndex));
+      }
+      
+      return parts.length > 0 ? parts : text;
+    };
+
+    if (isBulletList) {
+      return (
+        <ul key={lineIndex} className="list-disc pl-5 my-0.5">
+          <li className="text-slate-700">{renderTextWithMarkdown(isBulletList[1])}</li>
+        </ul>
+      );
+    }
+
+    return (
+      <p key={lineIndex} className="min-h-[1.25rem] text-slate-700 leading-relaxed">
+        {renderTextWithMarkdown(line)}
+      </p>
+    );
+  });
+}
+
 export default function AIAssistant({ user }: AIAssistantProps) {
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
@@ -42,13 +96,35 @@ export default function AIAssistant({ user }: AIAssistantProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [...chatMessages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          localTime: new Date().toString(),
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
         if (data.message) {
-          setChatMessages((prev) => [...prev, data.message]);
+          const fullContent = data.message.content;
+          setChatMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+          
+          let currentText = '';
+          let index = 0;
+          const chunkSize = 2;
+          const timer = setInterval(() => {
+            if (index < fullContent.length) {
+              currentText += fullContent.substring(index, index + chunkSize);
+              setChatMessages((prev) => {
+                const next = [...prev];
+                if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+                  next[next.length - 1] = { ...next[next.length - 1], content: currentText };
+                }
+                return next;
+              });
+              index += chunkSize;
+            } else {
+              clearInterval(timer);
+            }
+          }, 10);
         }
       } else {
         const errData = await res.json();
@@ -119,7 +195,9 @@ export default function AIAssistant({ user }: AIAssistantProps) {
                       ? 'bg-white border border-[#E5E7EB] text-slate-800'
                       : 'bg-[#E4E9E5] text-slate-800 border border-slate-300/40'
                   }`}>
-                    <p className="whitespace-pre-line font-normal">{msg.content}</p>
+                    <div className="font-normal space-y-1">
+                      {formatMessageContent(msg.content)}
+                    </div>
                   </div>
                 </div>
               );

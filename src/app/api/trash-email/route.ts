@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,6 +46,23 @@ export async function POST(req: NextRequest) {
     await client.gmail.api.messages.trash({
       id,
     });
+
+    // Delete from local DB cache
+    try {
+      const gmailAccount = connectedAccounts.find(acc => acc.name === 'gmail');
+      if (gmailAccount) {
+        await db
+          .delete(corsairEntities)
+          .where(
+            and(
+              eq(corsairEntities.accountId, gmailAccount.id),
+              eq(corsairEntities.entityId, id)
+            )
+          );
+      }
+    } catch (dbErr) {
+      console.error('Error deleting message from DB cache during trash:', dbErr);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

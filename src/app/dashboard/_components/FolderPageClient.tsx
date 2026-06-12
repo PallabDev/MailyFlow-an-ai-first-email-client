@@ -37,51 +37,7 @@ type FolderPageClientProps = {
 
 // Mock fallback emails to display if there's no connection
 const mockEmails: Email[] = [
-  {
-    id: 'mock-1',
-    from: 'Maya Okonkwo <maya@example.com>',
-    date: '9:24 AM',
-    subject: 'Q3 roadmap review — can you take a look?',
-    snippet: 'I dropped the revised milestones into the doc. The big change is moving the billing rework ahead of...',
-    body: 'Hi Alex,\n\nI dropped the revised milestones into the doc. The big change is moving the billing rework ahead of the mobile push. She is asking for a review by EOD — I can draft a reply.\n\nBest,\nMaya',
-    labelIds: ['INBOX', 'UNREAD']
-  },
-  {
-    id: 'mock-2',
-    from: 'Stripe <stripe@example.com>',
-    date: '8:51 AM',
-    subject: 'Your payout of $12,480.00 is on the way',
-    snippet: 'We initiated a transfer to your bank account ending in 4471. Funds typically arrive within 2 business...',
-    body: 'Hello,\n\nWe initiated a transfer to your bank account ending in 4471. Funds typically arrive within 2 business days. Let us know if you have any questions.\n\nThanks,\nStripe Support',
-    labelIds: ['INBOX', 'UNREAD']
-  },
-  {
-    id: 'mock-3',
-    from: 'Dani Reyes <dani@example.com>',
-    date: '8:30 AM',
-    subject: 'Design crit moved to 3pm',
-    snippet: 'Heads up — pushed the session back an hour so the Tokyo folks can join. Same room, same link.',
-    body: 'Hi team,\n\nHeads up — pushed the session back an hour so the Tokyo folks can join. Same room, same link.\n\nSee you there,\nDani',
-    labelIds: ['INBOX', 'UNREAD']
-  },
-  {
-    id: 'mock-draft-1',
-    from: 'investors@corsair.dev',
-    date: '10:00 AM',
-    subject: 'Seed Round Pitch Deck',
-    snippet: "Attached is our updated pitch deck. We'd love to jump on a call next week...",
-    body: "Dear investors,\n\nAttached is our updated pitch deck. We'd love to jump on a call next week to walk you through our recent traction and plans.\n\nBest,\nAlex",
-    labelIds: ['DRAFT']
-  },
-  {
-    id: 'mock-sent-1',
-    from: 'friend@corsair.dev',
-    date: 'Yesterday',
-    subject: 'Hey! Look forward to our meeting',
-    snippet: 'Hey man, just wanted to say I look forward to our meeting next Thursday at 9 AM!',
-    body: 'Hey buddy,\n\nJust wanted to say I look forward to our meeting next Thursday at 9 AM! I will send the calendar invite shortly.\n\nCheers,\nAlex',
-    labelIds: ['SENT']
-  }
+
 ];
 
 export default function FolderPageClient({
@@ -94,47 +50,83 @@ export default function FolderPageClient({
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
 
-  const [emailsState, setEmailsState] = useState<Email[]>(initialEmails.length > 0 ? initialEmails : mockEmails);
+  const [emailsState, setEmailsState] = useState<Email[]>(initialEmails);
   const [nextPageToken, setNextPageToken] = useState<string | null>(initialNextPageToken);
+  const [loading, setLoading] = useState(initialEmails.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
 
-  // Sync initial emails when props change
-  useEffect(() => {
-    setEmailsState(initialEmails.length > 0 ? initialEmails : mockEmails);
-    setNextPageToken(initialNextPageToken);
-    setSelectedEmail(null);
-  }, [initialEmails, initialNextPageToken, folder]);
-
-  // Poll for new emails every 15 seconds (for inbox only)
-  useEffect(() => {
-    if (folder !== 'inbox') return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/emails?limit=20&folder=inbox');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.emails && data.emails.length > 0) {
-            setEmailsState((prev) => {
-              const existingIds = new Set(prev.map((e) => e.id));
-              const newEmails = data.emails.filter((e: any) => !existingIds.has(e.id));
-              if (newEmails.length > 0) {
-                return [...newEmails, ...prev];
-              }
-              return prev;
-            });
-          }
+  const fetchEmails = async (force: boolean = false) => {
+    setLoading(true);
+    setEmailErrorState(null);
+    try {
+      const res = await fetch(`/api/emails?folder=${folder}&limit=20${force ? '&refresh=true' : ''}`);
+      if (res.ok) {
+        const data = await res.json();
+        let fetchedEmails = data.emails ?? [];
+        if (fetchedEmails.length === 0 && data.isDevFallback) {
+          fetchedEmails = mockEmails;
         }
-      } catch (error) {
-        console.error('Error polling for new emails:', error);
-      }
-    }, 15000);
+        setEmailsState(fetchedEmails);
+        setNextPageToken(data.nextPageToken || null);
 
-    return () => clearInterval(pollInterval);
+        if (force) {
+          window.dispatchEvent(new CustomEvent('refresh-labels'));
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEmailErrorState(data.error || 'Failed to fetch emails.');
+        setEmailsState(mockEmails);
+      }
+    } catch (err: any) {
+      console.error('Error fetching emails client-side:', err);
+      setEmailErrorState('Failed to fetch emails.');
+      setEmailsState(mockEmails);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmails(false);
+    setSelectedEmail(null);
   }, [folder]);
+
+  // Silent auto-refresh for new emails and counts every 10 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const fetchSilent = async () => {
+        try {
+          const res = await fetch(`/api/emails?folder=${folder}&limit=50`);
+          if (res.ok) {
+            const data = await res.json();
+            let fetchedEmails = data.emails ?? [];
+            if (fetchedEmails.length === 0 && data.isDevFallback) {
+              fetchedEmails = mockEmails;
+            }
+            setEmailsState(fetchedEmails);
+            setNextPageToken(data.nextPageToken || null);
+
+            // Trigger silent update of sidebar counts
+            window.dispatchEvent(new CustomEvent('refresh-labels'));
+          }
+        } catch (err) {
+          console.error('Silent auto-refresh failed:', err);
+        }
+      };
+
+      if (!loading && !loadingMore && !selectedEmail) {
+        fetchSilent();
+      }
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [folder, loading, loadingMore, selectedEmail]);
+
+
 
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
@@ -174,7 +166,7 @@ export default function FolderPageClient({
     setEmailsState((prev) =>
       prev.map((e) => {
         if (e.id === emailId) {
-          const nextLabels = (e.labelIds || []).filter((l) => l !== 'INBOX');
+          const nextLabels = (e.labelIds || []).filter((l) => l !== 'INBOX' && l !== 'DRAFT');
           if (!nextLabels.includes('TRASH')) nextLabels.push('TRASH');
           return { ...e, labelIds: nextLabels };
         }
@@ -212,10 +204,22 @@ export default function FolderPageClient({
   // Filter based on query and folder
   const filteredEmails = emailsState.filter((email) => {
     const labels = email.labelIds || [];
+
+    // If the email is trashed, it should only appear in the trash folder
+    if (folder !== 'trash' && labels.includes('TRASH')) {
+      return false;
+    }
+    // If the email is spam, it should only appear in the spam folder
+    if (folder !== 'spam' && labels.includes('SPAM')) {
+      return false;
+    }
+
     if (folder === 'inbox') {
-      if (!labels.includes('INBOX') || labels.includes('TRASH') || labels.includes('SPAM')) {
-        // Allow mock emails to bypass since label IDs differ
-        if (!email.id.startsWith('mock-')) return false;
+      if (!labels.includes('INBOX')) {
+        // Fallback for mock emails if they don't have the INBOX label but we are in inbox
+        if (!email.id.startsWith('mock-') || email.id.includes('draft') || email.id.includes('sent')) {
+          return false;
+        }
       }
     } else if (folder === 'drafts') {
       if (!labels.includes('DRAFT') && !email.id.includes('draft')) return false;
@@ -233,6 +237,16 @@ export default function FolderPageClient({
       email.snippet.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
+
+  // Deduplicate emails by ID to avoid duplicate key console warnings and UI duplicate items
+  const uniqueEmails: Email[] = [];
+  const seenIds = new Set<string>();
+  for (const email of filteredEmails) {
+    if (!seenIds.has(email.id)) {
+      seenIds.add(email.id);
+      uniqueEmails.push(email);
+    }
+  }
 
   const getFolderIcon = () => {
     switch (folder) {
@@ -266,10 +280,22 @@ export default function FolderPageClient({
           <div className="flex items-center space-x-3">
             {getFolderIcon()}
             <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+
+            {/* Refresh Button */}
+            <button
+              onClick={() => fetchEmails(true)}
+              disabled={loading}
+              className={`p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${loading ? 'animate-spin opacity-50' : ''
+                }`}
+              title="Refresh messages"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+
             <span className="text-xs text-slate-500 font-medium">
-              {folder === 'inbox' 
-                ? `${filteredEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread` 
-                : `${filteredEmails.length} messages`
+              {folder === 'inbox'
+                ? `${uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread`
+                : `${uniqueEmails.length} messages`
               }
             </span>
           </div>
@@ -288,10 +314,10 @@ export default function FolderPageClient({
 
       {/* Message Reader / List View */}
       {selectedEmail ? (
-        <EmailDetail 
-          email={selectedEmail} 
-          onBack={() => setSelectedEmail(null)} 
-          onTrash={handleTrashEmail} 
+        <EmailDetail
+          email={selectedEmail}
+          onBack={() => setSelectedEmail(null)}
+          onTrash={handleTrashEmail}
         />
       ) : (
         <div
@@ -299,34 +325,63 @@ export default function FolderPageClient({
           className="flex-1 overflow-y-auto bg-white"
         >
           <div className="divide-y divide-slate-100">
-            {emailError && (
+            {emailErrorState && (
               <div className="m-6 flex items-start space-x-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-700">
                 <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
                 <div className="text-sm">
-                  <span className="font-bold">Gmail API Error:</span> {emailError}
+                  <span className="font-bold">Gmail API Error:</span> {emailErrorState}
                   <p className="mt-2 text-xs text-red-800">Ensure your Gmail Google account is connected on the Onboarding screen.</p>
                 </div>
               </div>
             )}
 
-            {!emailError && filteredEmails.length === 0 && (
-              <div className="flex flex-col items-center justify-center p-20 text-center">
-                <InboxIcon className="h-12 w-12 text-slate-300 mb-3" />
-                <span className="font-semibold text-slate-500">All caught up!</span>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                  No emails match your active filters.
-                </p>
+            {loading ? (
+              <div className="divide-y divide-slate-100">
+                {[...Array(6)].map((_, i) => (
+                  <div key={`skeleton-${i}`} className="flex items-center px-6 py-4 animate-pulse relative">
+                    <div className="flex items-center space-x-4 flex-1 min-w-0">
+                      {/* Avatar Skeleton */}
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200"></div>
+
+                      <div className="flex-1 min-w-0 pr-8">
+                        <div className="flex items-baseline justify-between">
+                          {/* Name Skeleton */}
+                          <div className="h-4 w-28 bg-slate-200 rounded"></div>
+                          {/* Date Skeleton */}
+                          <div className="h-3 w-14 bg-slate-100 rounded"></div>
+                        </div>
+
+                        {/* Subject & Snippet Skeleton */}
+                        <div className="h-3 w-5/6 bg-slate-100 rounded mt-2"></div>
+                      </div>
+                    </div>
+                    {/* Star Skeleton */}
+                    <div className="h-4.5 w-4.5 bg-slate-100 rounded shrink-0"></div>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <>
+                {!emailErrorState && uniqueEmails.length === 0 && (
+                  <div className="flex flex-col items-center justify-center p-20 text-center">
+                    <InboxIcon className="h-12 w-12 text-slate-300 mb-3" />
+                    <span className="font-semibold text-slate-500">All caught up!</span>
+                    <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                      No emails match your active filters.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
-            {filteredEmails.map((email, idx) => {
+            {!loading && uniqueEmails.map((email, idx) => {
               const sender = parseSender(email.from);
               const isStarred = starredEmails.has(email.id);
               const isUnread = email.labelIds ? email.labelIds.includes('UNREAD') : idx < 3;
 
               return (
                 <div
-                  key={email.id}
+                  key={`${email.id}-${idx}`}
                   onClick={() => setSelectedEmail(email)}
                   className="group flex items-center px-6 py-4 transition-colors hover:bg-slate-50/80 cursor-pointer relative"
                 >
@@ -346,7 +401,7 @@ export default function FolderPageClient({
                           {sender.name}
                         </span>
                         <span className="text-xs text-slate-400 font-medium shrink-0">
-                          {email.date.replace(/([-+]\d{4}|UTC|GMT)/, '').trim()}
+                          {(email.date || '').replace(/([-+]\d{4}|UTC|GMT)/, '').trim()}
                         </span>
                       </div>
 
@@ -359,9 +414,8 @@ export default function FolderPageClient({
 
                   <button
                     onClick={(e) => toggleStar(email.id, e)}
-                    className={`p-1 rounded hover:bg-slate-100 transition-colors shrink-0 cursor-pointer ${
-                      isStarred ? 'text-amber-500' : 'text-slate-300 group-hover:text-slate-400'
-                    }`}
+                    className={`p-1 rounded hover:bg-slate-100 transition-colors shrink-0 cursor-pointer ${isStarred ? 'text-amber-500' : 'text-slate-300 group-hover:text-slate-400'
+                      }`}
                   >
                     <Star className="h-4.5 w-4.5" fill={isStarred ? 'currentColor' : 'none'} />
                   </button>

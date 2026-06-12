@@ -43,11 +43,11 @@ export default function Sidebar({
   const [draftsTotal, setDraftsTotal] = useState(0);
   const [spamTotal, setSpamTotal] = useState(0);
 
-  // Poll labels count every 30 seconds
+  // Fetch labels count on mount once (no polling)
   useEffect(() => {
-    const fetchCounts = async () => {
+    const fetchCounts = async (force: boolean = false) => {
       try {
-        const res = await fetch('/api/labels');
+        const res = await fetch(`/api/labels${force ? '?refresh=true' : ''}`);
         if (res.ok) {
           const data = await res.json();
           setInboxUnread(data.inbox?.unread ?? 0);
@@ -59,9 +59,16 @@ export default function Sidebar({
       }
     };
 
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 30000);
-    return () => clearInterval(interval);
+    fetchCounts(false);
+
+    const handleRefreshLabels = () => {
+      fetchCounts(true);
+    };
+
+    window.addEventListener('refresh-labels', handleRefreshLabels);
+    return () => {
+      window.removeEventListener('refresh-labels', handleRefreshLabels);
+    };
   }, []);
 
   const navigateToTab = (tab: string) => {

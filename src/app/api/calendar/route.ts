@@ -4,6 +4,28 @@ import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+async function getCalendarClient(userId: string) {
+  let connectedAccounts: any[] = [];
+  try {
+    connectedAccounts = await db
+      .select({
+        name: corsairIntegrations.name,
+        config: corsairAccounts.config,
+      })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(eq(corsairAccounts.tenantId, userId));
+  } catch (error) {
+    console.error('Error querying connected accounts from DB:', error);
+  }
+
+  const hasCalendarConnection = connectedAccounts.some(
+    (acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token
+  );
+  const calendarTenantId = hasCalendarConnection ? userId : 'dev';
+  return corsair.withTenant(calendarTenantId);
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -15,27 +37,7 @@ export async function GET(req: NextRequest) {
     const timeMin = searchParams.get('timeMin') || undefined;
     const timeMax = searchParams.get('timeMax') || undefined;
 
-    // Check if user has connected Google Calendar
-    let connectedAccounts: any[] = [];
-    try {
-      connectedAccounts = await db
-        .select({
-          name: corsairIntegrations.name,
-          config: corsairAccounts.config,
-        })
-        .from(corsairAccounts)
-        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-        .where(eq(corsairAccounts.tenantId, userId));
-    } catch (error) {
-      console.error('Error querying connected accounts from DB:', error);
-    }
-
-    const hasCalendarConnection = connectedAccounts.some(
-      (acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token
-    );
-    const calendarTenantId = hasCalendarConnection ? userId : 'dev';
-
-    const client = corsair.withTenant(calendarTenantId);
+    const client = await getCalendarClient(userId);
 
     const result = await client.googlecalendar.api.events.getMany({
       calendarId: 'primary',
@@ -48,10 +50,98 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       events: result.items ?? [],
-      calendarTenantId,
     });
   } catch (error: any) {
-    console.error('Error in /api/calendar:', error);
+    console.error('Error in GET /api/calendar:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const { event } = await req.json();
+    if (!event) {
+      return NextResponse.json({ error: 'Event details are required' }, { status: 400 });
+    }
+
+    const client = await getCalendarClient(userId);
+
+    const result = await client.googlecalendar.api.events.create({
+      calendarId: 'primary',
+      event,
+    });
+
+    return NextResponse.json({ success: true, event: result });
+  } catch (error: any) {
+    console.error('Error in POST /api/calendar:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const { id, event } = await req.json();
+    if (!id || !event) {
+      return NextResponse.json({ error: 'Event ID and details are required' }, { status: 400 });
+    }
+
+    const client = await getCalendarClient(userId);
+
+    const result = await client.googlecalendar.api.events.update({
+      calendarId: 'primary',
+      id,
+      event,
+    });
+
+    return NextResponse.json({ success: true, event: result });
+  } catch (error: any) {
+    console.error('Error in PUT /api/calendar:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get('id');
+
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body.id;
+      } catch {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    }
+
+    const client = await getCalendarClient(userId);
+
+    await client.googlecalendar.api.events.delete({
+      calendarId: 'primary',
+      id,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error in DELETE /api/calendar:', error);
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+}
+

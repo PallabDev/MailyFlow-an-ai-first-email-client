@@ -2,6 +2,9 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import React from 'react';
 import ClientLayoutWrapper from './_components/ClientLayoutWrapper';
+import { db } from '@/utils/corsair';
+import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export default async function DashboardLayout({
   children,
@@ -16,6 +19,28 @@ export default async function DashboardLayout({
   const user = await currentUser();
   if (!user) {
     redirect('/sign-in');
+  }
+
+  // Check if both integrations are connected
+  let connectedAccounts: any[] = [];
+  try {
+    connectedAccounts = await db
+      .select({
+        name: corsairIntegrations.name,
+        config: corsairAccounts.config,
+      })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(eq(corsairAccounts.tenantId, userId));
+  } catch (error) {
+    console.error('Error querying connected accounts in dashboard layout:', error);
+  }
+
+  const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
+  const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
+
+  if (!isGmailConnected || !isCalendarConnected) {
+    redirect('/onboarding');
   }
 
   const serializedUser = {

@@ -8,10 +8,10 @@ import {
   ChevronRight,
   Clock,
   MapPin,
-  ExternalLink,
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
+import EventModal from '../_components/EventModal';
 
 type CalendarEvent = {
   id?: string;
@@ -30,9 +30,7 @@ type CalendarClientProps = {
 };
 
 // Mock fallback events if no connection exists
-const mockEvents: CalendarEvent[] = [
-
-];
+const mockEvents: CalendarEvent[] = [];
 
 export default function CalendarClient({
   initialEvents,
@@ -47,40 +45,45 @@ export default function CalendarClient({
   const [eventsLoading, setEventsLoading] = useState(false);
   const [calendarErrorState, setCalendarErrorState] = useState<string | null>(calendarError);
 
+  // States for Event Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
+
   // Sync initial events on prop change
   useEffect(() => {
     setEventsState(initialEvents.length > 0 ? initialEvents : []);
     setCalendarErrorState(calendarError);
   }, [initialEvents, calendarError]);
 
+  // Fetch events function
+  const fetchEvents = async () => {
+    setEventsLoading(true);
+    const year = currentMonthDate.getFullYear();
+    const month = currentMonthDate.getMonth();
+
+    const start = new Date(year, month - 1, 20);
+    const end = new Date(year, month + 1, 10);
+
+    try {
+      const res = await fetch(`/api/calendar?timeMin=${encodeURIComponent(start.toISOString())}&timeMax=${encodeURIComponent(end.toISOString())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEventsState(data.events ?? []);
+        setCalendarErrorState(null);
+      } else {
+        const data = await res.json();
+        setCalendarErrorState(data.error || 'Failed to fetch calendar events.');
+      }
+    } catch (err: any) {
+      console.error('Error fetching calendar events:', err);
+      setCalendarErrorState('Failed to fetch calendar events.');
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
   // Fetch events when the current month changes
   useEffect(() => {
-    const fetchEvents = async () => {
-      setEventsLoading(true);
-      const year = currentMonthDate.getFullYear();
-      const month = currentMonthDate.getMonth();
-
-      const start = new Date(year, month - 1, 20);
-      const end = new Date(year, month + 1, 10);
-
-      try {
-        const res = await fetch(`/api/calendar?timeMin=${encodeURIComponent(start.toISOString())}&timeMax=${encodeURIComponent(end.toISOString())}`);
-        if (res.ok) {
-          const data = await res.json();
-          setEventsState(data.events ?? []);
-          setCalendarErrorState(null);
-        } else {
-          const data = await res.json();
-          setCalendarErrorState(data.error || 'Failed to fetch calendar events.');
-        }
-      } catch (err: any) {
-        console.error('Error fetching calendar events:', err);
-        setCalendarErrorState('Failed to fetch calendar events.');
-      } finally {
-        setEventsLoading(false);
-      }
-    };
-
     fetchEvents();
   }, [currentMonthDate]);
 
@@ -88,7 +91,17 @@ export default function CalendarClient({
     const list = eventsState.length > 0 ? eventsState : mockEvents;
     return list.filter((event) => {
       if (!event.start?.dateTime && !event.start?.date) return false;
-      const startStr = event.start.dateTime || event.start.date || '';
+      
+      if (event.start.date) {
+        const [yyyy, mm, dd] = event.start.date.split('-').map(Number);
+        return (
+          yyyy === date.getFullYear() &&
+          (mm - 1) === date.getMonth() &&
+          dd === date.getDate()
+        );
+      }
+
+      const startStr = event.start.dateTime || '';
       const eventDate = new Date(startStr);
       return (
         eventDate.getFullYear() === date.getFullYear() &&
@@ -132,6 +145,16 @@ export default function CalendarClient({
     setCurrentMonthDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
+  const handleAddEvent = () => {
+    setEventToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    setEventToEdit(event);
+    setIsModalOpen(true);
+  };
+
   const dailyEvents = getEventsForDate(selectedDate).filter(
     (event) =>
       event.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -155,9 +178,19 @@ export default function CalendarClient({
           <CalendarIcon className="h-5 w-5 text-slate-600" />
           <h1 className="text-lg font-bold text-slate-900">Calendar</h1>
           <span className="text-xs text-slate-500 font-medium">
-            {dailyEvents.length} events today
+            {eventsState.filter(e => {
+              if (!e.start?.dateTime && !e.start?.date) return false;
+              const d = new Date(e.start.dateTime || e.start.date || '');
+              return isToday(d);
+            }).length} events today
           </span>
         </div>
+        <button
+          onClick={handleAddEvent}
+          className="inline-flex items-center space-x-1.5 bg-[#3F6257] hover:bg-[#2D473E] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+        >
+          <span>+ Add Event</span>
+        </button>
       </div>
 
       {/* Calendar body layout: Left/Right Split */}
@@ -278,10 +311,14 @@ export default function CalendarClient({
               const eventTime = formatEventTime(event);
 
               return (
-                <div key={event.id || index} className="p-5 space-y-2.5 hover:bg-white transition-colors bg-[#F9FAFB]">
+                <div
+                  key={event.id || index}
+                  onClick={() => handleEditEvent(event)}
+                  className="p-5 space-y-2.5 hover:bg-white transition-colors bg-[#F9FAFB] cursor-pointer group"
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                      <h3 className="text-sm font-bold text-slate-900 tracking-tight group-hover:text-[#3F6257] transition-colors">
                         {event.summary || '(no title)'}
                       </h3>
                     </div>
@@ -305,18 +342,6 @@ export default function CalendarClient({
                         <span className="truncate max-w-xs">{event.location}</span>
                       </div>
                     )}
-
-                    {event.htmlLink && (
-                      <a
-                        href={event.htmlLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-800 font-semibold transition-colors text-[11px]"
-                      >
-                        <span>Open in Calendar</span>
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </a>
-                    )}
                   </div>
                 </div>
               );
@@ -325,6 +350,19 @@ export default function CalendarClient({
         </div>
 
       </div>
+
+      {/* Calendar Event CRUD Modal */}
+      <EventModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEventToEdit(null);
+        }}
+        onSave={fetchEvents}
+        eventToEdit={eventToEdit}
+        selectedDate={selectedDate}
+      />
     </div>
   );
 }
+

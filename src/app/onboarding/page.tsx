@@ -21,7 +21,7 @@ export default async function OnboardingPage({
   const resolvedSearchParams = await searchParams;
   const oauthError = resolvedSearchParams.error;
 
-  // Query database to see what's connected for this user OR the 'dev' tenant
+  // Query database to see what's connected for this user
   const connectedAccounts = await db
     .select({
       name: corsairIntegrations.name,
@@ -31,10 +31,7 @@ export default async function OnboardingPage({
     .from(corsairAccounts)
     .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
     .where(
-      or(
-        eq(corsairAccounts.tenantId, userId),
-        eq(corsairAccounts.tenantId, 'dev')
-      )
+      eq(corsairAccounts.tenantId, userId)
     );
 
   const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
@@ -182,20 +179,22 @@ export default async function OnboardingPage({
                   Bypass (Developer Mode)
                 </Link>
               )}
-              <Link
-                href="/dashboard"
-                className={`inline-flex items-center space-x-2 rounded-xl px-6 py-3 text-sm font-semibold transition-all duration-300 ${
-                  allConnected
-                    ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/20 hover:scale-105 hover:shadow-purple-500/35 active:scale-95'
-                    : 'bg-slate-800 text-slate-400 cursor-not-allowed border border-white/5'
-                }`}
-                aria-disabled={!allConnected}
-                tabIndex={allConnected ? undefined : -1}
-                onClick={allConnected ? undefined : (e) => e.preventDefault()}
-              >
-                <span>Continue to Dashboard</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              {allConnected ? (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white px-6 py-3 text-sm font-semibold shadow-lg shadow-purple-500/20 hover:scale-105 hover:shadow-purple-500/35 active:scale-95 transition-all duration-300"
+                >
+                  <span>Continue to Dashboard</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                <div
+                  className="inline-flex items-center space-x-2 rounded-xl bg-slate-800 text-slate-400 border border-white/5 px-6 py-3 text-sm font-semibold cursor-not-allowed"
+                >
+                  <span>Continue to Dashboard</span>
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     try {
       connectedAccounts = await db
         .select({
+          id: corsairAccounts.id,
           name: corsairIntegrations.name,
           config: corsairAccounts.config,
         })
@@ -31,14 +32,117 @@ export async function GET(req: NextRequest) {
       console.error('Error querying connected accounts from DB:', error);
     }
 
-    const hasGmailConnection = connectedAccounts.some(
-      acc => acc.name === 'gmail' && (acc.config as any)?.access_token
-    );
+    const gmailAccount = connectedAccounts.find(acc => acc.name === 'gmail');
+    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as any)?.access_token;
     const gmailTenantId = hasGmailConnection ? userId : 'dev';
+
+    const forceRefresh = searchParams.get('refresh') === 'true';
+
+    // 2. Try to fetch from database cache first to bypass external API latency
+    if (!forceRefresh && hasGmailConnection && gmailAccount) {
+      try {
+        const rows = await db
+          .select()
+          .from(corsairEntities)
+          .where(
+            and(
+              eq(corsairEntities.accountId, gmailAccount.id),
+              eq(corsairEntities.entityType, 'messages')
+            )
+          );
+
+        const sortedRows = [...rows].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        const lastUpdated = sortedRows[0]?.updatedAt;
+        const secondsSinceUpdate = lastUpdated ? (Date.now() - lastUpdated.getTime()) / 1000 : 999;
+
+        const labelIdsMap: Record<string, string[]> = {
+          inbox: ['INBOX'],
+          drafts: ['DRAFT'],
+          draft: ['DRAFT'],
+          sent: ['SENT'],
+          spam: ['SPAM'],
+          trash: ['TRASH'],
+        };
+        const targetLabels = labelIdsMap[folder] || ['INBOX'];
+
+        const dbEmails = rows
+          .map((r: any) => {
+            const msg = r.data;
+            const headers = msg.payload?.headers ?? [];
+            const subject = msg.subject || headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '(no subject)';
+            const from = msg.from || headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '(unknown)';
+            
+            let date = msg.date;
+            if (!date) {
+              const headerDate = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value;
+              if (headerDate) {
+                date = headerDate;
+              } else if (msg.internalDate) {
+                date = new Date(parseInt(msg.internalDate, 10)).toLocaleString();
+              } else {
+                date = '';
+              }
+            }
+
+            return {
+              id: msg.id,
+              from,
+              date,
+              subject,
+              snippet: msg.snippet ?? '',
+              body: msg.body ?? '',
+              labelIds: msg.labelIds ?? [],
+            };
+          })
+          .filter((msg: any) => {
+            const msgLabels = msg.labelIds || [];
+            return targetLabels.every(label => msgLabels.includes(label));
+          });
+
+        if (dbEmails.length > 0) {
+          // Sort by date descending
+          dbEmails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          // Trigger asynchronous background cache refresh if data is older than 30 seconds
+          if (secondsSinceUpdate > 30) {
+            (async () => {
+              try {
+                const client = corsair.withTenant(gmailTenantId);
+                const { messages } = await client.gmail.api.messages.list({
+                  maxResults: 10,
+                  labelIds: targetLabels,
+                });
+                if (messages && messages.length > 0) {
+                  await Promise.all(
+                    messages.map(async (msg: any) => {
+                      await client.gmail.api.messages.get({
+                        id: msg.id!,
+                        format: 'metadata',
+                      });
+                    })
+                  );
+                }
+              } catch (syncErr) {
+                console.error('Background cache sync failed:', syncErr);
+              }
+            })();
+          }
+
+          return NextResponse.json({
+            emails: dbEmails.slice(0, limit),
+            nextPageToken: null,
+            gmailTenantId,
+            isDevFallback: false,
+          });
+        }
+      } catch (dbErr) {
+        console.error('Error fetching emails from local DB cache:', dbErr);
+      }
+    }
 
     const client = corsair.withTenant(gmailTenantId);
 
-    // 2. Map folder to Gmail system label IDs
+    // 3. Map folder to Gmail system label IDs
     const labelIdsMap: Record<string, string[]> = {
       inbox: ['INBOX'],
       drafts: ['DRAFT'],
@@ -49,7 +153,7 @@ export async function GET(req: NextRequest) {
     };
     const labelIds = labelIdsMap[folder] || ['INBOX'];
 
-    // 3. Fetch list of messages
+    // 4. Fetch list of messages from Gmail API (only if cache is empty)
     const { messages, nextPageToken } = await client.gmail.api.messages.list({
       maxResults: limit,
       pageToken,
