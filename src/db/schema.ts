@@ -50,3 +50,11 @@ export const chatMessages = pgTable('chat_messages', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const healthLogs = pgTable('health_logs', {
+    id: text('id').primaryKey(),
+    status: text('status').notNull(),
+    message: text('message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+
