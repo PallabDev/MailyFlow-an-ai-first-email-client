@@ -7,7 +7,7 @@ import { googlecalendar } from '@corsair-dev/googlecalendar';
 
 import { liveEmailsEmitter } from './src/utils/emitter';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
 
 export const corsair = createCorsair({

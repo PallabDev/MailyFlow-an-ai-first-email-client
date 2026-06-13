@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { corsair } from '@/utils/corsair';
+import { corsair, pool } from '@/utils/corsair';
 import { processOAuthCallback } from 'corsair/oauth';
+import { createIntegrationKeyManager, createAccountKeyManager } from 'corsair/core';
+import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,11 +16,174 @@ export async function GET(req: NextRequest) {
 
     const redirectUri = `${new URL(req.url).origin}/api/auth/callback`;
 
-    await processOAuthCallback(corsair, {
+    const { plugin, tenantId } = await processOAuthCallback(corsair, {
       code,
       state,
       redirectUri,
     });
+
+    // Automatically register Gmail webhook watch subscription if user connected their Gmail account
+    if (plugin === 'gmail') {
+      try {
+        const kek = process.env.CORSAIR_KEK!;
+        const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
+
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'gmail',
+          kek,
+          database,
+          extraIntegrationFields: ["topic_id"]
+        });
+
+        const accountKm = createAccountKeyManager({
+          authType: "oauth_2",
+          integrationName: 'gmail',
+          tenantId,
+          kek,
+          database
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+        const topicId = (await (integrationKm as any).get_topic_id()) || process.env.TOPIC_ID;
+
+        if (clientId && clientSecret && refreshToken && topicId) {
+          console.log(`[OAuth Callback] Refreshing Gmail access token for tenant: ${tenantId}`);
+          
+          // 1. Refresh Google access token
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            const accessToken = tokenData.access_token;
+
+            console.log(`[OAuth Callback] Registering Gmail watch for tenant: ${tenantId} on topic: ${topicId}`);
+            
+            // 2. Call Gmail Watch API
+            const watchRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                topicName: topicId,
+                labelIds: ["INBOX"]
+              })
+            });
+
+            if (watchRes.ok) {
+              const watchData = await watchRes.json();
+              console.log(`[OAuth Callback] Gmail watch registered successfully for user ${tenantId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
+            } else {
+              const errText = await watchRes.text();
+              console.error(`[OAuth Callback] Gmail watch API call failed: ${errText}`);
+            }
+          } else {
+            const errText = await tokenRes.text();
+            console.error(`[OAuth Callback] Failed to refresh access token for Gmail watch: ${errText}`);
+          }
+        } else {
+          console.warn(`[OAuth Callback] Missing credentials for Gmail watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken}, topicId: ${!!topicId})`);
+        }
+      } catch (watchErr) {
+        console.error('[OAuth Callback] Error during automated Gmail watch registration:', watchErr);
+      }
+    }
+
+    // Automatically register Google Calendar webhook watch subscription if user connected their Calendar account
+    if (plugin === 'googlecalendar') {
+      try {
+        const kek = process.env.CORSAIR_KEK!;
+        const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
+
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'googlecalendar',
+          kek,
+          database
+        });
+
+        const accountKm = createAccountKeyManager({
+          authType: "oauth_2",
+          integrationName: 'googlecalendar',
+          tenantId,
+          kek,
+          database
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+
+        if (clientId && clientSecret && refreshToken) {
+          console.log(`[OAuth Callback] Refreshing Calendar access token for tenant: ${tenantId}`);
+          
+          // 1. Refresh Google access token
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            const accessToken = tokenData.access_token;
+
+            const originUrl = new URL(req.url).origin;
+            const webhookUrl = `${originUrl}/api/corsair?tenantId=${tenantId}`;
+            const channelId = crypto.randomUUID();
+
+            console.log(`[OAuth Callback] Registering Calendar watch for tenant: ${tenantId} on webhook: ${webhookUrl}`);
+            
+            // 2. Call Google Calendar Watch API
+            const watchRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/watch", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                id: channelId,
+                type: "web_hook",
+                address: webhookUrl
+              })
+            });
+
+            if (watchRes.ok) {
+              const watchData = await watchRes.json();
+              console.log(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
+            } else {
+              const errText = await watchRes.text();
+              console.error(`[OAuth Callback] Calendar watch API call failed: ${errText}`);
+            }
+          } else {
+            const errText = await tokenRes.text();
+            console.error(`[OAuth Callback] Failed to refresh access token for Calendar watch: ${errText}`);
+          }
+        } else {
+          console.warn(`[OAuth Callback] Missing credentials for Calendar watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken})`);
+        }
+      } catch (watchErr) {
+        console.error('[OAuth Callback] Error during automated Calendar watch registration:', watchErr);
+      }
+    }
 
     return NextResponse.redirect(`${new URL(req.url).origin}/onboarding`);
   } catch (error: any) {
