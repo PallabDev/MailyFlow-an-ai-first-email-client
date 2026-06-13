@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
             const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
             const accessToken = tokenData.access_token;
 
-            const originUrl = new URL(req.url).origin;
+            const originUrl = origin;
             const webhookUrl = `${originUrl}/api/corsair?tenantId=${tenantId}`;
             const channelId = crypto.randomUUID();
 
@@ -192,13 +192,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(`${new URL(req.url).origin}/onboarding`);
+    return NextResponse.redirect(`${origin}/onboarding`);
   } catch (error: unknown) {
     console.error('Error in OAuth callback:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to exchange token';
     // Redirect to onboarding with an error query param
     return NextResponse.redirect(
-      `${new URL(req.url).origin}/onboarding?error=${encodeURIComponent(errorMessage)}`
+      `${origin}/onboarding?error=${encodeURIComponent(errorMessage)}`
     );
   }
 }
