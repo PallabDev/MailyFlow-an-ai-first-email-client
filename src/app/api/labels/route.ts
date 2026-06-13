@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { ConnectedAccount, GmailConfig, LabelData } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if user has connected accounts
-    let connectedAccounts: any[] = [];
+    let connectedAccounts: ConnectedAccount[] = [];
     try {
       connectedAccounts = await db
         .select({
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     const gmailAccount = connectedAccounts.find(acc => acc.name === 'gmail');
-    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as any)?.access_token;
+    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as GmailConfig)?.access_token;
     const gmailTenantId = hasGmailConnection ? userId : 'dev';
 
     const { searchParams } = new URL(req.url);
@@ -54,14 +55,14 @@ export async function GET(req: NextRequest) {
         if (inboxRow || draftsRow || spamRow) {
           return NextResponse.json({
             inbox: {
-              unread: inboxRow ? ((inboxRow.data as any).messagesUnread ?? 0) : 0,
-              total: inboxRow ? ((inboxRow.data as any).messagesTotal ?? 0) : 0,
+              unread: inboxRow ? ((inboxRow.data as LabelData).messagesUnread ?? 0) : 0,
+              total: inboxRow ? ((inboxRow.data as LabelData).messagesTotal ?? 0) : 0,
             },
             drafts: {
-              total: draftsRow ? ((draftsRow.data as any).messagesTotal ?? 0) : 0,
+              total: draftsRow ? ((draftsRow.data as LabelData).messagesTotal ?? 0) : 0,
             },
             spam: {
-              total: spamRow ? ((spamRow.data as any).messagesTotal ?? 0) : 0,
+              total: spamRow ? ((spamRow.data as LabelData).messagesTotal ?? 0) : 0,
             }
           });
         }
@@ -91,8 +92,9 @@ export async function GET(req: NextRequest) {
         total: spam?.messagesTotal ?? 0,
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/labels:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

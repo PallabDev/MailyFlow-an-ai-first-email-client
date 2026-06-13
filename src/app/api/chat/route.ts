@@ -6,6 +6,7 @@ import { eq, asc } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { chatMessageSchema } from '@/utils/validation';
 import crypto from 'crypto';
+import { ChatRequestBody } from './_types';
 
 // GET: Retrieve all chat messages for authenticated user
 export async function GET(req: NextRequest) {
@@ -22,9 +23,10 @@ export async function GET(req: NextRequest) {
       .orderBy(asc(chatMessages.createdAt));
 
     return NextResponse.json({ messages });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching chat messages:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
       return new Response('User Profile Not Found', { status: 404 });
     }
 
-    const body = await req.json();
+    const body = (await req.json()) as ChatRequestBody;
     const parseResult = chatMessageSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json({ error: 'Invalid message structure or parameters', details: parseResult.error.format() }, { status: 400 });
@@ -95,9 +97,10 @@ export async function POST(req: NextRequest) {
       userMessageId,
       assistantMessageId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error starting chat workflow:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -125,8 +128,9 @@ export async function PUT(req: NextRequest) {
       .where(eq(chatMessages.id, messageId));
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error cancelling chat workflow:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

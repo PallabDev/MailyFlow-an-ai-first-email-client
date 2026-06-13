@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if user has connected accounts
-    let connectedAccounts: any[] = [];
+    let connectedAccounts: ConnectedAccount[] = [];
     try {
       connectedAccounts = await db
         .select({
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
     }
 
     const hasGmailConnection = connectedAccounts.some(
-      acc => acc.name === 'gmail' && (acc.config as any)?.access_token
+      acc => acc.name === 'gmail' && (acc.config as GmailConfig)?.access_token
     );
     const gmailTenantId = hasGmailConnection ? userId : 'dev';
 
@@ -46,16 +47,16 @@ export async function GET(req: NextRequest) {
       format: 'full',
     });
 
-    const headers = full.payload?.headers ?? [];
-    const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
-    const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
-    const date = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value ?? '';
+    const headers = (full.payload?.headers ?? []) as GmailHeader[];
+    const subject = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
+    const from = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
+    const date = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'date')?.value ?? '';
 
     let body = '(no body)';
     if (full.payload?.body?.data) {
       body = Buffer.from(full.payload.body.data, 'base64').toString('utf-8');
     } else if (full.payload?.parts) {
-      const getBody = (parts: any[]): string => {
+      const getBody = (parts: GmailPart[]): string => {
         for (const part of parts) {
           if (part.mimeType === 'text/html' && part.body?.data) {
             return Buffer.from(part.body.data, 'base64').toString('utf-8');
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
         }
         return '';
       };
-      body = getBody(full.payload.parts) || full.snippet || '(no body)';
+      body = getBody(full.payload.parts as GmailPart[]) || full.snippet || '(no body)';
     } else {
       body = full.snippet ?? '(no body)';
     }
@@ -86,8 +87,12 @@ export async function GET(req: NextRequest) {
       body,
       labelIds: full.labelIds ?? [],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/emails/detail:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

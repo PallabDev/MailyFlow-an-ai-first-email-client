@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { TrashEmailRequest, ConnectedAccount, GmailConfig } from './_types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,13 +12,13 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { id, permanently } = await req.json();
+    const { id, permanently } = (await req.json()) as TrashEmailRequest;
     if (!id) {
       return NextResponse.json({ error: 'Message ID is required' }, { status: 400 });
     }
 
     // 1. Check if user has active connected accounts under their userId
-    let userConnectedAccounts: any[] = [];
+    let userConnectedAccounts: ConnectedAccount[] = [];
     try {
       userConnectedAccounts = await db
         .select({
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Filter only active connections
     const activeConnections = userConnectedAccounts.filter(acc => {
-      const cfg = acc.config as any;
+      const cfg = acc.config as GmailConfig;
       return cfg && cfg.access_token;
     });
 
@@ -90,8 +91,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error trashing email:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

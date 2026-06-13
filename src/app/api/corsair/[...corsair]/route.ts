@@ -2,6 +2,7 @@ import { toNextJsHandler, processWebhook } from 'corsair';
 import { corsair, db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
+import { CorsairPlaceholder } from './_types';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',

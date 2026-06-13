@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { liveEmailsEmitter } from '@/utils/emitter';
+import { LiveEmailEvent } from './_types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
-      const listener = (eventData: any) => {
+      const listener = (eventData: LiveEmailEvent) => {
         controller.enqueue(`data: ${JSON.stringify(eventData)}\n\n`);
       };
 

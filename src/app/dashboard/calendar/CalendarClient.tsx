@@ -291,12 +291,21 @@ export default function CalendarClient({
             )}
 
             {calendarErrorState && !eventsLoading && (
-              <div className="m-6 flex items-start space-x-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-700">
-                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <span className="font-bold">Calendar API Error:</span> {calendarErrorState}
-                  <p className="mt-2 text-xs text-red-800">Ensure your Calendar Google account is connected on the Onboarding screen.</p>
+              <div className="m-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 rounded-2xl border border-red-500/20 bg-red-500/5 text-red-700">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-red-600" />
+                  <div className="text-sm space-y-1">
+                    <span className="font-bold block text-red-800">Calendar Connection Error</span>
+                    <p className="text-red-700 font-medium">{calendarErrorState}</p>
+                    <p className="text-xs text-red-600/80">Your Google Calendar connection needs to be re-authorized to sync events.</p>
+                  </div>
                 </div>
+                <a
+                  href="/api/auth/connect?plugin=googlecalendar"
+                  className="shrink-0 inline-flex items-center space-x-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-all hover:scale-[1.02] active:scale-95 cursor-pointer decoration-none"
+                >
+                  <span>Reconnect Calendar</span>
+                </a>
               </div>
             )}
 

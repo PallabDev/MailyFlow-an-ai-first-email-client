@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { SendEmailRequest, ConnectedAccountBasic } from './_types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,13 +12,13 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { to, subject, body } = await req.json();
+    const { to, subject, body } = (await req.json()) as SendEmailRequest;
     if (!to || !subject || !body) {
       return NextResponse.json({ error: 'Missing fields: to, subject, and body are required' }, { status: 400 });
     }
 
     // Determine active tenant id
-    let connectedAccounts: any[] = [];
+    let connectedAccounts: ConnectedAccountBasic[] = [];
     try {
       connectedAccounts = await db
         .select({ name: corsairIntegrations.name })
@@ -38,8 +39,9 @@ export async function POST(req: NextRequest) {
     await client.gmail.api.messages.send({ raw });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending email:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -3,6 +3,8 @@ import { corsair, pool } from '@/utils/corsair';
 import { processOAuthCallback } from 'corsair/oauth';
 import { createIntegrationKeyManager, createAccountKeyManager } from 'corsair/core';
 import crypto from 'crypto';
+import { GoogleTokenResponse, GoogleWatchResponse } from './_types';
+import { createCorsairDatabase, type CorsairDatabase } from 'corsair/db';
 
 export async function GET(req: NextRequest) {
   try {
@@ -26,7 +28,8 @@ export async function GET(req: NextRequest) {
     if (plugin === 'gmail') {
       try {
         const kek = process.env.CORSAIR_KEK!;
-        const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
+        const databaseInternal = (corsair as { [key: symbol]: { database?: CorsairDatabase } | undefined })[Symbol.for("corsair:internal")]?.database;
+        const database = databaseInternal || createCorsairDatabase(pool);
 
         const integrationKm = createIntegrationKeyManager({
           authType: "oauth_2",
@@ -65,7 +68,7 @@ export async function GET(req: NextRequest) {
           });
 
           if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
+            const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
             const accessToken = tokenData.access_token;
 
             console.log(`[OAuth Callback] Registering Gmail watch for tenant: ${tenantId} on topic: ${topicId}`);
@@ -84,7 +87,7 @@ export async function GET(req: NextRequest) {
             });
 
             if (watchRes.ok) {
-              const watchData = await watchRes.json();
+              const watchData = (await watchRes.json()) as GoogleWatchResponse;
               console.log(`[OAuth Callback] Gmail watch registered successfully for user ${tenantId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {
               const errText = await watchRes.text();
@@ -106,7 +109,8 @@ export async function GET(req: NextRequest) {
     if (plugin === 'googlecalendar') {
       try {
         const kek = process.env.CORSAIR_KEK!;
-        const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
+        const databaseInternal = (corsair as { [key: symbol]: { database?: CorsairDatabase } | undefined })[Symbol.for("corsair:internal")]?.database;
+        const database = databaseInternal || createCorsairDatabase(pool);
 
         const integrationKm = createIntegrationKeyManager({
           authType: "oauth_2",
@@ -143,7 +147,7 @@ export async function GET(req: NextRequest) {
           });
 
           if (tokenRes.ok) {
-            const tokenData = await tokenRes.json();
+            const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
             const accessToken = tokenData.access_token;
 
             const originUrl = new URL(req.url).origin;
@@ -167,7 +171,7 @@ export async function GET(req: NextRequest) {
             });
 
             if (watchRes.ok) {
-              const watchData = await watchRes.json();
+              const watchData = (await watchRes.json()) as GoogleWatchResponse;
               console.log(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {
               const errText = await watchRes.text();
@@ -186,13 +190,12 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.redirect(`${new URL(req.url).origin}/onboarding`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in OAuth callback:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to exchange token';
     // Redirect to onboarding with an error query param
     return NextResponse.redirect(
-      `${new URL(req.url).origin}/onboarding?error=${encodeURIComponent(
-        error.message || 'Failed to exchange token'
-      )}`
+      `${new URL(req.url).origin}/onboarding?error=${encodeURIComponent(errorMessage)}`
     );
   }
 }

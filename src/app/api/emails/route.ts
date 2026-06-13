@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { ConnectedAccount, GmailConfig, EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     const folder = searchParams.get('folder') || 'inbox';
 
     // 1. Check if user has connected accounts
-    let connectedAccounts: any[] = [];
+    let connectedAccounts: ConnectedAccount[] = [];
     try {
       connectedAccounts = await db
         .select({
@@ -33,15 +34,87 @@ export async function GET(req: NextRequest) {
     }
 
     const gmailAccount = connectedAccounts.find(acc => acc.name === 'gmail');
-    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as any)?.access_token;
+    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as GmailConfig)?.access_token;
     const gmailTenantId = hasGmailConnection ? userId : 'dev';
 
-    const forceRefresh = searchParams.get('refresh') === 'true';
+    let emails: EmailItem[] = [];
+    let apiNextPageToken: string | null = null;
+    let fetchedFromGmail = false;
 
-    // 2. Try to fetch from database cache first to bypass external API latency
-    if (!forceRefresh && hasGmailConnection && gmailAccount) {
+    if (hasGmailConnection) {
       try {
-        const rows = await db
+        const client = corsair.withTenant(gmailTenantId);
+
+        // 3. Map folder to Gmail system label IDs
+        const labelIdsMap: Record<string, string[]> = {
+          inbox: ['INBOX'],
+          drafts: ['DRAFT'],
+          draft: ['DRAFT'],
+          sent: ['SENT'],
+          spam: ['SPAM'],
+          trash: ['TRASH'],
+        };
+        const labelIds = labelIdsMap[folder] || ['INBOX'];
+
+        // 4. Fetch list of messages from Gmail API
+        const listRes = await client.gmail.api.messages.list({
+          maxResults: limit,
+          pageToken,
+          labelIds,
+        });
+
+        const messages = listRes.messages as GmailMessageSummary[] | undefined;
+        apiNextPageToken = listRes.nextPageToken || null;
+
+        if (messages && messages.length > 0) {
+          emails = await Promise.all(
+            messages.map(async (msg: GmailMessageSummary) => {
+              try {
+                // Using metadata format is 20x faster than full format for lists
+                const full = await client.gmail.api.messages.get({
+                  id: msg.id!,
+                  format: 'metadata',
+                });
+
+                const headers = (full.payload?.headers ?? []) as GmailHeader[];
+                const subject = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
+                const from = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
+                const date = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'date')?.value ?? '';
+
+                return {
+                  id: msg.id!,
+                  from,
+                  date,
+                  subject,
+                  snippet: full.snippet ?? '',
+                  body: '', // Empty body in list view, loaded on-demand on click
+                  labelIds: full.labelIds ?? [],
+                };
+              } catch (e: unknown) {
+                console.error(`Error fetching email details for message ID ${msg.id}:`, e);
+                return {
+                  id: msg.id!,
+                  from: '(unknown)',
+                  date: '',
+                  subject: '(failed to load email content)',
+                  snippet: '',
+                  body: '',
+                  labelIds: [],
+                };
+              }
+            })
+          );
+        }
+        fetchedFromGmail = true;
+      } catch (gmailErr) {
+        console.error('Error fetching directly from Gmail API, falling back to cache:', gmailErr);
+      }
+    }
+
+    // Fallback: If not fetched from Gmail (either because API failed or no connection), load from local cache
+    if (!fetchedFromGmail && gmailAccount) {
+      try {
+        const rows = (await db
           .select()
           .from(corsairEntities)
           .where(
@@ -49,11 +122,7 @@ export async function GET(req: NextRequest) {
               eq(corsairEntities.accountId, gmailAccount.id),
               eq(corsairEntities.entityType, 'messages')
             )
-          );
-
-        const sortedRows = [...rows].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-        const lastUpdated = sortedRows[0]?.updatedAt;
-        const secondsSinceUpdate = lastUpdated ? (Date.now() - lastUpdated.getTime()) / 1000 : 999;
+          )) as CorsairEntityRow[];
 
         const labelIdsMap: Record<string, string[]> = {
           inbox: ['INBOX'],
@@ -66,15 +135,15 @@ export async function GET(req: NextRequest) {
         const targetLabels = labelIdsMap[folder] || ['INBOX'];
 
         const dbEmails = rows
-          .map((r: any) => {
-            const msg = r.data;
-            const headers = msg.payload?.headers ?? [];
-            const subject = msg.subject || headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value || '(no subject)';
-            const from = msg.from || headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value || '(unknown)';
+          .map((r: CorsairEntityRow) => {
+            const msg = r.data as GmailMessageDetails;
+            const headers = (msg.payload?.headers ?? []) as GmailHeader[];
+            const subject = msg.subject || headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'subject')?.value || '(no subject)';
+            const from = msg.from || headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'from')?.value || '(unknown)';
             
             let date = msg.date;
             if (!date) {
-              const headerDate = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value;
+              const headerDate = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'date')?.value;
               if (headerDate) {
                 date = headerDate;
               } else if (msg.internalDate) {
@@ -85,7 +154,7 @@ export async function GET(req: NextRequest) {
             }
 
             return {
-              id: msg.id,
+              id: msg.id!,
               from,
               date,
               subject,
@@ -94,121 +163,33 @@ export async function GET(req: NextRequest) {
               labelIds: msg.labelIds ?? [],
             };
           })
-          .filter((msg: any) => {
+          .filter((msg: EmailItem) => {
             const msgLabels = msg.labelIds || [];
             return targetLabels.every(label => msgLabels.includes(label));
           });
 
         if (dbEmails.length > 0) {
-          // Sort by date descending
           dbEmails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-          // Trigger asynchronous background cache refresh if data is older than 30 seconds
-          if (secondsSinceUpdate > 30) {
-            (async () => {
-              try {
-                const client = corsair.withTenant(gmailTenantId);
-                const { messages } = await client.gmail.api.messages.list({
-                  maxResults: 10,
-                  labelIds: targetLabels,
-                });
-                if (messages && messages.length > 0) {
-                  await Promise.all(
-                    messages.map(async (msg: any) => {
-                      await client.gmail.api.messages.get({
-                        id: msg.id!,
-                        format: 'metadata',
-                      });
-                    })
-                  );
-                }
-              } catch (syncErr) {
-                console.error('Background cache sync failed:', syncErr);
-              }
-            })();
-          }
-
-          return NextResponse.json({
-            emails: dbEmails.slice(0, limit),
-            nextPageToken: null,
-            gmailTenantId,
-            isDevFallback: false,
-          });
+          emails = dbEmails.slice(0, limit);
+          apiNextPageToken = null; // No pagination token for database cache fallback
         }
       } catch (dbErr) {
-        console.error('Error fetching emails from local DB cache:', dbErr);
+        console.error('Error fetching emails from local DB cache fallback:', dbErr);
       }
-    }
-
-    const client = corsair.withTenant(gmailTenantId);
-
-    // 3. Map folder to Gmail system label IDs
-    const labelIdsMap: Record<string, string[]> = {
-      inbox: ['INBOX'],
-      drafts: ['DRAFT'],
-      draft: ['DRAFT'],
-      sent: ['SENT'],
-      spam: ['SPAM'],
-      trash: ['TRASH'],
-    };
-    const labelIds = labelIdsMap[folder] || ['INBOX'];
-
-    // 4. Fetch list of messages from Gmail API (only if cache is empty)
-    const { messages, nextPageToken } = await client.gmail.api.messages.list({
-      maxResults: limit,
-      pageToken,
-      labelIds,
-    });
-
-    let emails: any[] = [];
-    if (messages && messages.length > 0) {
-      emails = await Promise.all(
-        messages.map(async (msg: any) => {
-          try {
-            // Using metadata format is 20x faster than full format for lists
-            const full = await client.gmail.api.messages.get({
-              id: msg.id!,
-              format: 'metadata',
-            });
-
-            const headers = full.payload?.headers ?? [];
-            const subject = headers.find((h: any) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
-            const from = headers.find((h: any) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
-            const date = headers.find((h: any) => h.name?.toLowerCase() === 'date')?.value ?? '';
-
-            return {
-              id: msg.id,
-              from,
-              date,
-              subject,
-              snippet: full.snippet ?? '',
-              body: '', // Empty body in list view, loaded on-demand on click
-              labelIds: full.labelIds ?? [],
-            };
-          } catch (e: any) {
-            console.error(`Error fetching email details for message ID ${msg.id}:`, e);
-            return {
-              id: msg.id,
-              from: '(unknown)',
-              date: '',
-              subject: '(failed to load email content)',
-              snippet: '',
-              body: '',
-              labelIds: [],
-            };
-          }
-        })
-      );
     }
 
     return NextResponse.json({
       emails,
-      nextPageToken: nextPageToken || null,
+      nextPageToken: apiNextPageToken,
       gmailTenantId,
-      isDevFallback: !hasGmailConnection,
+      isDevFallback: !hasGmailConnection && emails.length === 0,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/emails:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

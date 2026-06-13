@@ -3,9 +3,10 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { ConnectedAccount, CalendarConfig, CreateEventRequest, UpdateEventRequest, DeleteEventRequest } from './_types';
 
 async function getCalendarClient(userId: string) {
-  let connectedAccounts: any[] = [];
+  let connectedAccounts: ConnectedAccount[] = [];
   try {
     connectedAccounts = await db
       .select({
@@ -20,7 +21,7 @@ async function getCalendarClient(userId: string) {
   }
 
   const hasCalendarConnection = connectedAccounts.some(
-    (acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token
+    (acc) => acc.name === 'googlecalendar' && (acc.config as CalendarConfig)?.access_token
   );
   const calendarTenantId = hasCalendarConnection ? userId : 'dev';
   return corsair.withTenant(calendarTenantId);
@@ -51,9 +52,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       events: result.items ?? [],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in GET /api/calendar:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -64,7 +69,7 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { event } = await req.json();
+    const { event } = (await req.json()) as CreateEventRequest;
     if (!event) {
       return NextResponse.json({ error: 'Event details are required' }, { status: 400 });
     }
@@ -77,9 +82,13 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, event: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in POST /api/calendar:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -90,7 +99,7 @@ export async function PUT(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { id, event } = await req.json();
+    const { id, event } = (await req.json()) as UpdateEventRequest;
     if (!id || !event) {
       return NextResponse.json({ error: 'Event ID and details are required' }, { status: 400 });
     }
@@ -104,9 +113,13 @@ export async function PUT(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, event: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in PUT /api/calendar:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -122,8 +135,8 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       try {
-        const body = await req.json();
-        id = body.id;
+        const body = (await req.json()) as DeleteEventRequest;
+        id = body.id || null;
       } catch {}
     }
 
@@ -139,9 +152,13 @@ export async function DELETE(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in DELETE /api/calendar:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 

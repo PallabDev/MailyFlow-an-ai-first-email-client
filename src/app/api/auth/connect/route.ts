@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { corsair } from '@/utils/corsair';
 import { generateOAuthUrl } from 'corsair/oauth';
+import { ConnectPlaceholder } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,8 +29,9 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.redirect(url);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in connect API:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
