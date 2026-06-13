@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const redirectUri = `${new URL(req.url).origin}/api/auth/callback`;
+    const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+    const redirectUri = `${origin}/api/auth/callback`;
 
     await syncGoogleCredentialsFromEnv();
 
