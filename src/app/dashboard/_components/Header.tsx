@@ -2,7 +2,10 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun, Bell, Settings } from 'lucide-react';
+import { Search, Moon, Sun, Bell } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
+import { useChatStore } from '@/store/chatStore';
 
 type HeaderProps = {
   user: {
@@ -22,28 +25,18 @@ export default function Header({ user, projectName }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(searchParams.get('q') || '');
   const searchInputRef = useRef<HTMLInputElement>(null);
   
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const { theme, setTheme } = useChatStore();
 
-  // Initialize theme from localStorage on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme as 'light' | 'dark');
-    if (savedTheme === 'dark') {
+    if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, []);
+  }, [theme]);
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    setTheme(theme === 'light' ? 'dark' : 'light');
   };
 
   // Focus search input on Cmd+K or Ctrl+K
@@ -68,13 +61,6 @@ export default function Header({ user, projectName }: HeaderProps) {
       params.delete('q');
     }
     router.push(`${pathname}?${params.toString()}`);
-  };
-
-  const getInitials = () => {
-    if (user.firstName && user.lastName) {
-      return (user.firstName.charAt(0) + user.lastName.charAt(0)).toUpperCase();
-    }
-    return user.firstName ? user.firstName.slice(0, 2).toUpperCase() : 'US';
   };
 
   return (
@@ -107,11 +93,8 @@ export default function Header({ user, projectName }: HeaderProps) {
         <button className="p-1.5 hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground" title="Notifications">
           <Bell className="h-4.5 w-4.5" />
         </button>
-        <button className="p-1.5 hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground" title="Settings">
-          <Settings className="h-4.5 w-4.5" />
-        </button>
-        <div className="h-8 w-8 rounded-full bg-sidebar-active-bg flex items-center justify-center text-xs font-bold border border-border text-foreground">
-          {getInitials()}
+        <div className="flex items-center justify-center h-8 w-8">
+          <UserButton appearance={theme === 'dark' ? { baseTheme: dark } : undefined} />
         </div>
       </div>
     </header>

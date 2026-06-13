@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { id } = await req.json();
+    const { id, permanently } = await req.json();
     if (!id) {
       return NextResponse.json({ error: 'Message ID is required' }, { status: 400 });
     }
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     try {
       connectedAccounts = await db
         .select({
+          id: corsairAccounts.id,
           name: corsairIntegrations.name,
           config: corsairAccounts.config,
         })
@@ -42,10 +43,16 @@ export async function POST(req: NextRequest) {
 
     const client = corsair.withTenant(activeTenantId);
 
-    // Call Gmail API to trash the message
-    await client.gmail.api.messages.trash({
-      id,
-    });
+    // Call Gmail API to trash or delete the message
+    if (permanently) {
+      await client.gmail.api.messages.delete({
+        id,
+      });
+    } else {
+      await client.gmail.api.messages.trash({
+        id,
+      });
+    }
 
     // Delete from local DB cache
     try {

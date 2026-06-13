@@ -11,9 +11,10 @@ import {
   RefreshCw,
   Star,
   PenSquare,
-  ChevronLeft
+  ChevronLeft,
+  Trash2
 } from 'lucide-react';
-import { parseSender, getInitials, getAvatarColor } from './helpers';
+import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
 import ComposeModal from './ComposeModal';
 
@@ -54,13 +55,18 @@ export default function FolderPageClient({
   const [nextPageToken, setNextPageToken] = useState<string | null>(initialNextPageToken);
   const [loading, setLoading] = useState(initialEmails.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
 
   const fetchEmails = async (force: boolean = false) => {
-    setLoading(true);
+    if (force) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setEmailErrorState(null);
     try {
       const res = await fetch(`/api/emails?folder=${folder}&limit=20${force ? '&refresh=true' : ''}`);
@@ -70,23 +76,29 @@ export default function FolderPageClient({
         if (fetchedEmails.length === 0 && data.isDevFallback) {
           fetchedEmails = mockEmails;
         }
+        
         setEmailsState(fetchedEmails);
         setNextPageToken(data.nextPageToken || null);
-
-        if (force) {
-          window.dispatchEvent(new CustomEvent('refresh-labels'));
-        }
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
       } else {
         const data = await res.json().catch(() => ({}));
         setEmailErrorState(data.error || 'Failed to fetch emails.');
-        setEmailsState(mockEmails);
+        if (!force) {
+          setEmailsState(mockEmails);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching emails client-side:', err);
       setEmailErrorState('Failed to fetch emails.');
-      setEmailsState(mockEmails);
+      if (!force) {
+        setEmailsState(mockEmails);
+      }
     } finally {
-      setLoading(false);
+      if (force) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -95,36 +107,65 @@ export default function FolderPageClient({
     setSelectedEmail(null);
   }, [folder]);
 
-  // Silent auto-refresh for new emails and counts every 10 seconds
+  // Connect to real-time new email events pushed from Corsair webhooks
   useEffect(() => {
-    const timer = setInterval(() => {
-      const fetchSilent = async () => {
-        try {
-          const res = await fetch(`/api/emails?folder=${folder}&limit=50`);
-          if (res.ok) {
-            const data = await res.json();
-            let fetchedEmails = data.emails ?? [];
-            if (fetchedEmails.length === 0 && data.isDevFallback) {
-              fetchedEmails = mockEmails;
-            }
-            setEmailsState(fetchedEmails);
-            setNextPageToken(data.nextPageToken || null);
+    const eventSource = new EventSource('/api/emails/live');
 
-            // Trigger silent update of sidebar counts
+    eventSource.onmessage = async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.emailId) {
+          const emailId = data.emailId;
+          
+          let alreadyExists = false;
+          setEmailsState((prev) => {
+            alreadyExists = prev.some((e) => e.id === emailId);
+            return prev;
+          });
+          if (alreadyExists) return;
+
+          // Load details of the newly arrived email
+          const res = await fetch(`/api/emails/detail?id=${emailId}`);
+          if (res.ok) {
+            const newEmail = await res.json();
+            
+            // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
+            setEmailsState((prev) => {
+              if (prev.some((e) => e.id === newEmail.id)) return prev;
+              
+              // Verify labelIds match the current folder filters
+              if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
+                return prev;
+              }
+              if (folder === 'spam' && newEmail.labelIds && !newEmail.labelIds.includes('SPAM')) {
+                return prev;
+              }
+              if (folder === 'trash' && newEmail.labelIds && !newEmail.labelIds.includes('TRASH')) {
+                return prev;
+              }
+              
+              return [newEmail, ...prev];
+            });
+
+            // Refresh sidebar counts dynamically
             window.dispatchEvent(new CustomEvent('refresh-labels'));
           }
-        } catch (err) {
-          console.error('Silent auto-refresh failed:', err);
         }
-      };
-
-      if (!loading && !loadingMore && !selectedEmail) {
-        fetchSilent();
+      } catch (err) {
+        console.error('Error handling live new email notification:', err);
       }
-    }, 10000);
+    };
 
-    return () => clearInterval(timer);
-  }, [folder, loading, loadingMore, selectedEmail]);
+    eventSource.onerror = (err) => {
+      console.error('Real-time SSE event connection error:', err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [folder]);
+
+
 
 
 
@@ -163,16 +204,20 @@ export default function FolderPageClient({
 
   const handleTrashEmail = async (emailId: string) => {
     // Optimistic UI update
-    setEmailsState((prev) =>
-      prev.map((e) => {
-        if (e.id === emailId) {
-          const nextLabels = (e.labelIds || []).filter((l) => l !== 'INBOX' && l !== 'DRAFT');
-          if (!nextLabels.includes('TRASH')) nextLabels.push('TRASH');
-          return { ...e, labelIds: nextLabels };
-        }
-        return e;
-      })
-    );
+    if (folder === 'trash') {
+      setEmailsState((prev) => prev.filter((e) => e.id !== emailId));
+    } else {
+      setEmailsState((prev) =>
+        prev.map((e) => {
+          if (e.id === emailId) {
+            const nextLabels = (e.labelIds || []).filter((l) => l !== 'INBOX' && l !== 'DRAFT');
+            if (!nextLabels.includes('TRASH')) nextLabels.push('TRASH');
+            return { ...e, labelIds: nextLabels };
+          }
+          return e;
+        })
+      );
+    }
     setSelectedEmail(null);
 
     if (!emailId.startsWith('mock-')) {
@@ -180,7 +225,7 @@ export default function FolderPageClient({
         await fetch('/api/trash-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: emailId }),
+          body: JSON.stringify({ id: emailId, permanently: folder === 'trash' }),
         });
       } catch (err) {
         console.error('Error calling trash API:', err);
@@ -271,10 +316,6 @@ export default function FolderPageClient({
               <ChevronLeft className="h-4 w-4" />
               <span>Back</span>
             </button>
-            <div className="h-4 w-px bg-border"></div>
-            <span className="text-sm font-bold text-text-primary truncate max-w-[350px]">
-              {selectedEmail.subject}
-            </span>
           </div>
         ) : (
           <div className="flex items-center space-x-3">
@@ -284,9 +325,10 @@ export default function FolderPageClient({
             {/* Refresh Button */}
             <button
               onClick={() => fetchEmails(true)}
-              disabled={loading}
-              className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${loading ? 'animate-spin opacity-50' : ''
-                }`}
+              disabled={loading || refreshing}
+              className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+                (loading || refreshing) ? 'animate-spin opacity-50' : ''
+              }`}
               title="Refresh messages"
             >
               <RefreshCw className="h-4 w-4" />
@@ -301,14 +343,24 @@ export default function FolderPageClient({
           </div>
         )}
 
-        {!selectedEmail && folder !== 'trash' && (
+        {selectedEmail ? (
           <button
-            onClick={() => setIsComposeOpen(true)}
-            className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+            onClick={() => handleTrashEmail(selectedEmail.id)}
+            className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+            title="Move to Trash"
           >
-            <PenSquare className="h-4 w-4" />
-            <span>Compose</span>
+            <Trash2 className="h-4.5 w-4.5" />
           </button>
+        ) : (
+          folder !== 'trash' && (
+            <button
+              onClick={() => setIsComposeOpen(true)}
+              className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+            >
+              <PenSquare className="h-4 w-4" />
+              <span>Compose</span>
+            </button>
+          )
         )}
       </div>
 
@@ -391,7 +443,7 @@ export default function FolderPageClient({
                   )}
 
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold border shadow-sm ${getAvatarColor(sender.name)}`}>
+                    <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)}`}>
                       {getInitials(email.from)}
                     </div>
 
@@ -401,7 +453,7 @@ export default function FolderPageClient({
                           {sender.name}
                         </span>
                         <span className="text-xs text-text-muted font-medium shrink-0">
-                          {(email.date || '').replace(/([-+]\d{4}|UTC|GMT)/, '').trim()}
+                          {formatEmailDate(email.date)}
                         </span>
                       </div>
 

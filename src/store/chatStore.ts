@@ -15,6 +15,8 @@ interface ChatState {
   isPaused: boolean;
   sidebarWidth: number;
   pollingIntervalId: NodeJS.Timeout | null;
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
   fetchMessages: (userId: string) => Promise<void>;
   sendMessage: (
     text: string,
@@ -42,6 +44,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isPaused: false,
   sidebarWidth: typeof window !== 'undefined' ? Number(localStorage.getItem('mailyflow-sidebar-width')) || 360 : 360,
   pollingIntervalId: null,
+  theme: typeof window !== 'undefined' ? (localStorage.getItem('theme') || 'light') as 'light' | 'dark' : 'light',
+
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', theme);
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+    set({ theme });
+  },
 
   setChatInput: (input) => set({ chatInput: input }),
 
@@ -114,7 +129,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: get().messages.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+          messages: get().messages
+            .slice(0, -1)
+            .filter((m) => m.content && m.content.trim() !== '')
+            .map((m) => ({ role: m.role, content: m.content })),
           timezone,
           localTime,
           userDetails,

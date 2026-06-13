@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, XCircle } from 'lucide-react';
 import { useChatStore, ChatMessage } from '@/store/chatStore';
+import { motion } from 'motion/react';
 
 type AIAssistantProps = {
   user: {
@@ -77,8 +78,34 @@ function formatMessageContent(content: string): React.ReactNode {
   });
 }
 
+function Typewriter({ text, speed = 20 }: { text: string; speed?: number }) {
+  const [displayedText, setDisplayedText] = useState('');
+
+  useEffect(() => {
+    const words = text.split(' ');
+    if (words.length === 0) return;
+    
+    setDisplayedText(words[0] || '');
+    let index = 0;
+    
+    const interval = setInterval(() => {
+      index++;
+      if (index < words.length) {
+        setDisplayedText((prev) => prev + ' ' + words[index]);
+      } else {
+        clearInterval(interval);
+      }
+    }, speed);
+
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return <div className="space-y-1">{formatMessageContent(displayedText)}</div>;
+}
+
 export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const {
     messages,
     chatLoading,
@@ -95,11 +122,11 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   
-  // Load conversation history on mount
+  // Start a fresh AI assistant instance on mount/refresh
   useEffect(() => {
-    fetchMessages(user.id);
+    useChatStore.setState({ messages: [] });
     return () => clearPolling();
-  }, [user.id]);
+  }, []);
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -117,11 +144,13 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   // Handle mouse drag event for resizable panel
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
+    setIsResizing(true);
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const newWidth = window.innerWidth - moveEvent.clientX;
       setSidebarWidth(newWidth);
     };
     const handleMouseUp = () => {
+      setIsResizing(false);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
@@ -153,25 +182,29 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   };
 
   return (
-    <aside
-      style={{ width: isRightSidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
-      className={`border-l border-border bg-sidebar-bg flex flex-col justify-between transition-all duration-300 relative select-none shrink-0 ${
-        isRightSidebarCollapsed ? '' : 'min-w-[280px] max-w-[600px]'
-      }`}
-    >
-      {/* Resizable drag handle (visible only when expanded) */}
-      {!isRightSidebarCollapsed && (
-        <div
-          onMouseDown={handleMouseDown}
-          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-success bg-transparent z-40 transition-colors duration-150"
-          title="Drag to resize AI Sidebar"
-        />
+    <>
+      {isResizing && (
+        <div className="fixed inset-0 z-[9999] cursor-col-resize bg-transparent select-none pointer-events-auto" />
       )}
+      <aside
+        style={{ width: isRightSidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
+        className={`border-l border-border bg-sidebar-bg flex flex-col justify-between relative select-none shrink-0 ${
+          isResizing ? 'transition-none' : 'transition-all duration-300'
+        } ${isRightSidebarCollapsed ? '' : 'min-w-[280px] max-w-[600px]'}`}
+      >
+        {/* Resizable drag handle (visible only when expanded) */}
+        {!isRightSidebarCollapsed && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute -left-[2px] top-16 bottom-0 w-[4px] cursor-col-resize hover:bg-success bg-transparent z-40 transition-colors duration-150"
+            title="Drag to resize AI Sidebar"
+          />
+        )}
 
       {/* Toggle Collapse button */}
       <button
         onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-        className="absolute -left-3 top-4 p-1 hover:bg-sidebar-hover rounded-full border border-border bg-card text-slate-500 hover:text-foreground transition-all shadow-sm z-30 cursor-pointer"
+        className="absolute -left-3 top-4 p-1 hover:bg-sidebar-hover rounded-full border border-border bg-card text-slate-500 hover:text-foreground transition-all shadow-sm z-50 cursor-pointer"
         title={isRightSidebarCollapsed ? 'Expand AI Assistant' : 'Collapse AI Assistant'}
       >
         {isRightSidebarCollapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -213,10 +246,15 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
               const isPending = msg.status === 'pending';
               const isCancelled = msg.status === 'cancelled';
               const isFailed = msg.status === 'failed';
+              const isLast = index === messages.length - 1;
+              const isRecent = new Date().getTime() - new Date(msg.createdAt).getTime() < 12000;
 
               return (
-                <div
+                <motion.div
                   key={msg.id || index}
+                  initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.25, ease: [0.215, 0.610, 0.355, 1.000] }}
                   className={`flex flex-col space-y-1 max-w-[85%] ${
                     isAssistant ? 'self-start' : 'self-end ml-auto'
                   }`}
@@ -232,22 +270,18 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                   }`}>
                     {isPending ? (
                       <PremiumPulsingLoader />
+                    ) : isAssistant && isLast && isRecent ? (
+                      <Typewriter text={msg.content} />
                     ) : (
                       <div className="font-normal space-y-1">
                         {formatMessageContent(msg.content)}
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               );
             })}
             
-            {chatLoading && (
-              <div className="flex items-center space-x-2 text-slate-400 p-2 text-xs font-semibold">
-                <PremiumPulsingLoader />
-                <span>Thinking...</span>
-              </div>
-            )}
             <div ref={chatEndRef} />
           </div>
 
@@ -303,8 +337,8 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                     }
                   }
                 }}
-                className="w-full bg-background border border-border rounded-xl py-2.5 pl-4 pr-12 text-xs text-foreground placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none overflow-y-auto"
-                style={{ minHeight: '60px', maxHeight: '180px' }}
+                className="w-full bg-background border border-border rounded-xl py-2.5 pl-4 pr-12 text-sm text-foreground placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none overflow-y-auto"
+                style={{ minHeight: '90px', maxHeight: '180px' }}
               />
               <button
                 type="submit"
@@ -315,29 +349,10 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                 <ArrowUp className="h-3.5 w-3.5" />
               </button>
             </form>
-
-            {/* Micro-suggestions */}
-            {!chatLoading && messages.length <= 1 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {[
-                  'Summarize unread',
-                  'What is on my calendar?',
-                  'Draft a reply to Maya',
-                ].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => handleSendChat(s)}
-                    className="text-[10px] font-medium bg-background border border-border hover:border-success text-foreground/70 hover:text-foreground px-2.5 py-1 rounded-lg transition-all cursor-pointer"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

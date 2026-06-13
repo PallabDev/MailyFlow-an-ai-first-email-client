@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, RefreshCw, AlertCircle } from 'lucide-react';
-import { getEmailHtml, parseSender, getInitials, getAvatarColor } from './helpers';
+import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
+import { useChatStore } from '@/store/chatStore';
 
 type Email = {
   id: string;
@@ -29,6 +30,8 @@ export default function EmailDetail({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeHeight, setIframeHeight] = useState('500px');
+  const { theme } = useChatStore();
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     if (!email) return;
@@ -84,7 +87,7 @@ export default function EmailDetail({
           </h2>
 
           <div className="flex items-center space-x-3 bg-surface-subtle p-4 rounded-xl border border-border">
-            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold border shadow-sm ${getAvatarColor(email.from)}`}>
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(email.from)}`}>
               {getInitials(email.from)}
             </div>
             <div className="flex-1 min-w-0">
@@ -99,7 +102,7 @@ export default function EmailDetail({
           </div>
 
           <div className="text-xs text-text-muted font-medium">
-            Date: <span className="font-semibold text-text-secondary">{email.date}</span>
+            Date: <span className="font-semibold text-text-secondary">{formatEmailDate(email.date)}</span>
           </div>
         </div>
 
@@ -128,33 +131,15 @@ export default function EmailDetail({
           {!loading && !error && detailEmail && (
             <div className="bg-surface-subtle rounded-xl border border-border p-4">
               <iframe
-                srcDoc={getEmailHtml(detailEmail)}
+                srcDoc={getEmailHtml(detailEmail, true, isDark)}
                 style={{ height: iframeHeight }}
-                className="w-full border-0 overflow-hidden"
+                className="w-full border-0 overflow-hidden bg-transparent"
                 scrolling="no"
                 title="Email Body Content"
               />
             </div>
           )}
         </div>
-      </div>
-
-      {/* Footer / Action Bar */}
-      <div className="p-4 border-t border-border bg-surface-subtle flex items-center justify-between shrink-0">
-        <button
-          onClick={onBack}
-          className="inline-flex items-center space-x-1.5 py-2.5 px-4 rounded-xl border border-border bg-card hover:bg-hover-row text-sm font-bold text-text-secondary hover:text-text-primary transition-all cursor-pointer shadow-sm"
-        >
-          <ChevronLeft className="h-4.5 w-4.5" />
-          <span>Back</span>
-        </button>
-
-        <button
-          onClick={() => onTrash(email.id)}
-          className="inline-flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 dark:text-red-400 hover:bg-red-100 text-sm font-bold text-red-600 hover:text-red-700 transition-all cursor-pointer shadow-sm"
-        >
-          <span>Move to Trash</span>
-        </button>
       </div>
     </div>
   );

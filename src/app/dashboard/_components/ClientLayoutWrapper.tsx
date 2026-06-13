@@ -28,7 +28,6 @@ export default function ClientLayoutWrapper({
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans antialiased">
       {/* 1. LEFT SIDEBAR */}
       <Sidebar
-        user={user}
         projectName={projectName}
         isLeftSidebarCollapsed={isLeftSidebarCollapsed}
         setIsLeftSidebarCollapsed={setIsLeftSidebarCollapsed}

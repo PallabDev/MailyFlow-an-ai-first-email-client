@@ -1,8 +1,8 @@
 import { inngest } from './client';
 import { db, corsair } from '@/utils/corsair';
 import { chatMessages } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { openai } from '@/utils/openai';
+import { eq, and, desc } from 'drizzle-orm';
+import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool, OpenAIProvider, setDefaultModelProvider } from '@openai/agents';
@@ -67,10 +67,28 @@ export const processAICall = inngest.createFunction(
 
       const agent = new Agent({
         name: 'corsair-agent',
-        model: 'gpt-5-mini',
+        model: AI_MODEL,
         instructions: systemInstruction,
         tools,
       });
+
+      // Load last 20 completed chat messages from the database for persistent AI memory context
+      const dbHistoryDesc = await db
+        .select({
+          role: chatMessages.role,
+          content: chatMessages.content,
+        })
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.userId, userId),
+            eq(chatMessages.status, 'completed')
+          )
+        )
+        .orderBy(desc(chatMessages.createdAt))
+        .limit(20);
+
+      const dbHistory = [...dbHistoryDesc].reverse();
 
       const formatHistoryMessages = (msgs: any[]) => {
         return msgs.map((m: any) => {
@@ -80,11 +98,14 @@ export const processAICall = inngest.createFunction(
               content: [{ type: 'output_text', text: m.content }],
             };
           }
-          return m;
+          return {
+            role: m.role,
+            content: m.content,
+          };
         });
       };
 
-      const result = await run(agent, formatHistoryMessages(messages));
+      const result = await run(agent, formatHistoryMessages(dbHistory));
       let outputText = result.finalOutput || '';
 
       // Strip any leaked function/tool call tags

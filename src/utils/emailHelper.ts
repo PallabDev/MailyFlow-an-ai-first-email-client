@@ -29,20 +29,30 @@ export const formatPlainTextInput = (text: string) => {
   return html;
 };
 
-export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolean = true) => {
+export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolean = true, isDark: boolean = false) => {
   let rawHtml = email.body;
   if (!isHtml(rawHtml)) {
     rawHtml = formatPlainTextInput(rawHtml);
   }
+
+  // When we use `filter: invert(...)` to handle dark mode, the color transformations are:
+  // - Light elements (e.g. background #ffffff) become dark.
+  // - Dark elements (e.g. text #2c2c2a) become light.
+  // Therefore, to make dark mode readable, we define the base stylesheet using light mode colors
+  // (dark text, blue links) and let the CSS filter invert them to their dark mode counterparts.
+  const textColor = '#2c2c2a';
+  const linkColor = '#2563eb';
+
   return `
-    <html>
+    <html style="${isDark ? 'background-color: #ffffff !important; filter: invert(0.9) hue-rotate(180deg) !important;' : ''}">
       <head>
+        <base target="_blank">
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.6;
-            color: #334155;
+            color: ${textColor};
             margin: 0;
             padding: 16px;
             box-sizing: border-box;
@@ -51,12 +61,18 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             overflow-x: hidden !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
+            background: transparent !important;
           }
-          a { color: #2563eb; text-decoration: none; word-break: break-all; }
+          a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
           a:hover { text-decoration: underline; }
           img { max-width: 100% !important; height: auto; }
           table { max-width: 100% !important; table-layout: fixed !important; }
           * { box-sizing: border-box !important; word-break: break-word !important; }
+          ${isDark ? `
+          img, svg, video, [style*="background-image"] {
+            filter: invert(1.11) hue-rotate(180deg) !important;
+          }
+          ` : ''}
         </style>
         ${iframeHeightScript ? `
         <script>
@@ -69,13 +85,26 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             );
             window.parent.postMessage({ type: 'resize-iframe', height: height }, '*');
           }
-          window.addEventListener('load', sendHeight);
+          function forceBlankLinks() {
+            var links = document.getElementsByTagName('a');
+            for (var i = 0; i < links.length; i++) {
+              links[i].setAttribute('target', '_blank');
+              links[i].setAttribute('rel', 'noopener noreferrer');
+            }
+          }
+          window.addEventListener('load', function() {
+            sendHeight();
+            forceBlankLinks();
+          });
           window.addEventListener('resize', sendHeight);
-          document.addEventListener('DOMContentLoaded', sendHeight);
-          setTimeout(sendHeight, 100);
-          setTimeout(sendHeight, 500);
-          setTimeout(sendHeight, 1000);
-          setTimeout(sendHeight, 2000);
+          document.addEventListener('DOMContentLoaded', function() {
+            sendHeight();
+            forceBlankLinks();
+          });
+          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 100);
+          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 500);
+          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 1000);
+          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 2000);
         </script>
         ` : ''}
       </head>
@@ -104,9 +133,10 @@ export const getInitials = (from: string) => {
 };
 
 const avatarColors = [
-  'bg-sender-blue text-white border-transparent',
-  'bg-sender-clay text-white border-transparent',
-  'bg-sender-sand text-white border-transparent',
+  'bg-sender-blue/15 text-sender-blue border-sender-blue/20',
+  'bg-sender-clay/15 text-sender-clay border-sender-clay/20',
+  'bg-sender-sand/15 text-sender-sand border-sender-sand/20',
+  'bg-sender-sage/15 text-sender-sage border-sender-sage/20',
 ];
 
 export const getAvatarColor = (name: string) => {
@@ -115,3 +145,23 @@ export const getAvatarColor = (name: string) => {
   return avatarColors[index];
 };
 
+export const formatEmailDate = (dateVal: string | Date | number | undefined): string => {
+  if (!dateVal) return '';
+  const parsed = new Date(dateVal);
+  if (isNaN(parsed.getTime())) {
+    return String(dateVal);
+  }
+
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const year = parsed.getFullYear();
+
+  let hours = parsed.getHours();
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hoursStr = String(hours).padStart(2, '0');
+
+  return `${day}/${month}/${year} with ${hoursStr}:${minutes} ${ampm}`;
+};

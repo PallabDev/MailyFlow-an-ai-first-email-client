@@ -1,12 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { SignOutButton } from '@clerk/nextjs';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Mail,
   Calendar as CalendarIcon,
-  LogOut,
   Inbox as InboxIcon,
   AlertCircle,
   FileText,
@@ -17,19 +15,12 @@ import {
 } from 'lucide-react';
 
 type SidebarProps = {
-  user: {
-    firstName: string | null;
-    lastName: string | null;
-    email: string;
-    imageUrl: string;
-  };
   projectName: string;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (val: boolean) => void;
 };
 
 export default function Sidebar({
-  user,
   projectName,
   isLeftSidebarCollapsed,
   setIsLeftSidebarCollapsed,
@@ -86,14 +77,13 @@ export default function Sidebar({
         {/* Logo & Toggle Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border bg-card">
           {!isLeftSidebarCollapsed && (
-            <div className="flex items-center space-x-2.5">
-              <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+            <div className="flex items-center">
               <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
             </div>
           )}
           <button
             onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-            className="p-1.5 hover:bg-sidebar-hover rounded-lg text-sidebar-text hover:text-sidebar-active-text transition-colors cursor-pointer"
+            className="p-1.5 border border-border/80 dark:border-border hover:bg-sidebar-hover rounded-full text-sidebar-text hover:text-sidebar-active-text transition-colors cursor-pointer flex items-center justify-center h-7 w-7"
           >
             {isLeftSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -120,11 +110,6 @@ export default function Sidebar({
                 {!isLeftSidebarCollapsed && (
                   <span className="ml-3 flex-1 text-left">Inbox</span>
                 )}
-                {!isLeftSidebarCollapsed && (
-                  <span className="text-xs text-sidebar-text font-normal bg-sidebar-hover px-2 py-0.5 rounded">
-                    {inboxUnread}
-                  </span>
-                )}
               </button>
 
               <button
@@ -137,11 +122,6 @@ export default function Sidebar({
               >
                 <FileText className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Drafts</span>}
-                {!isLeftSidebarCollapsed && (
-                  <span className="text-xs text-sidebar-text font-normal bg-sidebar-hover px-2 py-0.5 rounded">
-                    {draftsTotal}
-                  </span>
-                )}
               </button>
 
               <button
@@ -166,11 +146,6 @@ export default function Sidebar({
               >
                 <AlertCircle className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Spam</span>}
-                {!isLeftSidebarCollapsed && spamTotal > 0 && (
-                  <span className="text-xs text-red-500 font-bold bg-red-100 dark:bg-red-950 px-2 py-0.5 rounded">
-                    {spamTotal}
-                  </span>
-                )}
               </button>
 
               <button
@@ -206,31 +181,6 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Profile & Sign out */}
-      <div className="p-3 border-t border-sidebar-border bg-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <img
-              src={user.imageUrl}
-              alt="Profile"
-              className="h-8 w-8 rounded-full border border-sidebar-border"
-            />
-            {!isLeftSidebarCollapsed && (
-              <span className="text-xs font-bold text-card-foreground truncate w-24">
-                {user.firstName || 'User'}
-              </span>
-            )}
-          </div>
-          
-          {!isLeftSidebarCollapsed && (
-            <SignOutButton>
-              <button className="p-1 text-sidebar-text hover:text-red-500 rounded transition-colors cursor-pointer">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </SignOutButton>
-          )}
-        </div>
-      </div>
     </aside>
   );
 }
