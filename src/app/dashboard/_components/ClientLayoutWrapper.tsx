@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import AIAssistant from './AIAssistant';
+import { useChatStore } from '@/store/chatStore';
 
 type ClientLayoutWrapperProps = {
   user: {
@@ -23,6 +24,19 @@ export default function ClientLayoutWrapper({
   children,
 }: ClientLayoutWrapperProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    // Sync settings from localStorage once client has mounted
+    const savedTheme = localStorage.getItem('theme');
+    const savedWidth = localStorage.getItem('mailyflow-sidebar-width');
+
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      useChatStore.getState().setTheme(savedTheme);
+    }
+    if (savedWidth) {
+      useChatStore.getState().setSidebarWidth(Number(savedWidth));
+    }
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans antialiased">

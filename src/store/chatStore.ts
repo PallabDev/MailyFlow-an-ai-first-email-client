@@ -42,9 +42,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   chatLoading: false,
   chatInput: '',
   isPaused: false,
-  sidebarWidth: typeof window !== 'undefined' ? Number(localStorage.getItem('mailyflow-sidebar-width')) || 360 : 360,
+  sidebarWidth: 360,
+  theme: 'light',
   pollingIntervalId: null,
-  theme: typeof window !== 'undefined' ? (localStorage.getItem('theme') || 'light') as 'light' | 'dark' : 'light',
 
   setTheme: (theme) => {
     if (typeof window !== 'undefined') {
