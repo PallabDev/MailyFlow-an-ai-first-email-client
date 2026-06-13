@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair } from '@/utils/corsair';
+import { db, corsair, ensureGoogleCredentialsSynced } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureGoogleCredentialsSynced();
+
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
@@ -106,8 +108,12 @@ export async function GET(req: NextRequest) {
           );
         }
         fetchedFromGmail = true;
-      } catch (gmailErr) {
+      } catch (gmailErr: unknown) {
         console.error('Error fetching directly from Gmail API, falling back to cache:', gmailErr);
+        const errStr = gmailErr instanceof Error ? gmailErr.message : String(gmailErr);
+        if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
+          throw gmailErr;
+        }
       }
     }
 

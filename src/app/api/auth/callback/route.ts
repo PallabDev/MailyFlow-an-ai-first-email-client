@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { corsair, pool } from '@/utils/corsair';
+import { corsair, pool, syncGoogleCredentialsFromEnv } from '@/utils/corsair';
 import { processOAuthCallback } from 'corsair/oauth';
 import { createIntegrationKeyManager, createAccountKeyManager } from 'corsair/core';
 import crypto from 'crypto';
@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
     }
 
     const redirectUri = `${new URL(req.url).origin}/api/auth/callback`;
+
+    await syncGoogleCredentialsFromEnv();
 
     const { plugin, tenantId } = await processOAuthCallback(corsair, {
       code,

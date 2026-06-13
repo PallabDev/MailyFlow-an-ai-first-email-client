@@ -93,7 +93,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('Error trashing email:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

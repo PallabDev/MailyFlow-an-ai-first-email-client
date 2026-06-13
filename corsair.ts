@@ -36,80 +36,91 @@ export const corsair = createCorsair({
     multiTenancy: true,
 });
 
-// Automatically synchronize credentials from environment variables to database integrations
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    (async () => {
-        try {
-            const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
-            const kek = process.env.CORSAIR_KEK!;
+/** Always overwrite Google OAuth integration credentials from env (fixes stale DB values). */
+export async function syncGoogleCredentialsFromEnv() {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        throw new Error('GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in environment variables');
+    }
 
-            const integrations = ['gmail', 'googlecalendar'];
-            for (const pluginType of integrations) {
-                // Ensure integration record exists in DB
-                let integration = await database.db
-                    .selectFrom("corsair_integrations")
-                    .selectAll()
-                    .where("name", "=", pluginType)
-                    .executeTakeFirst();
+    const clientId = process.env.GOOGLE_CLIENT_ID.trim();
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET.trim();
 
-                if (!integration) {
-                    console.log(`[Corsair Init] Seeding integration database record for: ${pluginType}`);
-                    const id = crypto.randomUUID();
-                    await database.db
-                        .insertInto("corsair_integrations")
-                        .values({
-                            id,
-                            name: pluginType,
-                            config: JSON.stringify({}),
-                            created_at: new Date(),
-                            updated_at: new Date()
-                        })
-                        .execute();
+    const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
+    const kek = process.env.CORSAIR_KEK!;
 
-                    integration = await database.db
-                        .selectFrom("corsair_integrations")
-                        .selectAll()
-                        .where("id", "=", id)
-                        .executeTakeFirst();
-                }
+    const integrations = ['gmail', 'googlecalendar'] as const;
+    for (const pluginType of integrations) {
+        let integration = await database.db
+            .selectFrom("corsair_integrations")
+            .selectAll()
+            .where("name", "=", pluginType)
+            .executeTakeFirst();
 
-                const extraFields = pluginType === 'gmail' ? ["topic_id"] : [];
-                const integrationKm = createIntegrationKeyManager({
-                    authType: "oauth_2",
-                    integrationName: pluginType,
-                    kek,
-                    database,
-                    extraIntegrationFields: extraFields
-                });
+        if (!integration) {
+            console.log(`[Corsair Init] Seeding integration database record for: ${pluginType}`);
+            const id = crypto.randomUUID();
+            await database.db
+                .insertInto("corsair_integrations")
+                .values({
+                    id,
+                    name: pluginType,
+                    config: JSON.stringify({}),
+                    created_at: new Date(),
+                    updated_at: new Date()
+                })
+                .execute();
 
-                // Initialize DEK if not present
-                if (!integration.dek) {
-                    await integrationKm.issue_new_dek();
-                }
-
-                // Synchronize fields from environment variables
-                const currentClientId = await integrationKm.get_client_id();
-                const currentClientSecret = await integrationKm.get_client_secret();
-
-                if (currentClientId !== process.env.GOOGLE_CLIENT_ID) {
-                    await integrationKm.set_client_id(process.env.GOOGLE_CLIENT_ID!);
-                    console.log(`[Corsair Init] Updated client_id for ${pluginType} from environment variables.`);
-                }
-                if (currentClientSecret !== process.env.GOOGLE_CLIENT_SECRET) {
-                    await integrationKm.set_client_secret(process.env.GOOGLE_CLIENT_SECRET!);
-                    console.log(`[Corsair Init] Updated client_secret for ${pluginType} from environment variables.`);
-                }
-
-                if (pluginType === 'gmail' && process.env.TOPIC_ID) {
-                    const currentTopicId = await (integrationKm as any).get_topic_id();
-                    if (currentTopicId !== process.env.TOPIC_ID) {
-                        await (integrationKm as any).set_topic_id(process.env.TOPIC_ID);
-                        console.log(`[Corsair Init] Updated topic_id for gmail from environment variables.`);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
+            integration = await database.db
+                .selectFrom("corsair_integrations")
+                .selectAll()
+                .where("id", "=", id)
+                .executeTakeFirst();
         }
-    })();
+
+        const extraFields = pluginType === 'gmail' ? ["topic_id"] : [];
+        const integrationKm = createIntegrationKeyManager({
+            authType: "oauth_2",
+            integrationName: pluginType,
+            kek,
+            database,
+            extraIntegrationFields: extraFields
+        });
+
+        if (!integration.dek) {
+            await integrationKm.issue_new_dek();
+        }
+
+        await integrationKm.set_client_id(clientId);
+        await integrationKm.set_client_secret(clientSecret);
+        console.log(`[Corsair Init] Synced OAuth credentials for ${pluginType} from environment.`);
+
+        if (pluginType === 'gmail' && process.env.TOPIC_ID) {
+            await (integrationKm as any).set_topic_id(process.env.TOPIC_ID.trim());
+            console.log(`[Corsair Init] Synced topic_id for gmail from environment.`);
+        }
+    }
+}
+
+let syncPromise: Promise<void> | null = null;
+
+/** Deduped sync — safe to call from startup hooks and API routes. */
+export function ensureGoogleCredentialsSynced(): Promise<void> {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        return Promise.resolve();
+    }
+
+    if (!syncPromise) {
+        syncPromise = syncGoogleCredentialsFromEnv().catch((err) => {
+            syncPromise = null;
+            throw err;
+        });
+    }
+
+    return syncPromise;
+}
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    ensureGoogleCredentialsSynced().catch((err) => {
+        console.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
+    });
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { corsair } from '@/utils/corsair';
+import { corsair, syncGoogleCredentialsFromEnv } from '@/utils/corsair';
 import { generateOAuthUrl } from 'corsair/oauth';
 import { ConnectPlaceholder } from './_types';
 
@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
     }
 
     const redirectUri = `${new URL(req.url).origin}/api/auth/callback`;
+
+    await syncGoogleCredentialsFromEnv();
 
     const { url } = await generateOAuthUrl(corsair, plugin, {
       tenantId: userId,

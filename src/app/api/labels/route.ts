@@ -73,11 +73,19 @@ export async function GET(req: NextRequest) {
 
     const client = corsair.withTenant(gmailTenantId);
 
+    const handleLabelError = (err: unknown) => {
+      const errStr = err instanceof Error ? err.message : String(err);
+      if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
+        throw err;
+      }
+      return null;
+    };
+
     // Fetch inbox, drafts, spam label info from Gmail API (fallback)
     const [inbox, drafts, spam] = await Promise.all([
-      client.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null),
-      client.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null),
-      client.gmail.api.labels.get({ id: 'SPAM' }).catch(() => null),
+      client.gmail.api.labels.get({ id: 'INBOX' }).catch(handleLabelError),
+      client.gmail.api.labels.get({ id: 'DRAFT' }).catch(handleLabelError),
+      client.gmail.api.labels.get({ id: 'SPAM' }).catch(handleLabelError),
     ]);
 
     return NextResponse.json({
@@ -94,7 +102,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error in /api/labels:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
+      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
+    }
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
