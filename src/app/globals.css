@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f6f2;
+  --foreground: #2c2c2a;
+  --card: #ffffff;
+  --card-foreground: #2c2c2a;
+  --border: #e6e4dc;
+  
+  --surface-elevated: #ffffff;
+  --surface-subtle: #f1f0ea;
+  --border-row: #eeece6;
+  --hover-row: #f1f0ea;
+  --accent: #5f7a68;
+  --accent-glow: #45604f;
+  --accent-soft: #e8ede9;
+  
+  --text-primary: #2c2c2a;
+  --text-secondary: #6c6c66;
+  --text-muted: #a8a69d;
+  --text-active: #3f5447;
+  --text-hover: #3a3a37;
+  
+  --success: #6e9b7e;
+  --warning: #bb8f4f;
+  --danger: #bd6f5d;
+  
+  --sidebar-bg: #f1f0ea;
+  --sidebar-text: #6c6c66;
+  --sidebar-border: #e6e4dc;
+  --sidebar-hover: #ffffff;
+  --sidebar-active-bg: #e8ede9;
+  --sidebar-active-text: #3f5447;
+  
+  --sender-sage-bg: rgba(95, 122, 104, 0.12);
+  --sender-sage-text: #5f7a68;
+  
+  --sender-blue-bg: rgba(107, 130, 153, 0.12);
+  --sender-blue-text: #6b8299;
+  
+  --sender-clay-bg: rgba(169, 116, 90, 0.13);
+  --sender-clay-text: #a9745a;
+  
+  --sender-sand-bg: rgba(168, 132, 63, 0.13);
+  --sender-sand-text: #a8843f;
+}
+
+.dark {
+  --background: #1b1b18;
+  --foreground: #e9e7df;
+  --card: #242420;
+  --card-foreground: #e9e7df;
+  --border: #2e2e2a;
+  
+  --surface-elevated: #242420;
+  --surface-subtle: #161613;
+  --border-row: #232320;
+  --hover-row: #242420;
+  --accent: #8aa593;
+  --accent-glow: #aac3b1;
+  --accent-soft: #2a322c;
+  
+  --text-primary: #e9e7df;
+  --text-secondary: #9f9f96;
+  --text-muted: #5d5d55;
+  --text-active: #bcd2c2;
+  --text-hover: #c9c7bf;
+  
+  --success: #84b394;
+  --warning: #cda968;
+  --danger: #cf8473;
+  
+  --sidebar-bg: #161613;
+  --sidebar-text: #9f9f96;
+  --sidebar-border: #2e2e2a;
+  --sidebar-hover: #242420;
+  --sidebar-active-bg: #2a322c;
+  --sidebar-active-text: #bcd2c2;
+  
+  --sender-sage-bg: rgba(170, 195, 177, 0.16);
+  --sender-sage-text: #aac3b1;
+  
+  --sender-blue-bg: rgba(107, 130, 153, 0.16);
+  --sender-blue-text: #6b8299;
+  
+  --sender-clay-bg: rgba(169, 116, 90, 0.16);
+  --sender-clay-text: #a9745a;
+  
+  --sender-sand-bg: rgba(168, 132, 63, 0.16);
+  --sender-sand-text: #a8843f;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active-bg: var(--sidebar-active-bg);
+  --color-sidebar-active-text: var(--sidebar-active-text);
+  
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-border-row: var(--border-row);
+  --color-hover-row: var(--hover-row);
+  --color-accent: var(--accent);
+  --color-accent-glow: var(--accent-glow);
+  --color-accent-soft: var(--accent-soft);
+  
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-active: var(--text-active);
+  --color-text-hover: var(--text-hover);
+  
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  
+  --color-sender-sage-bg: var(--sender-sage-bg);
+  --color-sender-sage-text: var(--sender-sage-text);
+  --color-sender-blue-bg: var(--sender-blue-bg);
+  --color-sender-blue-text: var(--sender-blue-text);
+  --color-sender-clay-bg: var(--sender-clay-bg);
+  --color-sender-clay-text: var(--sender-clay-text);
+  --color-sender-sand-bg: var(--sender-sand-bg);
+  --color-sender-sand-text: var(--sender-sand-text);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
+
+

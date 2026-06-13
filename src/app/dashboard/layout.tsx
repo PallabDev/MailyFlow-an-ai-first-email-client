@@ -44,15 +44,19 @@ export default async function DashboardLayout({
   }
 
   const serializedUser = {
+    id: userId,
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.emailAddresses[0]?.emailAddress || '',
     imageUrl: user.imageUrl,
   };
 
+  const projectName = process.env.ProjectName || 'MailyFlow';
+
   return (
-    <ClientLayoutWrapper user={serializedUser}>
+    <ClientLayoutWrapper user={serializedUser} projectName={projectName}>
       {children}
     </ClientLayoutWrapper>
   );
+
 }

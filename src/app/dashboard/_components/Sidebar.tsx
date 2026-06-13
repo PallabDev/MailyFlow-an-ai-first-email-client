@@ -23,12 +23,14 @@ type SidebarProps = {
     email: string;
     imageUrl: string;
   };
+  projectName: string;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (val: boolean) => void;
 };
 
 export default function Sidebar({
   user,
+  projectName,
   isLeftSidebarCollapsed,
   setIsLeftSidebarCollapsed,
 }: SidebarProps) {
@@ -77,21 +79,21 @@ export default function Sidebar({
   };
 
   return (
-    <aside className={`border-r border-[#E5E7EB] bg-[#F4F4F5] flex flex-col justify-between transition-all duration-300 ${
+    <aside className={`border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
       isLeftSidebarCollapsed ? 'w-16' : 'w-60'
     }`}>
       <div className="flex flex-col flex-1 min-h-0">
         {/* Logo & Toggle Header */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-[#E5E7EB] bg-white">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border bg-card">
           {!isLeftSidebarCollapsed && (
             <div className="flex items-center space-x-2.5">
               <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-              <span className="font-bold text-slate-900 tracking-tight text-lg">AgentiFlow</span>
+              <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
             </div>
           )}
           <button
             onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-            className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+            className="p-1.5 hover:bg-sidebar-hover rounded-lg text-sidebar-text hover:text-sidebar-active-text transition-colors cursor-pointer"
           >
             {isLeftSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -110,8 +112,8 @@ export default function Sidebar({
                 onClick={() => navigateToTab('inbox')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'inbox'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <Mail className="h-4.5 w-4.5 shrink-0" />
@@ -119,7 +121,7 @@ export default function Sidebar({
                   <span className="ml-3 flex-1 text-left">Inbox</span>
                 )}
                 {!isLeftSidebarCollapsed && (
-                  <span className="text-xs text-slate-500 font-normal bg-slate-300/60 px-2 py-0.5 rounded">
+                  <span className="text-xs text-sidebar-text font-normal bg-sidebar-hover px-2 py-0.5 rounded">
                     {inboxUnread}
                   </span>
                 )}
@@ -129,14 +131,14 @@ export default function Sidebar({
                 onClick={() => navigateToTab('drafts')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'drafts'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <FileText className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Drafts</span>}
                 {!isLeftSidebarCollapsed && (
-                  <span className="text-xs text-slate-500 font-normal bg-slate-300/60 px-2 py-0.5 rounded">
+                  <span className="text-xs text-sidebar-text font-normal bg-sidebar-hover px-2 py-0.5 rounded">
                     {draftsTotal}
                   </span>
                 )}
@@ -146,8 +148,8 @@ export default function Sidebar({
                 onClick={() => navigateToTab('sent')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'sent'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <Send className="h-4.5 w-4.5 shrink-0" />
@@ -158,14 +160,14 @@ export default function Sidebar({
                 onClick={() => navigateToTab('spam')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'spam'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <AlertCircle className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Spam</span>}
                 {!isLeftSidebarCollapsed && spamTotal > 0 && (
-                  <span className="text-xs text-red-500 font-bold bg-red-100 px-2 py-0.5 rounded">
+                  <span className="text-xs text-red-500 font-bold bg-red-100 dark:bg-red-950 px-2 py-0.5 rounded">
                     {spamTotal}
                   </span>
                 )}
@@ -175,8 +177,8 @@ export default function Sidebar({
                 onClick={() => navigateToTab('trash')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'trash'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <Clock className="h-4.5 w-4.5 shrink-0" />
@@ -192,8 +194,8 @@ export default function Sidebar({
                 onClick={() => navigateToTab('calendar')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                   activeTab === 'calendar'
-                    ? 'bg-slate-200 text-slate-900 font-bold'
-                    : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
                 <CalendarIcon className="h-4.5 w-4.5 shrink-0" />
@@ -205,16 +207,16 @@ export default function Sidebar({
       </div>
 
       {/* Profile & Sign out */}
-      <div className="p-3 border-t border-[#E5E7EB] bg-white">
+      <div className="p-3 border-t border-sidebar-border bg-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <img
               src={user.imageUrl}
               alt="Profile"
-              className="h-8 w-8 rounded-full border border-slate-200"
+              className="h-8 w-8 rounded-full border border-sidebar-border"
             />
             {!isLeftSidebarCollapsed && (
-              <span className="text-xs font-bold text-slate-700 truncate w-24">
+              <span className="text-xs font-bold text-card-foreground truncate w-24">
                 {user.firstName || 'User'}
               </span>
             )}
@@ -222,7 +224,7 @@ export default function Sidebar({
           
           {!isLeftSidebarCollapsed && (
             <SignOutButton>
-              <button className="p-1 text-slate-400 hover:text-red-500 rounded transition-colors cursor-pointer">
+              <button className="p-1 text-sidebar-text hover:text-red-500 rounded transition-colors cursor-pointer">
                 <LogOut className="h-4 w-4" />
               </button>
             </SignOutButton>

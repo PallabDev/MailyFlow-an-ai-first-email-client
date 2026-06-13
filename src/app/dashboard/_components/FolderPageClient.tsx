@@ -259,40 +259,40 @@ export default function FolderPageClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary">
       {/* Tab Content Header */}
-      <div className="h-16 px-6 border-b border-[#E5E7EB] flex items-center justify-between shrink-0 bg-white">
+      <div className="h-16 px-6 border-b border-border flex items-center justify-between shrink-0 bg-card">
         {selectedEmail ? (
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setSelectedEmail(null)}
-              className="inline-flex items-center space-x-1 py-1.5 px-3 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer"
+              className="inline-flex items-center space-x-1 py-1.5 px-3 rounded-lg text-sm font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
             >
               <ChevronLeft className="h-4 w-4" />
               <span>Back</span>
             </button>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <span className="text-sm font-bold text-slate-800 truncate max-w-[350px]">
+            <div className="h-4 w-px bg-border"></div>
+            <span className="text-sm font-bold text-text-primary truncate max-w-[350px]">
               {selectedEmail.subject}
             </span>
           </div>
         ) : (
           <div className="flex items-center space-x-3">
             {getFolderIcon()}
-            <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+            <h1 className="text-lg font-bold text-text-primary">{title}</h1>
 
             {/* Refresh Button */}
             <button
               onClick={() => fetchEmails(true)}
               disabled={loading}
-              className={`p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${loading ? 'animate-spin opacity-50' : ''
+              className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${loading ? 'animate-spin opacity-50' : ''
                 }`}
               title="Refresh messages"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
 
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-text-secondary font-medium">
               {folder === 'inbox'
                 ? `${uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread`
                 : `${uniqueEmails.length} messages`
@@ -304,7 +304,7 @@ export default function FolderPageClient({
         {!selectedEmail && folder !== 'trash' && (
           <button
             onClick={() => setIsComposeOpen(true)}
-            className="inline-flex items-center space-x-1.5 rounded-xl bg-[#3F6257] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#2D473E] active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
           >
             <PenSquare className="h-4 w-4" />
             <span>Compose</span>
@@ -322,9 +322,9 @@ export default function FolderPageClient({
       ) : (
         <div
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto bg-white"
+          className="flex-1 overflow-y-auto bg-background"
         >
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-border-row">
             {emailErrorState && (
               <div className="m-6 flex items-start space-x-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-700">
                 <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
@@ -336,27 +336,27 @@ export default function FolderPageClient({
             )}
 
             {loading ? (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-border-row">
                 {[...Array(6)].map((_, i) => (
                   <div key={`skeleton-${i}`} className="flex items-center px-6 py-4 animate-pulse relative">
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
                       {/* Avatar Skeleton */}
-                      <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200"></div>
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-surface-subtle"></div>
 
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="flex items-baseline justify-between">
                           {/* Name Skeleton */}
-                          <div className="h-4 w-28 bg-slate-200 rounded"></div>
+                          <div className="h-4 w-28 bg-surface-subtle rounded"></div>
                           {/* Date Skeleton */}
-                          <div className="h-3 w-14 bg-slate-100 rounded"></div>
+                          <div className="h-3 w-14 bg-border rounded"></div>
                         </div>
 
                         {/* Subject & Snippet Skeleton */}
-                        <div className="h-3 w-5/6 bg-slate-100 rounded mt-2"></div>
+                        <div className="h-3 w-5/6 bg-border rounded mt-2"></div>
                       </div>
                     </div>
                     {/* Star Skeleton */}
-                    <div className="h-4.5 w-4.5 bg-slate-100 rounded shrink-0"></div>
+                    <div className="h-4.5 w-4.5 bg-border rounded shrink-0"></div>
                   </div>
                 ))}
               </div>
@@ -364,9 +364,9 @@ export default function FolderPageClient({
               <>
                 {!emailErrorState && uniqueEmails.length === 0 && (
                   <div className="flex flex-col items-center justify-center p-20 text-center">
-                    <InboxIcon className="h-12 w-12 text-slate-300 mb-3" />
-                    <span className="font-semibold text-slate-500">All caught up!</span>
-                    <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                    <InboxIcon className="h-12 w-12 text-text-muted mb-3" />
+                    <span className="font-semibold text-text-secondary">All caught up!</span>
+                    <p className="text-xs text-text-muted mt-1 max-w-sm">
                       No emails match your active filters.
                     </p>
                   </div>
@@ -383,11 +383,11 @@ export default function FolderPageClient({
                 <div
                   key={`${email.id}-${idx}`}
                   onClick={() => setSelectedEmail(email)}
-                  className="group flex items-center px-6 py-4 transition-colors hover:bg-slate-50/80 cursor-pointer relative"
+                  className="group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative"
                 >
                   {/* Unread dot indicator on the left margin */}
                   {isUnread && (
-                    <div className="absolute left-2.5 h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                    <div className="absolute left-2.5 h-1.5 w-1.5 rounded-full bg-success"></div>
                   )}
 
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -397,24 +397,24 @@ export default function FolderPageClient({
 
                     <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-sm font-bold text-slate-900 leading-tight">
+                        <span className="text-sm font-bold text-text-primary leading-tight">
                           {sender.name}
                         </span>
-                        <span className="text-xs text-slate-400 font-medium shrink-0">
+                        <span className="text-xs text-text-muted font-medium shrink-0">
                           {(email.date || '').replace(/([-+]\d{4}|UTC|GMT)/, '').trim()}
                         </span>
                       </div>
 
-                      <p className="text-sm text-slate-500 truncate leading-relaxed mt-1">
-                        <span className="font-semibold text-slate-900 pr-1">{email.subject}</span>
-                        <span className="text-slate-400 font-normal">— {email.snippet}</span>
+                      <p className="text-sm text-text-secondary truncate leading-relaxed mt-1">
+                        <span className="font-semibold text-text-primary pr-1">{email.subject}</span>
+                        <span className="text-text-muted font-normal">— {email.snippet}</span>
                       </p>
                     </div>
                   </div>
 
                   <button
                     onClick={(e) => toggleStar(email.id, e)}
-                    className={`p-1 rounded hover:bg-slate-100 transition-colors shrink-0 cursor-pointer ${isStarred ? 'text-amber-500' : 'text-slate-300 group-hover:text-slate-400'
+                    className={`p-1 rounded hover:bg-sidebar-hover transition-colors shrink-0 cursor-pointer ${isStarred ? 'text-amber-500' : 'text-text-muted group-hover:text-text-secondary'
                       }`}
                   >
                     <Star className="h-4.5 w-4.5" fill={isStarred ? 'currentColor' : 'none'} />
@@ -424,14 +424,14 @@ export default function FolderPageClient({
             })}
 
             {loadingMore && (
-              <div className="flex items-center justify-center p-6 space-x-2.5 bg-slate-50">
-                <RefreshCw className="h-4.5 w-4.5 animate-spin text-slate-500" />
-                <span className="text-xs text-slate-500 font-semibold">Loading more messages...</span>
+              <div className="flex items-center justify-center p-6 space-x-2.5 bg-surface-subtle">
+                <RefreshCw className="h-4.5 w-4.5 animate-spin text-text-secondary" />
+                <span className="text-xs text-text-secondary font-semibold">Loading more messages...</span>
               </div>
             )}
 
             {!nextPageToken && filteredEmails.length > 0 && (
-              <div className="text-center py-6 text-xs text-slate-400 font-semibold bg-slate-50/50">
+              <div className="text-center py-6 text-xs text-text-muted font-semibold bg-surface-subtle/50">
                 ✨ End of your inbox list
               </div>
             )}

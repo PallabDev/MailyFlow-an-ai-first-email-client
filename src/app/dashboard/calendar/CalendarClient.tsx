@@ -171,13 +171,13 @@ export default function CalendarClient({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary">
       {/* Header */}
-      <div className="h-16 px-6 border-b border-[#E5E7EB] flex items-center justify-between shrink-0 bg-white">
+      <div className="h-16 px-6 border-b border-border flex items-center justify-between shrink-0 bg-card">
         <div className="flex items-center space-x-3">
-          <CalendarIcon className="h-5 w-5 text-slate-600" />
-          <h1 className="text-lg font-bold text-slate-900">Calendar</h1>
-          <span className="text-xs text-slate-500 font-medium">
+          <CalendarIcon className="h-5 w-5 text-text-secondary" />
+          <h1 className="text-lg font-bold text-text-primary">Calendar</h1>
+          <span className="text-xs text-text-secondary font-medium">
             {eventsState.filter(e => {
               if (!e.start?.dateTime && !e.start?.date) return false;
               const d = new Date(e.start.dateTime || e.start.date || '');
@@ -187,32 +187,32 @@ export default function CalendarClient({
         </div>
         <button
           onClick={handleAddEvent}
-          className="inline-flex items-center space-x-1.5 bg-[#3F6257] hover:bg-[#2D473E] text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer"
+          className="inline-flex items-center space-x-1.5 bg-success text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all hover:opacity-95 active:scale-95 cursor-pointer"
         >
           <span>+ Add Event</span>
         </button>
       </div>
 
       {/* Calendar body layout: Left/Right Split */}
-      <div className="flex-1 flex flex-row min-h-0 divide-x divide-slate-100 bg-white">
+      <div className="flex-1 flex flex-row min-h-0 divide-x divide-border bg-card">
         
         {/* LEFT COLUMN: Calendar Month View */}
-        <div className="w-[360px] md:w-[380px] shrink-0 flex flex-col min-h-0 bg-white">
+        <div className="w-[360px] md:w-[380px] shrink-0 flex flex-col min-h-0 bg-card">
           {/* Month Selector Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-            <h3 className="font-bold text-slate-800 text-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+            <h3 className="font-bold text-text-primary text-sm">
               {currentMonthDate.toLocaleDateString([], { month: 'long', year: 'numeric' })}
             </h3>
             <div className="flex space-x-2">
               <button
                 onClick={handlePrevMonth}
-                className="p-1 hover:bg-slate-200 rounded text-slate-600 transition-colors cursor-pointer"
+                className="p-1 hover:bg-sidebar-hover rounded text-text-secondary transition-colors cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-1 hover:bg-slate-200 rounded text-slate-600 transition-colors cursor-pointer"
+                className="p-1 hover:bg-sidebar-hover rounded text-text-secondary transition-colors cursor-pointer"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -220,9 +220,9 @@ export default function CalendarClient({
           </div>
 
           {/* Grid Container */}
-          <div className="p-6 bg-white shrink-0">
+          <div className="p-6 bg-card shrink-0">
             {/* Weekday headers */}
-            <div className="grid grid-cols-7 gap-x-1.5 text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+            <div className="grid grid-cols-7 gap-x-1.5 text-center text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                 <div key={day} className="py-1">{day}</div>
               ))}
@@ -245,17 +245,17 @@ export default function CalendarClient({
                     className="flex flex-col items-center justify-center py-1 cursor-pointer"
                   >
                     <div className={`h-8 w-8 flex items-center justify-center text-xs transition-all ${active
-                        ? 'bg-[#3F6257] text-white font-bold rounded-full shadow-md'
+                        ? 'bg-success text-white font-bold rounded-full shadow-md'
                         : todayActive
-                          ? 'border border-emerald-500 text-emerald-600 rounded-full font-bold'
-                          : 'text-slate-700 hover:bg-slate-100 rounded-full'
+                          ? 'border border-success text-success rounded-full font-bold'
+                          : 'text-text-primary hover:bg-hover-row rounded-full'
                       }`}>
                       {dayDate.getDate()}
                     </div>
                     {/* Dot indicator */}
                     <div className="h-1 w-full flex items-center justify-center">
                       {eventMark && (
-                        <span className={`h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-emerald-500'}`}></span>
+                        <span className={`h-1 w-1 rounded-full ${active ? 'bg-white' : 'bg-success'}`}></span>
                       )}
                     </div>
                   </div>
@@ -266,23 +266,27 @@ export default function CalendarClient({
         </div>
 
         {/* RIGHT COLUMN: Event Listing */}
-        <div className="flex-1 flex flex-col min-h-0 bg-[#F9FAFB]">
+        <div className="flex-1 flex flex-col min-h-0 bg-background">
           {/* Header for Selected Day Events */}
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
-            <h3 className="text-sm font-bold text-slate-800">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0 bg-card">
+            <h3 className="text-sm font-bold text-text-primary">
               {selectedDate.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </h3>
-            <span className="text-xs text-slate-500 font-medium">
+            <span className="text-xs text-text-secondary font-medium">
               {dailyEvents.length} scheduled
             </span>
           </div>
 
           {/* Events scrollable list */}
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 bg-[#F9FAFB]">
+          <div className="flex-1 overflow-y-auto divide-y divide-border-row bg-background">
             {eventsLoading && (
-              <div className="flex items-center justify-center p-12 space-x-2">
-                <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
-                <span className="text-xs text-slate-400 font-semibold">Updating schedule...</span>
+              <div className="flex flex-col items-center justify-center p-12 space-y-3">
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce"></div>
+                </div>
+                <span className="text-xs text-text-secondary font-semibold">Updating schedule...</span>
               </div>
             )}
 
@@ -298,9 +302,9 @@ export default function CalendarClient({
 
             {!calendarErrorState && !eventsLoading && dailyEvents.length === 0 && (
               <div className="flex flex-col items-center justify-center p-20 text-center">
-                <CalendarIcon className="h-8 w-8 text-slate-300 mb-2" />
-                <span className="font-semibold text-slate-400 text-sm">No events scheduled</span>
-                <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                <CalendarIcon className="h-8 w-8 text-text-muted mb-2" />
+                <span className="font-semibold text-text-secondary text-sm">No events scheduled</span>
+                <p className="text-xs text-text-muted mt-1 max-w-xs">
                   There are no calendar events scheduled for this day.
                 </p>
               </div>
@@ -314,30 +318,30 @@ export default function CalendarClient({
                 <div
                   key={event.id || index}
                   onClick={() => handleEditEvent(event)}
-                  className="p-5 space-y-2.5 hover:bg-white transition-colors bg-[#F9FAFB] cursor-pointer group"
+                  className="p-5 space-y-2.5 hover:bg-card transition-colors bg-background cursor-pointer group"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-slate-900 tracking-tight group-hover:text-[#3F6257] transition-colors">
+                      <h3 className="text-sm font-bold text-text-primary tracking-tight group-hover:text-success transition-colors">
                         {event.summary || '(no title)'}
                       </h3>
                     </div>
 
-                    <div className="flex items-center space-x-1 text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">
-                      <Clock className="h-3 w-3 text-indigo-500" />
+                    <div className="flex items-center space-x-1 text-[11px] text-text-secondary bg-surface-subtle px-2 py-0.5 rounded border border-border shrink-0">
+                      <Clock className="h-3 w-3 text-[#5f7a68]" />
                       <span>{isAllDay ? 'All Day' : `${eventTime} - ${event.end?.dateTime ? new Date(event.end.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`}</span>
                     </div>
                   </div>
 
                   {event.description && (
-                    <p className="text-xs text-slate-500 leading-relaxed max-w-2xl font-normal">
+                    <p className="text-xs text-text-secondary leading-relaxed max-w-2xl font-normal">
                       {event.description}
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pt-0.5">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary pt-0.5">
                     {event.location && (
-                      <div className="flex items-center space-x-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                      <div className="flex items-center space-x-1 bg-surface-subtle px-2 py-0.5 rounded border border-border text-[11px]">
                         <MapPin className="h-3 w-3 text-red-500 shrink-0" />
                         <span className="truncate max-w-xs">{event.location}</span>
                       </div>

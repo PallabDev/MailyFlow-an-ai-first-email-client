@@ -76,41 +76,45 @@ export default function EmailDetail({
   const sender = parseSender(email.from);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary">
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="space-y-4 shrink-0">
-          <h2 className="text-xl font-extrabold text-slate-900 leading-snug">
+          <h2 className="text-xl font-extrabold text-text-primary leading-snug">
             {email.subject}
           </h2>
 
-          <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div className="flex items-center space-x-3 bg-surface-subtle p-4 rounded-xl border border-border">
             <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold border shadow-sm ${getAvatarColor(email.from)}`}>
               {getInitials(email.from)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-slate-500 font-semibold leading-none">From</p>
-              <p className="text-sm font-bold text-slate-900 truncate leading-none mt-1">
+              <p className="text-xs text-text-secondary font-semibold leading-none">From</p>
+              <p className="text-sm font-bold text-text-primary truncate leading-none mt-1">
                 {sender.name}
               </p>
-              <p className="text-[10px] text-slate-500 truncate mt-1">
+              <p className="text-[10px] text-text-muted truncate mt-1">
                 {sender.email}
               </p>
             </div>
           </div>
 
-          <div className="text-xs text-slate-400 font-medium">
-            Date: <span className="font-semibold text-slate-600">{email.date}</span>
+          <div className="text-xs text-text-muted font-medium">
+            Date: <span className="font-semibold text-text-secondary">{email.date}</span>
           </div>
         </div>
 
         {/* Message Details with Rich Text Render */}
-        <div className="border-t border-slate-100 pt-6">
-          <h4 className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-3">Message Body</h4>
-          
+        <div className="border-t border-border pt-6">
+          <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3">Message Body</h4>
+
           {loading && (
-            <div className="flex items-center justify-center py-12 space-x-2">
-              <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
-              <span className="text-sm text-slate-500">Loading email body...</span>
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+              <div className="flex items-center space-x-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce"></div>
+              </div>
+              <span className="text-xs text-text-secondary">Loading email body...</span>
             </div>
           )}
 
@@ -122,7 +126,7 @@ export default function EmailDetail({
           )}
 
           {!loading && !error && detailEmail && (
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+            <div className="bg-surface-subtle rounded-xl border border-border p-4">
               <iframe
                 srcDoc={getEmailHtml(detailEmail)}
                 style={{ height: iframeHeight }}
@@ -136,10 +140,10 @@ export default function EmailDetail({
       </div>
 
       {/* Footer / Action Bar */}
-      <div className="p-4 border-t border-[#E5E7EB] bg-slate-50 flex items-center justify-between shrink-0">
+      <div className="p-4 border-t border-border bg-surface-subtle flex items-center justify-between shrink-0">
         <button
           onClick={onBack}
-          className="inline-flex items-center space-x-1.5 py-2.5 px-4 rounded-xl border border-[#D1D5DB] bg-white hover:bg-slate-50 text-sm font-bold text-slate-600 hover:text-slate-800 transition-all cursor-pointer shadow-sm"
+          className="inline-flex items-center space-x-1.5 py-2.5 px-4 rounded-xl border border-border bg-card hover:bg-hover-row text-sm font-bold text-text-secondary hover:text-text-primary transition-all cursor-pointer shadow-sm"
         >
           <ChevronLeft className="h-4.5 w-4.5" />
           <span>Back</span>
@@ -147,7 +151,7 @@ export default function EmailDetail({
 
         <button
           onClick={() => onTrash(email.id)}
-          className="inline-flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-sm font-bold text-red-600 hover:text-red-700 transition-all cursor-pointer shadow-sm"
+          className="inline-flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900 dark:text-red-400 hover:bg-red-100 text-sm font-bold text-red-600 hover:text-red-700 transition-all cursor-pointer shadow-sm"
         >
           <span>Move to Trash</span>
         </button>
