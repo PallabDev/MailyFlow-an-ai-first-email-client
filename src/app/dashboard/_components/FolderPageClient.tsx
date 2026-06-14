@@ -110,7 +110,7 @@ export default function FolderPageClient({
   // Connect to real-time new email events pushed from Corsair webhooks
   useEffect(() => {
     console.log('🔌 [Live Email SSE] Initializing EventSource connection...');
-    const eventSource = new EventSource('/api/emails/live');
+    const eventSource = new EventSource('/api/emails/live', { withCredentials: true });
 
     eventSource.onopen = () => {
       console.log('🔌 [Live Email SSE] EventSource connection opened successfully.');
