@@ -41,9 +41,11 @@ export default async function OnboardingPage({
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary antialiased font-sans">
-      {/* Background Subtle Accent Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] -z-10 h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] -z-10 h-[600px] w-[600px] rounded-full bg-success/5 blur-3xl animate-pulse delay-700"></div>
+      {/* Background Subtle Accent Gradients (Clipped locally to prevent scrollbars) */}
+      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] h-[600px] w-[600px] rounded-full bg-success/5 blur-3xl animate-pulse delay-700"></div>
+      </div>
 
       {/* Header */}
       <header className="flex items-center justify-between border-b border-sidebar-border bg-card px-6 py-4 backdrop-blur-md">
