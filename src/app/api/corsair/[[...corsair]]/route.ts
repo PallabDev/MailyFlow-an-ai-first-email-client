@@ -3,7 +3,7 @@ import { corsair, db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { CorsairPlaceholder } from './_types';
-import { sendLogOnTelegram } from '@/utils/LiveTestLogOnTelegram';
+import logger from '@/utils/logger';
 import { liveEmailsEmitter } from '@/utils/emitter';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
@@ -24,12 +24,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // Log incoming payload to Telegram
-    try {
-      await sendLogOnTelegram(`[Webhook POST] Payload: ${JSON.stringify(body)}`);
-    } catch (e) {
-      console.error('Failed to log on telegram from webhook route:', e);
-    }
+    // Log incoming payload
+    logger.info(`[Webhook POST] Payload: ${JSON.stringify(body)}`);
 
     // Check query params for tenantId, or query the database for the active gmail tenant
     const url = new URL(request.url);
@@ -69,32 +65,24 @@ export async function POST(request: Request) {
           }
         }
       } catch (err) {
-        console.error('Error finding tenant for webhook:', err);
-        try {
-          await sendLogOnTelegram(`[Webhook POST] Error finding tenant: ${err instanceof Error ? err.message : String(err)}`);
-        } catch (e) {}
+        logger.error('Error finding tenant for webhook:', err);
       }
     }
 
-    console.log(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId || 'default'}`);
-    try {
-      await sendLogOnTelegram(`[Webhook POST] Attempting process with tenantId: ${activeTenantId || 'default'}`);
-    } catch (e) {}
+    logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId || 'default'}`);
 
     // Try processing the webhook first
     const result = await processWebhook(corsair, headersObj, body, {
       tenantId: activeTenantId || 'default',
     });
 
-    try {
-      await sendLogOnTelegram(`[Webhook POST] processWebhook Result: ${JSON.stringify(result)}`);
-    } catch (e) {}
+    logger.info(`[Webhook POST] processWebhook Result: ${JSON.stringify(result)}`);
 
     // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
     const isGmailWebhook = !!body.message?.data;
     if (isGmailWebhook && activeTenantId) {
       try {
-        await sendLogOnTelegram(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
+        logger.info(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
         const client = corsair.withTenant(activeTenantId);
         const listRes = await client.gmail.api.messages.list({
           maxResults: 3,
@@ -102,24 +90,23 @@ export async function POST(request: Request) {
         });
         if (listRes.messages && listRes.messages.length > 0) {
           const ids = listRes.messages.map(m => m.id).filter(Boolean);
-          await sendLogOnTelegram(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
+          logger.info(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
           for (const msg of listRes.messages) {
             if (msg.id) {
               liveEmailsEmitter.emit('new-email', { emailId: msg.id });
-              await sendLogOnTelegram(`✉️ [Webhook POST] Custom Gmail sync: Yes, server sent message ID ${msg.id} event to client emitter`);
+              logger.info(`✉️ [Webhook POST] Custom Gmail sync: Yes, server sent message ID ${msg.id} event to client emitter`);
             }
           }
         } else {
-          await sendLogOnTelegram(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
+          logger.info(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
         }
       } catch (err) {
-        console.error('Error in custom Gmail sync:', err);
-        await sendLogOnTelegram(`❌ [Webhook POST] Custom Gmail sync error during search: ${err instanceof Error ? err.message : String(err)}`);
+        logger.error('Error in custom Gmail sync:', err);
       }
     }
 
     if (result.plugin) {
-      console.log(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
+      logger.info(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
       return new Response(JSON.stringify(result.response || { success: true }), {
         status: 200,
         headers: {
@@ -129,10 +116,7 @@ export async function POST(request: Request) {
       });
     }
   } catch (error) {
-    console.error('Error parsing or processing webhook payload:', error);
-    try {
-      await sendLogOnTelegram(`[Webhook POST] Exception: ${error instanceof Error ? error.message : String(error)}`);
-    } catch (e) {}
+    logger.error('Error parsing or processing webhook payload:', error);
   }
 
   // Fallback to default Corsair management handler with the cloned unconsumed request

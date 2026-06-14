@@ -8,7 +8,7 @@ import { createIntegrationKeyManager } from 'corsair/core';
 import crypto from 'crypto';
 
 import { liveEmailsEmitter } from './src/utils/emitter';
-import { sendLogOnTelegram } from './src/utils/LiveTestLogOnTelegram';
+import logger from './src/utils/logger';
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
@@ -19,11 +19,7 @@ export const corsair = createCorsair({
             webhookHooks: {
                 messageChanged: {
                     after: async (ctx, response) => {
-                        try {
-                            await sendLogOnTelegram(`[Gmail Hook after] Success: ${response.success}, Data: ${JSON.stringify(response.data || {})}`);
-                        } catch (e) {
-                            console.error('Failed to log on telegram from webhook hook:', e);
-                        }
+                        logger.info(`[Gmail Hook after] Success: ${response.success}, Data: ${JSON.stringify(response.data || {})}`);
                         if (response.success && response.data) {
                             const eventType = response.data.type;
                             if (eventType === 'messageReceived' || eventType === 'messageLabelChanged') {

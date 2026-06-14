@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { liveEmailsEmitter } from '@/utils/emitter';
 import { LiveEmailEvent } from './_types';
-import { sendLogOnTelegram } from '@/utils/LiveTestLogOnTelegram';
+import logger from '@/utils/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
       const handshake = JSON.stringify({ type: 'init', message: 'hello from server' });
       controller.enqueue(`data: ${handshake}\n\n`);
 
-      // Log connection to Telegram
-      sendLogOnTelegram('[Live SSE] Client connected to live email SSE feed. Handshake sent.').catch(() => {});
+      // Log connection
+      logger.info('[Live SSE] Client connected to live email SSE feed. Handshake sent.');
 
       // Set up a keep-alive ping to prevent connection timeouts on Render
       const keepAliveInterval = setInterval(() => {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
       const listener = (eventData: LiveEmailEvent) => {
         try {
-          sendLogOnTelegram(`[Live SSE] SSE Route received 'new-email' event for ID: ${eventData.emailId}. Streaming to client...`).catch(() => {});
+          logger.info(`[Live SSE] SSE Route received 'new-email' event for ID: ${eventData.emailId}. Streaming to client...`);
           controller.enqueue(`data: ${JSON.stringify(eventData)}\n\n`);
         } catch (e) {
           console.error('Error enqueuing message to SSE controller:', e);
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
       req.signal.addEventListener('abort', () => {
         clearInterval(keepAliveInterval);
         liveEmailsEmitter.off('new-email', listener);
-        sendLogOnTelegram('[Live SSE] Client aborted/disconnected live email SSE feed.').catch(() => {});
+        logger.info('[Live SSE] Client aborted/disconnected live email SSE feed.');
         controller.close();
       });
     },

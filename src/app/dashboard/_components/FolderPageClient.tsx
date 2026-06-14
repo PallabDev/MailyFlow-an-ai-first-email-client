@@ -410,6 +410,13 @@ export default function FolderPageClient({
     }
   }
 
+  // Trigger loading next page automatically if the visible list is empty but nextPageToken exists
+  useEffect(() => {
+    if (!loading && !loadingMore && uniqueEmails.length === 0 && nextPageToken) {
+      loadMoreEmails();
+    }
+  }, [uniqueEmails.length, nextPageToken, loading, loadingMore]);
+
   const getFolderIcon = () => {
     switch (folder) {
       case 'inbox': return <InboxIcon className="h-5 w-5 text-slate-600" />;
@@ -559,7 +566,7 @@ export default function FolderPageClient({
               </div>
             ) : (
               <>
-                {!emailErrorState && uniqueEmails.length === 0 && (
+                {!emailErrorState && uniqueEmails.length === 0 && !nextPageToken && !loading && (
                   <div className="flex flex-col items-center justify-center p-20 text-center">
                     <InboxIcon className="h-12 w-12 text-text-muted mb-3" />
                     <span className="font-semibold text-text-secondary">All caught up!</span>
@@ -590,29 +597,9 @@ export default function FolderPageClient({
                   )}
 
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    {/* Checkbox / Avatar container */}
-                    <div 
-                      className="relative h-10 w-10 shrink-0 select-none"
-                      onClick={(e) => e.stopPropagation()} // Prevent opening details when clicking checkbox container
-                    >
-                      {/* Avatar */}
-                      <div className={`absolute inset-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)} ${
-                        isSelected ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-75'
-                      }`}>
-                        {getInitials(email.from)}
-                      </div>
-                      
-                      {/* Select option (Checkbox) */}
-                      <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
-                        isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'
-                      }`}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectEmail(email.id)}
-                          className="h-5 w-5 rounded-md border-2 border-border text-success focus:ring-success bg-background cursor-pointer"
-                        />
-                      </div>
+                    {/* Avatar (Always visible on left) */}
+                    <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)}`}>
+                      {getInitials(email.from)}
                     </div>
 
                     <div className="flex-1 min-w-0 pr-8">
@@ -632,6 +619,21 @@ export default function FolderPageClient({
                         <span className="text-text-muted font-normal">— {email.snippet}</span>
                       </p>
                     </div>
+                  </div>
+
+                  {/* Select option (Checkbox on the far right, matching star placeholder in skeleton) */}
+                  <div 
+                    className="shrink-0 ml-4 select-none"
+                    onClick={(e) => e.stopPropagation()} // Prevent details from opening on click
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectEmail(email.id)}
+                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 ${
+                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                    />
                   </div>
                 </div>
               );
