@@ -28,8 +28,13 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error('Error fetching connected accounts:', e);
     }
-    const activeTenantId = connectedAccounts.length > 0 ? userId : 'dev';
-    const client = corsair.withTenant(activeTenantId);
+
+    const hasGmailConnection = connectedAccounts.some(acc => acc.name === 'gmail');
+    if (!hasGmailConnection) {
+      return NextResponse.json({ error: 'Please connect your Gmail account on the onboarding page before sending emails.' }, { status: 400 });
+    }
+
+    const client = corsair.withTenant(userId);
 
     // Encode standard email as base64url-encoded RFC 2822
     const raw = Buffer.from(

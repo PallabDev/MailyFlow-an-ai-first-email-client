@@ -109,24 +109,19 @@ export default function FolderPageClient({
 
   // Connect to real-time new email events pushed from Corsair webhooks
   useEffect(() => {
-    console.log('🔌 [Live Email SSE] Initializing EventSource connection...');
     const eventSource = new EventSource('/api/emails/live', { withCredentials: true });
 
-    eventSource.onopen = () => {
-      console.log('🔌 [Live Email SSE] EventSource connection opened successfully.');
-    };
+    eventSource.onopen = () => {};
 
     eventSource.onmessage = async (event) => {
       try {
-        console.log('🔌 [Live Email SSE] Raw event message received:', event.data);
         const data = JSON.parse(event.data);
         
         if (data && data.type === 'init') {
-          console.log(`👋 [Live Email SSE] Handshake received from server: "${data.message}"`);
           fetch('/api/debug/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `📱 [Client] Yes, client received handshake from server: "${data.message}"` })
+            body: JSON.stringify({ message: `📱 [Client] SSE handshake received: "${data.message}"` })
           }).catch(() => {});
           return;
         }
@@ -137,7 +132,7 @@ export default function FolderPageClient({
           fetch('/api/debug/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `📱 [Client] Yes, client received new-email event for ID: ${emailId}` })
+            body: JSON.stringify({ message: `📱 [Client] Received new-email event for ID: ${emailId}` })
           }).catch(() => {});
           
           let alreadyExists = false;
@@ -146,26 +141,23 @@ export default function FolderPageClient({
             return prev;
           });
           if (alreadyExists) {
-            console.log(`🔌 [Live Email SSE] Email ID ${emailId} is already in the list. Skipping.`);
             fetch('/api/debug/log', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `📱 [Client] Email ID ${emailId} is already in the list. Skipping fetch.` })
+              body: JSON.stringify({ message: `📱 [Client] Email ID ${emailId} is already in the list. Skipping.` })
             }).catch(() => {});
             return;
           }
 
-          console.log(`🔌 [Live Email SSE] Fetching details for new email ID: ${emailId}`);
           // Load details of the newly arrived email
           const res = await fetch(`/api/emails/detail?id=${emailId}`);
           if (res.ok) {
             const newEmail = await res.json();
-            console.log('🔌 [Live Email SSE] Fetched details successfully:', newEmail);
             
             fetch('/api/debug/log', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `📱 [Client] Yes, client fetched details for new email ID: ${emailId} with subject: "${newEmail.subject || '(no subject)'}"` })
+              body: JSON.stringify({ message: `📱 [Client] Fetched details for new email ID: ${emailId} ("${newEmail.subject || '(no subject)'}")` })
             }).catch(() => {});
             
             // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
@@ -174,11 +166,10 @@ export default function FolderPageClient({
               
               // Verify labelIds match the current folder filters
               if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
-                console.log(`🔌 [Live Email SSE] New email ${newEmail.id} is not in INBOX. Skipping prepend.`);
                 fetch('/api/debug/log', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ message: `📱 [Client] New email ${newEmail.id} is not in INBOX (labelIds: ${JSON.stringify(newEmail.labelIds)}). Skipping prepend.` })
+                  body: JSON.stringify({ message: `📱 [Client] New email ${newEmail.id} not in INBOX. Skipping prepend.` })
                 }).catch(() => {});
                 return prev;
               }
@@ -189,11 +180,10 @@ export default function FolderPageClient({
                 return prev;
               }
               
-              console.log(`🔌 [Live Email SSE] Prepended new email ${newEmail.id} to folder: ${folder}`);
               fetch('/api/debug/log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `📱 [Client] Yes, client prepended new email ID: ${newEmail.id} (subject: "${newEmail.subject || '(no subject)'}") to folder: ${folder}` })
+                body: JSON.stringify({ message: `📱 [Client] Prepended new email ID: ${newEmail.id} ("${newEmail.subject || '(no subject)'}") to folder: ${folder}` })
               }).catch(() => {});
               return [newEmail, ...prev];
             });
@@ -201,7 +191,6 @@ export default function FolderPageClient({
             // Refresh sidebar counts dynamically
             window.dispatchEvent(new CustomEvent('refresh-labels'));
           } else {
-            console.error(`🔌 [Live Email SSE] Failed to fetch details for email ID: ${emailId}. Status: ${res.status}`);
             fetch('/api/debug/log', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -210,7 +199,6 @@ export default function FolderPageClient({
           }
         }
       } catch (err) {
-        console.error('🔌 [Live Email SSE] Error handling live new email notification:', err);
         fetch('/api/debug/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -219,12 +207,9 @@ export default function FolderPageClient({
       }
     };
 
-    eventSource.onerror = (err) => {
-      console.error('🔌 [Live Email SSE] Real-time SSE event connection error:', err);
-    };
+    eventSource.onerror = (err) => {};
 
     return () => {
-      console.log('🔌 [Live Email SSE] Closing EventSource connection.');
       eventSource.close();
     };
   }, [folder]);
@@ -508,7 +493,9 @@ export default function FolderPageClient({
                 <div
                   key={`${email.id}-${idx}`}
                   onClick={() => setSelectedEmail(email)}
-                  className="group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative"
+                  className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
+                    isUnread ? 'bg-surface-elevated' : 'bg-background/40'
+                  }`}
                 >
                   {/* Unread dot indicator on the left margin */}
                   {isUnread && (
@@ -522,16 +509,18 @@ export default function FolderPageClient({
 
                     <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-sm font-bold text-text-primary leading-tight">
+                        <span className={`text-sm leading-tight ${isUnread ? 'font-bold text-text-primary' : 'font-normal text-text-secondary'}`}>
                           {sender.name}
                         </span>
-                        <span className="text-xs text-text-muted font-medium shrink-0">
+                        <span className={`text-xs shrink-0 ${isUnread ? 'font-semibold text-text-primary' : 'font-medium text-text-muted'}`}>
                           {formatEmailDate(email.date)}
                         </span>
                       </div>
 
                       <p className="text-sm text-text-secondary truncate leading-relaxed mt-1">
-                        <span className="font-semibold text-text-primary pr-1">{email.subject}</span>
+                        <span className={`pr-1 ${isUnread ? 'font-semibold text-text-primary' : 'font-normal text-text-secondary'}`}>
+                          {email.subject}
+                        </span>
                         <span className="text-text-muted font-normal">— {email.snippet}</span>
                       </p>
                     </div>

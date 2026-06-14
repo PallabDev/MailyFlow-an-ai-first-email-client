@@ -23,8 +23,10 @@ async function getCalendarClient(userId: string) {
   const hasCalendarConnection = connectedAccounts.some(
     (acc) => acc.name === 'googlecalendar' && (acc.config as CalendarConfig)?.access_token
   );
-  const calendarTenantId = hasCalendarConnection ? userId : 'dev';
-  return corsair.withTenant(calendarTenantId);
+  if (!hasCalendarConnection) {
+    return null;
+  }
+  return corsair.withTenant(userId);
 }
 
 export async function GET(req: NextRequest) {
@@ -41,6 +43,27 @@ export async function GET(req: NextRequest) {
     const timeMax = searchParams.get('timeMax') || undefined;
 
     const client = await getCalendarClient(userId);
+    if (!client) {
+      // Return beautiful mock/virtual events for onboarding and demonstration
+      return NextResponse.json({
+        events: [
+          {
+            id: 'mock-event-1',
+            summary: 'MailyFlow Demo Session 🗓️',
+            description: 'This is a mock calendar event. Connect your Google Calendar to see your actual events!',
+            start: { dateTime: new Date(Date.now() + 3600 * 1000).toISOString() },
+            end: { dateTime: new Date(Date.now() + 7200 * 1000).toISOString() },
+          },
+          {
+            id: 'mock-event-2',
+            summary: 'Review Inbox with AI Copilot 🤖',
+            description: 'Try checking your emails with the right sidebar!',
+            start: { dateTime: new Date(Date.now() + 86400 * 1000).toISOString() },
+            end: { dateTime: new Date(Date.now() + 86400 * 1000 + 1800 * 1000).toISOString() },
+          }
+        ],
+      });
+    }
 
     const result = await client.googlecalendar.api.events.getMany({
       calendarId: 'primary',
@@ -77,6 +100,9 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await getCalendarClient(userId);
+    if (!client) {
+      return NextResponse.json({ error: 'Please connect your Google Calendar on the onboarding page before managing events.' }, { status: 400 });
+    }
 
     const result = await client.googlecalendar.api.events.create({
       calendarId: 'primary',
@@ -107,6 +133,9 @@ export async function PUT(req: NextRequest) {
     }
 
     const client = await getCalendarClient(userId);
+    if (!client) {
+      return NextResponse.json({ error: 'Please connect your Google Calendar on the onboarding page before managing events.' }, { status: 400 });
+    }
 
     const result = await client.googlecalendar.api.events.update({
       calendarId: 'primary',
@@ -147,6 +176,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     const client = await getCalendarClient(userId);
+    if (!client) {
+      return NextResponse.json({ error: 'Please connect your Google Calendar on the onboarding page before managing events.' }, { status: 400 });
+    }
 
     await client.googlecalendar.api.events.delete({
       calendarId: 'primary',

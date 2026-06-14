@@ -4,6 +4,7 @@ import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
+import { MOCK_EMAILS } from '@/utils/mock-emails';
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,6 +18,14 @@ export async function GET(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Missing email id parameter.' }, { status: 400 });
+    }
+
+    if (id.startsWith('mock-')) {
+      const mockEmail = MOCK_EMAILS.find(m => m.id === id);
+      if (mockEmail) {
+        return NextResponse.json(mockEmail);
+      }
+      return NextResponse.json({ error: 'Mock email not found.' }, { status: 404 });
     }
 
     // Check if user has connected accounts
@@ -37,9 +46,12 @@ export async function GET(req: NextRequest) {
     const hasGmailConnection = connectedAccounts.some(
       acc => acc.name === 'gmail' && (acc.config as GmailConfig)?.access_token
     );
-    const gmailTenantId = hasGmailConnection ? userId : 'dev';
 
-    const client = corsair.withTenant(gmailTenantId);
+    if (!hasGmailConnection) {
+      return NextResponse.json({ error: 'Please connect your Gmail account to view email details.' }, { status: 403 });
+    }
+
+    const client = corsair.withTenant(userId);
 
     // Fetch full message payload
     const full = await client.gmail.api.messages.get({
