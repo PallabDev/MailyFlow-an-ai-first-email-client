@@ -58,7 +58,7 @@ export default async function OnboardingPage({
       <header className="flex items-center justify-between border-b border-sidebar-border bg-card px-6 py-4 backdrop-blur-md">
         <div className="flex items-center space-x-3">
           <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent via-success to-accent-glow bg-clip-text text-transparent">
-            AgentiFlow
+            MailyFlow
           </span>
         </div>
         <div className="flex items-center space-x-4">
