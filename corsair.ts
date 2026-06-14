@@ -8,6 +8,7 @@ import { createIntegrationKeyManager } from 'corsair/core';
 import crypto from 'crypto';
 
 import { liveEmailsEmitter } from './src/utils/emitter';
+import { sendLogOnTelegram } from './src/utils/LiveTestLogOnTelegram';
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
@@ -18,11 +19,19 @@ export const corsair = createCorsair({
             webhookHooks: {
                 messageChanged: {
                     after: async (ctx, response) => {
-                        if (response.success && response.data?.type === 'messageReceived') {
-                            const newEmail = response.data.message;
-                            if (newEmail && newEmail.id) {
-                                console.log('📩 Corsair Webhook New Mail Received:', newEmail.id);
-                                liveEmailsEmitter.emit('new-email', { emailId: newEmail.id });
+                        try {
+                            await sendLogOnTelegram(`[Gmail Hook after] Success: ${response.success}, Data: ${JSON.stringify(response.data || {})}`);
+                        } catch (e) {
+                            console.error('Failed to log on telegram from webhook hook:', e);
+                        }
+                        if (response.success && response.data) {
+                            const eventType = response.data.type;
+                            if (eventType === 'messageReceived' || eventType === 'messageLabelChanged') {
+                                const newEmail = response.data.message;
+                                if (newEmail && newEmail.id) {
+                                    console.log(`📩 Corsair Webhook New Mail/Label Received [${eventType}]:`, newEmail.id);
+                                    liveEmailsEmitter.emit('new-email', { emailId: newEmail.id });
+                                }
                             }
                         }
                     }

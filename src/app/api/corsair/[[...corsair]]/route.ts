@@ -3,6 +3,7 @@ import { corsair, db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { CorsairPlaceholder } from './_types';
+import { sendLogOnTelegram } from '@/utils/LiveTestLogOnTelegram';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',
@@ -21,6 +22,13 @@ export async function POST(request: Request) {
     });
 
     const body = await request.json();
+
+    // Log incoming payload to Telegram
+    try {
+      await sendLogOnTelegram(`[Webhook POST] Payload: ${JSON.stringify(body)}`);
+    } catch (e) {
+      console.error('Failed to log on telegram from webhook route:', e);
+    }
 
     // Check query params for tenantId, or query the database for the active gmail tenant
     const url = new URL(request.url);
@@ -61,15 +69,25 @@ export async function POST(request: Request) {
         }
       } catch (err) {
         console.error('Error finding tenant for webhook:', err);
+        try {
+          await sendLogOnTelegram(`[Webhook POST] Error finding tenant: ${err instanceof Error ? err.message : String(err)}`);
+        } catch (e) {}
       }
     }
 
     console.log(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId || 'default'}`);
+    try {
+      await sendLogOnTelegram(`[Webhook POST] Attempting process with tenantId: ${activeTenantId || 'default'}`);
+    } catch (e) {}
 
     // Try processing the webhook first
     const result = await processWebhook(corsair, headersObj, body, {
       tenantId: activeTenantId || 'default',
     });
+
+    try {
+      await sendLogOnTelegram(`[Webhook POST] processWebhook Result: ${JSON.stringify(result)}`);
+    } catch (e) {}
 
     if (result.plugin) {
       console.log(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
@@ -83,6 +101,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Error parsing or processing webhook payload:', error);
+    try {
+      await sendLogOnTelegram(`[Webhook POST] Exception: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (e) {}
   }
 
   // Fallback to default Corsair management handler with the cloned unconsumed request
