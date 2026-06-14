@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export interface ChatMessage {
   id: string;
+  clientKey?: string;
   role: 'user' | 'assistant';
   content: string;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
@@ -102,6 +103,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ...get().messages,
       {
         id: tempUserMsgId,
+        clientKey: tempUserMsgId,
         role: 'user',
         content: text,
         status: 'completed',
@@ -109,6 +111,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
       {
         id: tempAssistantMsgId,
+        clientKey: tempAssistantMsgId,
         role: 'assistant',
         content: '',
         status: 'pending',
@@ -150,8 +153,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Update temporary IDs with the ones returned from the database
       set((state) => ({
         messages: state.messages.map((m) => {
-          if (m.id === tempUserMsgId) return { ...m, id: actualUserMsgId };
-          if (m.id === tempAssistantMsgId) return { ...m, id: actualAssistantMsgId };
+          if (m.id === tempUserMsgId) return { ...m, id: actualUserMsgId, clientKey: tempUserMsgId };
+          if (m.id === tempAssistantMsgId) return { ...m, id: actualAssistantMsgId, clientKey: tempAssistantMsgId };
           return m;
         }),
       }));

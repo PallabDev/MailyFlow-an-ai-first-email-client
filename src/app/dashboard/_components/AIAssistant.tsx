@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, XCircle } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, XCircle, Pause } from 'lucide-react';
 import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { motion } from 'motion/react';
 
@@ -25,6 +25,29 @@ const PremiumPulsingLoader = () => (
   </div>
 );
 
+// Helper to convert URLs in plain text into clickable links
+function renderLinksAndText(text: string): React.ReactNode[] {
+  if (!text) return [];
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#6e9b7e] hover:underline break-all font-semibold inline-block"
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 function formatMessageContent(content: string): React.ReactNode {
   if (!content) return null;
   const lines = content.split('\n');
@@ -40,23 +63,23 @@ function formatMessageContent(content: string): React.ReactNode {
       
       while ((match = tokenRegex.exec(text)) !== null) {
         if (match.index > currentIndex) {
-          parts.push(text.substring(currentIndex, match.index));
+          parts.push(...renderLinksAndText(text.substring(currentIndex, match.index)));
         }
         
         const [, token, innerText] = match;
         if (token === '**') {
-          parts.push(<strong key={match.index} className="font-bold text-foreground">{innerText}</strong>);
+          parts.push(<strong key={match.index} className="font-bold text-foreground">{renderLinksAndText(innerText)}</strong>);
         } else if (token === '*') {
-          parts.push(<em key={match.index} className="italic text-foreground/90">{innerText}</em>);
+          parts.push(<em key={match.index} className="italic text-foreground/90">{renderLinksAndText(innerText)}</em>);
         } else if (token === '`') {
-          parts.push(<code key={match.index} className="bg-background px-1.5 py-0.5 rounded font-mono text-xs text-rose-500 border border-border">{innerText}</code>);
+          parts.push(<code key={match.index} className="bg-background px-1.5 py-0.5 rounded font-mono text-xs text-rose-500 border border-border break-all">{innerText}</code>);
         }
         
         currentIndex = tokenRegex.lastIndex;
       }
       
       if (currentIndex < text.length) {
-        parts.push(text.substring(currentIndex));
+        parts.push(...renderLinksAndText(text.substring(currentIndex)));
       }
       
       return parts.length > 0 ? parts : text;
@@ -121,6 +144,7 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   
   // Start a fresh AI assistant instance on mount/refresh
   useEffect(() => {
@@ -128,9 +152,20 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
     return () => clearPolling();
   }, []);
 
-  // Scroll chat to bottom
+  // Smart Auto-Scroll to bottom (only scroll if user is already at the bottom or sent a message)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const threshold = 150;
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+
+    const lastMessage = messages[messages.length - 1];
+    const isLastMessageUser = lastMessage?.role === 'user';
+
+    if (isNearBottom || isLastMessageUser) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, chatLoading]);
 
   // Handle manual cancel/pause of pending AI request
@@ -204,7 +239,7 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
       {/* Toggle Collapse button */}
       <button
         onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-        className="absolute -left-3 top-4 p-1 hover:bg-sidebar-hover rounded-full border border-border bg-card text-slate-500 hover:text-foreground transition-all shadow-sm z-50 cursor-pointer"
+        className="absolute -left-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer flex items-center justify-center h-7 w-7"
         title={isRightSidebarCollapsed ? 'Expand AI Assistant' : 'Collapse AI Assistant'}
       >
         {isRightSidebarCollapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -224,14 +259,10 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
               <Sparkles className="h-4.5 w-4.5 text-[#6e9b7e]" />
               <span className="font-bold text-foreground text-sm">AI Assistant</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <span className="h-2 w-2 rounded-full bg-[#6e9b7e] animate-pulse"></span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">Active</span>
-            </div>
           </div>
 
           {/* Scrollable Chat Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarGutter: 'stable' }}>
             {messages.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                 <Sparkles className="h-8 w-8 text-[#6e9b7e]/40 mb-2" />
@@ -251,7 +282,7 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
 
               return (
                 <motion.div
-                  key={msg.id || index}
+                  key={msg.clientKey || msg.id || index}
                   initial={{ opacity: 0, y: 12, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.25, ease: [0.215, 0.610, 0.355, 1.000] }}
@@ -259,7 +290,7 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                     isAssistant ? 'self-start' : 'self-end ml-auto'
                   }`}
                 >
-                  <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200 ${
+                  <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200 break-words ${
                     isAssistant
                       ? isCancelled
                         ? 'bg-danger/10 border border-danger/20 text-danger'
@@ -287,24 +318,6 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
 
           {/* Bottom Actions & Input */}
           <div className="p-4 border-t border-border bg-card shrink-0">
-            {/* Active AI thinking state pause/cancel prompt */}
-            {chatLoading && (
-              <div className="flex items-center justify-between bg-warning/10 border border-warning/20 px-3 py-1.5 rounded-xl text-xs text-warning mb-2 animate-pulse">
-                <div className="flex items-center space-x-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-warning"></span>
-                  <span>Generating response...</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="flex items-center space-x-1 px-2.5 py-1 rounded bg-danger hover:bg-danger/80 text-white font-bold cursor-pointer transition-colors shadow-sm"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  <span>Pause AI</span>
-                </button>
-              </div>
-            )}
-
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -340,14 +353,25 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                 className="w-full bg-background border border-border rounded-xl py-2.5 pl-4 pr-12 text-sm text-foreground placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none overflow-y-auto"
                 style={{ minHeight: '90px', maxHeight: '180px' }}
               />
-              <button
-                type="submit"
-                disabled={chatLoading || !chatInput.trim()}
-                className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-success text-white hover:bg-success/80 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Send Message"
-              >
-                <ArrowUp className="h-3.5 w-3.5" />
-              </button>
+              {chatLoading ? (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-danger hover:bg-danger/80 text-white transition-all flex items-center justify-center cursor-pointer shadow-sm animate-pulse"
+                  title="Pause AI Response"
+                >
+                  <Pause className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim()}
+                  className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-success text-white hover:bg-success/80 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Send Message"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+              )}
             </form>
           </div>
         </div>

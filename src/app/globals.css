@@ -30,9 +30,9 @@
   --sidebar-bg: #dbe0db;
   --sidebar-text: #5e635f;
   --sidebar-border: #ccd2cd;
-  --sidebar-hover: #f4f7f4;
-  --sidebar-active-bg: #d2dcd4;
-  --sidebar-active-text: #3f5447;
+  --sidebar-hover: #cdd9cf; /* richer sage green tint for hover in light theme */
+  --sidebar-active-bg: #b4c7ba; /* richer sage green tint for active button in light theme */
+  --sidebar-active-text: #223a2b;
   
   --sender-sage: #5f7a68;
   --sender-blue: #6b8299;
@@ -120,6 +120,32 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Custom premium scrollbar overrides for both light and dark modes */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--background);
 }
 
 
