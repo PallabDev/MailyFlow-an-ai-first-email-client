@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgentiFlow — Workspace Integration Control Center",
-  description: "A premium AI-agent integration platform built on Corsair & Clerk.",
+  title: "MailyFlow — AI First Mail Client",
+  description: "A premium AI-agent integration platform for gmail and calendar.",
 };
 
 export default function RootLayout({
