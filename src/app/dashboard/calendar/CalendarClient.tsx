@@ -177,6 +177,19 @@ export default function CalendarClient({
         <div className="flex items-center space-x-3">
           <CalendarIcon className="h-5 w-5 text-text-secondary" />
           <h1 className="text-lg font-bold text-text-primary">Calendar</h1>
+
+          {/* Refresh Button */}
+          <button
+            onClick={fetchEvents}
+            disabled={eventsLoading}
+            className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+              eventsLoading ? 'animate-spin opacity-50' : ''
+            }`}
+            title="Refresh events"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+
           <span className="text-xs text-text-secondary font-medium">
             {eventsState.filter(e => {
               if (!e.start?.dateTime && !e.start?.date) return false;
@@ -280,13 +293,21 @@ export default function CalendarClient({
           {/* Events scrollable list */}
           <div className="flex-1 overflow-y-auto divide-y divide-border-row bg-background">
             {eventsLoading && (
-              <div className="flex flex-col items-center justify-center p-12 space-y-3">
-                <div className="flex items-center space-x-1.5">
-                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce"></div>
-                </div>
-                <span className="text-xs text-text-secondary font-semibold">Updating schedule...</span>
+              <div className="divide-y divide-border-row w-full">
+                {[...Array(3)].map((_, i) => (
+                  <div key={`cal-skeleton-${i}`} className="p-5 space-y-3 animate-pulse bg-background">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Event title skeleton */}
+                      <div className="h-4 w-40 bg-surface-subtle rounded"></div>
+                      {/* Time badge skeleton */}
+                      <div className="h-5 w-24 bg-border rounded shrink-0"></div>
+                    </div>
+                    {/* Description skeleton */}
+                    <div className="h-3 w-5/6 bg-border rounded"></div>
+                    {/* Location badge skeleton */}
+                    <div className="h-4 w-28 bg-surface-subtle rounded"></div>
+                  </div>
+                ))}
               </div>
             )}
 

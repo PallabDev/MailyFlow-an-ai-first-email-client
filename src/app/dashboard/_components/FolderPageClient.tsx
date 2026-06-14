@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Clock,
   RefreshCw,
-  Star,
   PenSquare,
   ChevronLeft,
   Trash2
@@ -37,9 +36,14 @@ type FolderPageClientProps = {
 };
 
 // Mock fallback emails to display if there's no connection
-const mockEmails: Email[] = [
+const mockEmails: Email[] = [];
 
-];
+// SWR cache for folders to prevent layout flash during navigation
+const emailCache: Record<string, {
+  emails: Email[];
+  nextPageToken: string | null;
+  fetchedAt: number;
+}> = {};
 
 export default function FolderPageClient({
   initialEmails,
@@ -57,19 +61,19 @@ export default function FolderPageClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [starredEmails, setStarredEmails] = useState<Set<string>>(new Set());
+  const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
 
-  const fetchEmails = async (force: boolean = false) => {
+  const fetchEmails = async (force: boolean = false, isBackground: boolean = false) => {
     if (force) {
       setRefreshing(true);
-    } else {
+    } else if (!isBackground) {
       setLoading(true);
     }
     setEmailErrorState(null);
     try {
-      const res = await fetch(`/api/emails?folder=${folder}&limit=20${force ? '&refresh=true' : ''}`);
+      const res = await fetch(`/api/emails?folder=${folder}&limit=20${(force || isBackground) ? '&refresh=true' : ''}`);
       if (res.ok) {
         const data = await res.json();
         let fetchedEmails = data.emails ?? [];
@@ -77,34 +81,52 @@ export default function FolderPageClient({
           fetchedEmails = mockEmails;
         }
         
+        // Cache the fetched emails
+        emailCache[folder] = {
+          emails: fetchedEmails,
+          nextPageToken: data.nextPageToken || null,
+          fetchedAt: Date.now()
+        };
+
         setEmailsState(fetchedEmails);
         setNextPageToken(data.nextPageToken || null);
         window.dispatchEvent(new CustomEvent('refresh-labels'));
       } else {
         const data = await res.json().catch(() => ({}));
         setEmailErrorState(data.error || 'Failed to fetch emails.');
-        if (!force) {
+        if (!force && !isBackground) {
           setEmailsState(mockEmails);
         }
       }
     } catch (err: any) {
       console.error('Error fetching emails client-side:', err);
       setEmailErrorState('Failed to fetch emails.');
-      if (!force) {
+      if (!force && !isBackground) {
         setEmailsState(mockEmails);
       }
     } finally {
       if (force) {
         setRefreshing(false);
-      } else {
+      } else if (!isBackground) {
         setLoading(false);
       }
     }
   };
 
   useEffect(() => {
-    fetchEmails(false);
     setSelectedEmail(null);
+    setSelectedEmails(new Set()); // Reset selected on folder change
+    
+    const cached = emailCache[folder];
+    if (cached) {
+      setEmailsState(cached.emails);
+      setNextPageToken(cached.nextPageToken);
+      setLoading(false);
+      // Run revalidation in the background silently
+      fetchEmails(false, true);
+    } else {
+      fetchEmails(false, false);
+    }
   }, [folder]);
 
   // Connect to real-time new email events pushed from Corsair webhooks
@@ -185,7 +207,13 @@ export default function FolderPageClient({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: `📱 [Client] Prepended new email ID: ${newEmail.id} ("${newEmail.subject || '(no subject)'}") to folder: ${folder}` })
               }).catch(() => {});
-              return [newEmail, ...prev];
+              
+              const updated = [newEmail, ...prev];
+              // Update cache
+              if (emailCache[folder]) {
+                emailCache[folder].emails = updated;
+              }
+              return updated;
             });
 
             // Refresh sidebar counts dynamically
@@ -214,10 +242,6 @@ export default function FolderPageClient({
     };
   }, [folder]);
 
-
-
-
-
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
@@ -229,10 +253,17 @@ export default function FolderPageClient({
           setEmailsState((prev) => {
             const existingIds = new Set(prev.map((e) => e.id));
             const newEmails = data.emails.filter((e: any) => !existingIds.has(e.id));
-            return [...prev, ...newEmails];
+            const updated = [...prev, ...newEmails];
+            if (emailCache[folder]) {
+              emailCache[folder].emails = updated;
+            }
+            return updated;
           });
         }
         setNextPageToken(data.nextPageToken || null);
+        if (emailCache[folder]) {
+          emailCache[folder].nextPageToken = data.nextPageToken || null;
+        }
       }
     } catch (error) {
       console.error('Error loading more emails:', error);
@@ -254,18 +285,24 @@ export default function FolderPageClient({
   const handleTrashEmail = async (emailId: string) => {
     // Optimistic UI update
     if (folder === 'trash') {
-      setEmailsState((prev) => prev.filter((e) => e.id !== emailId));
+      setEmailsState((prev) => {
+        const updated = prev.filter((e) => e.id !== emailId);
+        if (emailCache[folder]) emailCache[folder].emails = updated;
+        return updated;
+      });
     } else {
-      setEmailsState((prev) =>
-        prev.map((e) => {
+      setEmailsState((prev) => {
+        const updated = prev.map((e) => {
           if (e.id === emailId) {
             const nextLabels = (e.labelIds || []).filter((l) => l !== 'INBOX' && l !== 'DRAFT');
             if (!nextLabels.includes('TRASH')) nextLabels.push('TRASH');
             return { ...e, labelIds: nextLabels };
           }
           return e;
-        })
-      );
+        });
+        if (emailCache[folder]) emailCache[folder].emails = updated;
+        return updated;
+      });
     }
     setSelectedEmail(null);
 
@@ -282,17 +319,48 @@ export default function FolderPageClient({
     }
   };
 
-  const toggleStar = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setStarredEmails((prev) => {
+  const toggleSelectEmail = (emailId: string) => {
+    setSelectedEmails((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
+      if (next.has(emailId)) {
+        next.delete(emailId);
       } else {
-        next.add(id);
+        next.add(emailId);
       }
       return next;
     });
+  };
+
+  const handleBulkDelete = async () => {
+    const idsToDelete = Array.from(selectedEmails);
+    if (idsToDelete.length === 0) return;
+
+    // Optimistically update local emails list
+    setEmailsState((prev) => {
+      const updated = prev.filter((e) => !selectedEmails.has(e.id));
+      if (emailCache[folder]) emailCache[folder].emails = updated;
+      return updated;
+    });
+    setSelectedEmails(new Set());
+    setSelectedEmail(null);
+
+    try {
+      await Promise.all(
+        idsToDelete.map(async (emailId) => {
+          if (!emailId.startsWith('mock-')) {
+            await fetch('/api/trash-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: emailId, permanently: folder === 'trash' }),
+            });
+          }
+        })
+      );
+    } catch (error) {
+      console.error('Error bulk deleting emails:', error);
+    } finally {
+      window.dispatchEvent(new CustomEvent('refresh-labels'));
+    }
   };
 
   // Filter based on query and folder
@@ -396,10 +464,29 @@ export default function FolderPageClient({
           <button
             onClick={() => handleTrashEmail(selectedEmail.id)}
             className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-            title="Move to Trash"
+            title={folder === 'trash' ? "Delete Permanently" : "Move to Trash"}
           >
             <Trash2 className="h-4.5 w-4.5" />
           </button>
+        ) : selectedEmails.size > 0 ? (
+          <div className="flex items-center space-x-3">
+            <span className="text-xs text-text-secondary font-medium">
+              {selectedEmails.size} selected
+            </span>
+            <button
+              onClick={() => setSelectedEmails(new Set())}
+              className="py-1.5 px-3 rounded-lg text-xs font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer bg-transparent border border-border"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="inline-flex items-center space-x-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete</span>
+            </button>
+          </div>
         ) : (
           folder !== 'trash' && (
             <button
@@ -486,7 +573,7 @@ export default function FolderPageClient({
 
             {!loading && uniqueEmails.map((email, idx) => {
               const sender = parseSender(email.from);
-              const isStarred = starredEmails.has(email.id);
+              const isSelected = selectedEmails.has(email.id);
               const isUnread = email.labelIds ? email.labelIds.includes('UNREAD') : idx < 3;
 
               return (
@@ -503,8 +590,29 @@ export default function FolderPageClient({
                   )}
 
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)}`}>
-                      {getInitials(email.from)}
+                    {/* Checkbox / Avatar container */}
+                    <div 
+                      className="relative h-10 w-10 shrink-0 select-none"
+                      onClick={(e) => e.stopPropagation()} // Prevent opening details when clicking checkbox container
+                    >
+                      {/* Avatar */}
+                      <div className={`absolute inset-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)} ${
+                        isSelected ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-75'
+                      }`}>
+                        {getInitials(email.from)}
+                      </div>
+                      
+                      {/* Select option (Checkbox) */}
+                      <div className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ${
+                        isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectEmail(email.id)}
+                          className="h-5 w-5 rounded-md border-2 border-border text-success focus:ring-success bg-background cursor-pointer"
+                        />
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0 pr-8">
@@ -525,14 +633,6 @@ export default function FolderPageClient({
                       </p>
                     </div>
                   </div>
-
-                  <button
-                    onClick={(e) => toggleStar(email.id, e)}
-                    className={`p-1 rounded hover:bg-sidebar-hover transition-colors shrink-0 cursor-pointer ${isStarred ? 'text-amber-500' : 'text-text-muted group-hover:text-text-secondary'
-                      }`}
-                  >
-                    <Star className="h-4.5 w-4.5" fill={isStarred ? 'currentColor' : 'none'} />
-                  </button>
                 </div>
               );
             })}

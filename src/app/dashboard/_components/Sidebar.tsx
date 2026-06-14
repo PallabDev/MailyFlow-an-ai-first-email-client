@@ -70,23 +70,30 @@ export default function Sidebar({
   };
 
   return (
-    <aside className={`border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
+    <aside className={`relative border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
       isLeftSidebarCollapsed ? 'w-16' : 'w-60'
     }`}>
+      {/* Absolute-positioned Symmetrical Toggle Button */}
+      <button
+        onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
+        className="absolute -right-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer flex items-center justify-center h-7 w-7"
+        title={isLeftSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+      >
+        {isLeftSidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+      </button>
+
       <div className="flex flex-col flex-1 min-h-0">
-        {/* Logo & Toggle Header */}
+        {/* Logo Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border bg-card">
-          {!isLeftSidebarCollapsed && (
+          {!isLeftSidebarCollapsed ? (
             <div className="flex items-center">
               <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
             </div>
+          ) : (
+            <div className="w-full flex items-center justify-center">
+              <span className="font-extrabold text-card-foreground tracking-tight text-sm">{projectName.substring(0, 2)}</span>
+            </div>
           )}
-          <button
-            onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-            className="p-1.5 border border-border/80 dark:border-border hover:bg-sidebar-hover rounded-full text-sidebar-text hover:text-sidebar-active-text transition-colors cursor-pointer flex items-center justify-center h-7 w-7"
-          >
-            {isLeftSidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
         </div>
 
         {/* Navigation Sections */}

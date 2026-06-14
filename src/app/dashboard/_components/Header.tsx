@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun, Bell } from 'lucide-react';
+import { Search, Moon, Sun } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { useChatStore } from '@/store/chatStore';
@@ -89,9 +89,6 @@ export default function Header({ user, projectName }: HeaderProps) {
           title={theme === 'dark' ? 'Activate Light Mode' : 'Activate Dark Mode'}
         >
           {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
-        </button>
-        <button className="p-1.5 hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground" title="Notifications">
-          <Bell className="h-4.5 w-4.5" />
         </button>
         <div className="flex items-center justify-center h-8 w-8">
           <UserButton appearance={theme === 'dark' ? { baseTheme: dark } : undefined} />

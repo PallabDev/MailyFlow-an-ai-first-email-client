@@ -13,6 +13,7 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,10 +48,47 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
     }
   };
 
+  const handleSaveDraft = async () => {
+    if (!composeTo || !composeSubject || !composeBody) {
+      alert('Please fill out all fields (To, Subject, Body) before saving a draft.');
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const res = await fetch('/api/save-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: composeTo,
+          subject: composeSubject,
+          body: composeBody,
+        }),
+      });
+
+      if (res.ok) {
+        alert('Draft saved successfully!');
+        setComposeTo('');
+        setComposeSubject('');
+        setComposeBody('');
+        onClose();
+        // Trigger labels count update and email list refresh
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error || 'Failed to save draft'}`);
+      }
+    } catch (err) {
+      console.error('Error saving draft:', err);
+      alert('Failed to save draft.');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl relative animate-zoom-in text-text-primary">
         <div className="h-14 px-6 border-b border-border flex items-center justify-between bg-surface-subtle rounded-t-2xl">
           <span className="font-bold text-text-primary text-sm">Compose New Email</span>
@@ -102,14 +140,15 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
           <div className="flex items-center justify-end space-x-3 pt-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card"
+              onClick={handleSaveDraft}
+              disabled={savingDraft || sendingEmail}
+              className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card disabled:opacity-50"
             >
-              Cancel
+              {savingDraft ? 'Saving...' : 'Save Draft'}
             </button>
             <button
               type="submit"
-              disabled={sendingEmail}
+              disabled={sendingEmail || savingDraft}
               className="inline-flex items-center space-x-1.5 rounded-xl bg-success hover:opacity-90 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
             >
               {sendingEmail ? (
