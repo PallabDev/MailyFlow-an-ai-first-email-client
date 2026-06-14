@@ -45,6 +45,7 @@ export default function ClientLayoutWrapper({
         projectName={projectName}
         isLeftSidebarCollapsed={isLeftSidebarCollapsed}
         setIsLeftSidebarCollapsed={setIsLeftSidebarCollapsed}
+        user={user}
       />
 
       {/* 2. MIDDLE CONTENT PANEL */}

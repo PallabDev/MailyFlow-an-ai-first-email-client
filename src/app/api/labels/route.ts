@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
         const spamRow = rows.find(r => r.entityId === 'SPAM');
 
         if (inboxRow || draftsRow || spamRow) {
+          const isGmailConnected = connectedAccounts.some(acc => acc.name === 'gmail' && (acc.config as any)?.access_token);
+          const isCalendarConnected = connectedAccounts.some(acc => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
           return NextResponse.json({
             inbox: {
               unread: inboxRow ? ((inboxRow.data as LabelData).messagesUnread ?? 0) : 0,
@@ -63,6 +65,10 @@ export async function GET(req: NextRequest) {
             },
             spam: {
               total: spamRow ? ((spamRow.data as LabelData).messagesTotal ?? 0) : 0,
+            },
+            connections: {
+              gmail: isGmailConnected,
+              calendar: isCalendarConnected
             }
           });
         }
@@ -88,6 +94,8 @@ export async function GET(req: NextRequest) {
       client.gmail.api.labels.get({ id: 'SPAM' }).catch(handleLabelError),
     ]);
 
+    const isGmailConnected = connectedAccounts.some(acc => acc.name === 'gmail' && (acc.config as any)?.access_token);
+    const isCalendarConnected = connectedAccounts.some(acc => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
     return NextResponse.json({
       inbox: {
         unread: inbox?.messagesUnread ?? 0,
@@ -98,6 +106,10 @@ export async function GET(req: NextRequest) {
       },
       spam: {
         total: spam?.messagesTotal ?? 0,
+      },
+      connections: {
+        gmail: isGmailConnected,
+        calendar: isCalendarConnected
       }
     });
   } catch (error: unknown) {

@@ -11,19 +11,28 @@ import {
   ChevronRight,
   ChevronLeft,
   Send,
-  Clock
+  Clock,
+  Link2
 } from 'lucide-react';
 
 type SidebarProps = {
   projectName: string;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (val: boolean) => void;
+  user: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    imageUrl: string;
+  };
 };
 
 export default function Sidebar({
   projectName,
   isLeftSidebarCollapsed,
   setIsLeftSidebarCollapsed,
+  user,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -35,6 +44,8 @@ export default function Sidebar({
   const [inboxUnread, setInboxUnread] = useState(0);
   const [draftsTotal, setDraftsTotal] = useState(0);
   const [spamTotal, setSpamTotal] = useState(0);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
 
   // Fetch labels count on mount once (no polling)
   useEffect(() => {
@@ -46,6 +57,8 @@ export default function Sidebar({
           setInboxUnread(data.inbox?.unread ?? 0);
           setDraftsTotal(data.drafts?.total ?? 0);
           setSpamTotal(data.spam?.total ?? 0);
+          setGmailConnected(data.connections?.gmail ?? false);
+          setCalendarConnected(data.connections?.calendar ?? false);
         }
       } catch (err) {
         console.error('Failed to fetch label counts:', err);
@@ -185,7 +198,89 @@ export default function Sidebar({
               </button>
             </nav>
           </div>
+
+          {/* Integrations Section */}
+          <div className="space-y-1">
+            <nav className="space-y-0.5">
+              <button
+                onClick={() => navigateToTab('integrations')}
+                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+                  activeTab === 'integrations'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
+                }`}
+              >
+                <Link2 className="h-4.5 w-4.5 shrink-0" />
+                {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Integrations</span>}
+              </button>
+            </nav>
+          </div>
         </div>
+      </div>
+
+      {/* Premium Sidebar Footer */}
+      <div className="border-t border-sidebar-border bg-card p-3 shrink-0">
+        {!isLeftSidebarCollapsed ? (
+          <div className="space-y-3">
+            {/* Connection Status Section */}
+            <div className="rounded-xl bg-sidebar-bg p-2.5 border border-sidebar-border space-y-2">
+              <span className="text-[9px] font-extrabold tracking-wider text-slate-400 uppercase block">Connections</span>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-secondary font-medium flex items-center">
+                  <span className={`w-1.5 h-1.5 rounded-full mr-2 ${gmailConnected ? 'bg-success' : 'bg-slate-400'}`}></span>
+                  Gmail
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${gmailConnected ? 'bg-success/15 text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                  {gmailConnected ? 'Active' : 'Offline'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-secondary font-medium flex items-center">
+                  <span className={`w-1.5 h-1.5 rounded-full mr-2 ${calendarConnected ? 'bg-success' : 'bg-slate-400'}`}></span>
+                  Calendar
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${calendarConnected ? 'bg-success/15 text-success' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                  {calendarConnected ? 'Active' : 'Offline'}
+                </span>
+              </div>
+            </div>
+            
+            {/* User Profile Info */}
+            <div className="flex items-center space-x-2.5 pt-1">
+              {user?.imageUrl ? (
+                <img src={user.imageUrl} alt="Profile" className="h-8 w-8 rounded-full border border-border" />
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-accent/15 text-accent font-semibold flex items-center justify-center text-xs">
+                  {user?.firstName?.charAt(0) || 'U'}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-card-foreground truncate leading-tight">
+                  {user?.firstName || 'User'}
+                </p>
+                <p className="text-[10px] text-text-muted truncate leading-none mt-0.5">
+                  {user?.email || ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center space-y-3">
+            {/* Mini status indicator */}
+            <div className="flex flex-col space-y-1">
+              <div className={`w-2 h-2 rounded-full ${gmailConnected ? 'bg-success' : 'bg-slate-400'}`} title={`Gmail: ${gmailConnected ? 'Connected' : 'Disconnected'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${calendarConnected ? 'bg-success' : 'bg-slate-400'}`} title={`Calendar: ${calendarConnected ? 'Connected' : 'Disconnected'}`}></div>
+            </div>
+            {/* User Profile Mini */}
+            {user?.imageUrl ? (
+              <img src={user.imageUrl} alt="Profile" className="h-6 w-6 rounded-full border border-border" />
+            ) : (
+              <div className="h-6 w-6 rounded-full bg-accent/15 text-accent font-semibold flex items-center justify-center text-[10px]">
+                {user?.firstName?.charAt(0) || 'U'}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
     </aside>

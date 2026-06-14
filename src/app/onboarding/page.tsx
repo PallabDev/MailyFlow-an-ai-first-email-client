@@ -203,14 +203,6 @@ export default async function OnboardingPage({
               </p>
             </div>
             <div className="flex items-center space-x-4">
-              {!allConnected && (
-                <Link
-                  href="/dashboard"
-                  className="text-xs font-semibold text-text-muted hover:text-text-secondary transition-colors"
-                >
-                  Bypass (Developer Mode)
-                </Link>
-              )}
               {allConnected ? (
                 <Link
                   href="/dashboard"
