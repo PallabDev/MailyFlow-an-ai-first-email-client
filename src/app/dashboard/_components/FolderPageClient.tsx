@@ -109,10 +109,16 @@ export default function FolderPageClient({
 
   // Connect to real-time new email events pushed from Corsair webhooks
   useEffect(() => {
+    console.log('🔌 [Live Email SSE] Initializing EventSource connection...');
     const eventSource = new EventSource('/api/emails/live');
+
+    eventSource.onopen = () => {
+      console.log('🔌 [Live Email SSE] EventSource connection opened successfully.');
+    };
 
     eventSource.onmessage = async (event) => {
       try {
+        console.log('🔌 [Live Email SSE] Raw event message received:', event.data);
         const data = JSON.parse(event.data);
         if (data && data.emailId) {
           const emailId = data.emailId;
@@ -122,12 +128,17 @@ export default function FolderPageClient({
             alreadyExists = prev.some((e) => e.id === emailId);
             return prev;
           });
-          if (alreadyExists) return;
+          if (alreadyExists) {
+            console.log(`🔌 [Live Email SSE] Email ID ${emailId} is already in the list. Skipping.`);
+            return;
+          }
 
+          console.log(`🔌 [Live Email SSE] Fetching details for new email ID: ${emailId}`);
           // Load details of the newly arrived email
           const res = await fetch(`/api/emails/detail?id=${emailId}`);
           if (res.ok) {
             const newEmail = await res.json();
+            console.log('🔌 [Live Email SSE] Fetched details successfully:', newEmail);
             
             // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
             setEmailsState((prev) => {
@@ -135,6 +146,7 @@ export default function FolderPageClient({
               
               // Verify labelIds match the current folder filters
               if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
+                console.log(`🔌 [Live Email SSE] New email ${newEmail.id} is not in INBOX. Skipping prepend.`);
                 return prev;
               }
               if (folder === 'spam' && newEmail.labelIds && !newEmail.labelIds.includes('SPAM')) {
@@ -144,23 +156,27 @@ export default function FolderPageClient({
                 return prev;
               }
               
+              console.log(`🔌 [Live Email SSE] Prepended new email ${newEmail.id} to folder: ${folder}`);
               return [newEmail, ...prev];
             });
 
             // Refresh sidebar counts dynamically
             window.dispatchEvent(new CustomEvent('refresh-labels'));
+          } else {
+            console.error(`🔌 [Live Email SSE] Failed to fetch details for email ID: ${emailId}. Status: ${res.status}`);
           }
         }
       } catch (err) {
-        console.error('Error handling live new email notification:', err);
+        console.error('🔌 [Live Email SSE] Error handling live new email notification:', err);
       }
     };
 
     eventSource.onerror = (err) => {
-      console.error('Real-time SSE event connection error:', err);
+      console.error('🔌 [Live Email SSE] Real-time SSE event connection error:', err);
     };
 
     return () => {
+      console.log('🔌 [Live Email SSE] Closing EventSource connection.');
       eventSource.close();
     };
   }, [folder]);

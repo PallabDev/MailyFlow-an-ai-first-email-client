@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq, or, and } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { Mail, Calendar, CheckCircle2, ArrowRight } from 'lucide-react';
+import { disconnectPlugin } from './actions';
 
 export default async function OnboardingPage({
   searchParams,
@@ -39,38 +40,38 @@ export default async function OnboardingPage({
   const allConnected = isGmailConnected && isCalendarConnected;
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-slate-950 text-slate-100 antialiased">
-      {/* Dynamic Background Gradients */}
-      <div className="absolute top-[-20%] left-[-10%] -z-10 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] -z-10 h-[600px] w-[600px] rounded-full bg-purple-500/10 blur-3xl animate-pulse delay-700"></div>
+    <div className="relative flex min-h-screen flex-col bg-background text-text-primary antialiased font-sans">
+      {/* Background Subtle Accent Gradients */}
+      <div className="absolute top-[-20%] left-[-10%] -z-10 h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] -z-10 h-[600px] w-[600px] rounded-full bg-success/5 blur-3xl animate-pulse delay-700"></div>
 
-      {/* Header / Nav */}
-      <header className="flex items-center justify-between border-b border-white/5 bg-slate-900/20 px-6 py-4 backdrop-blur-md">
+      {/* Header */}
+      <header className="flex items-center justify-between border-b border-sidebar-border bg-card px-6 py-4 backdrop-blur-md">
         <div className="flex items-center space-x-3">
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent via-success to-accent-glow bg-clip-text text-transparent">
             AgentiFlow
           </span>
         </div>
         <div className="flex items-center space-x-4">
-          <span className="text-sm text-slate-400 hidden sm:inline">{user?.emailAddresses[0]?.emailAddress}</span>
+          <span className="text-sm text-text-secondary hidden sm:inline">{user?.emailAddresses[0]?.emailAddress}</span>
           <UserButton />
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex items-center justify-center p-6 md:p-12">
+      <main className="flex-1 flex items-center justify-center p-6 md:p-12 bg-background">
         <div className="w-full max-w-4xl space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-3">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              Welcome, <span className="bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">{user?.firstName || 'User'}</span>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-text-primary leading-tight">
+              Welcome, <span className="bg-gradient-to-r from-accent to-success bg-clip-text text-transparent">{user?.firstName || 'User'}</span>
             </h1>
-            <p className="text-slate-400 text-base md:text-lg">
+            <p className="text-text-secondary text-base md:text-lg">
               Let's connect your workspace accounts to bootstrap your integrations and prepare your AI workflows.
             </p>
           </div>
 
           {oauthError && (
-            <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-200 text-sm max-w-md mx-auto text-center">
+            <div className="p-4 rounded-xl border border-danger/20 bg-danger/5 text-danger text-sm max-w-md mx-auto text-center font-medium">
               ⚠️ {oauthError}
             </div>
           )}
@@ -78,37 +79,45 @@ export default async function OnboardingPage({
           {/* Cards Grid */}
           <div className="grid gap-6 md:grid-cols-2">
             {/* Gmail Integration Card */}
-            <div className={`relative overflow-hidden rounded-2xl border bg-slate-900/40 p-8 backdrop-blur-xl transition-all duration-300 ${
-              isGmailConnected ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/5 hover:border-indigo-500/30'
+            <div className={`relative overflow-hidden rounded-2xl border p-8 transition-all duration-300 ${
+              isGmailConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
             }`}>
-              <div className="absolute top-0 right-0 -z-10 h-32 w-32 bg-gradient-to-bl from-red-500/5 to-transparent blur-xl"></div>
-              
               <div className="flex flex-col h-full justify-between space-y-6">
                 <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
                     <Mail className="h-6 w-6" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+                    <h2 className="text-xl font-bold text-text-primary flex items-center space-x-2">
                       <span>Google Mail</span>
-                      {isGmailConnected && <span className="text-emerald-400 text-xs font-normal bg-emerald-500/10 px-2 py-0.5 rounded-full">Connected</span>}
+                      {isGmailConnected && <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">Connected</span>}
                     </h2>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-text-secondary">
                       Sync your emails, drafts, and allow your agent to help organize your inbox.
                     </p>
                   </div>
                 </div>
 
-                <div>
+                <div className="pt-2">
                   {isGmailConnected ? (
-                    <div className="flex items-center space-x-2 text-emerald-400 font-medium">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span>Gmail authorized</span>
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 text-success font-semibold">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span>Gmail authorized</span>
+                      </div>
+                      <form action={disconnectPlugin.bind(null, 'gmail')}>
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-danger/25 text-danger hover:bg-danger/10 px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer"
+                        >
+                          Disconnect
+                        </button>
+                      </form>
                     </div>
                   ) : (
                     <a
                       href="/api/auth/connect?plugin=gmail"
-                      className="inline-flex items-center space-x-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-600/20 active:scale-95"
+                      className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
                     >
                       <span>Connect Google Mail</span>
                       <ArrowRight className="h-4 w-4" />
@@ -119,37 +128,45 @@ export default async function OnboardingPage({
             </div>
 
             {/* Google Calendar Card */}
-            <div className={`relative overflow-hidden rounded-2xl border bg-slate-900/40 p-8 backdrop-blur-xl transition-all duration-300 ${
-              isCalendarConnected ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/5 hover:border-indigo-500/30'
+            <div className={`relative overflow-hidden rounded-2xl border p-8 transition-all duration-300 ${
+              isCalendarConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
             }`}>
-              <div className="absolute top-0 right-0 -z-10 h-32 w-32 bg-gradient-to-bl from-blue-500/5 to-transparent blur-xl"></div>
-
               <div className="flex flex-col h-full justify-between space-y-6">
                 <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
                     <Calendar className="h-6 w-6" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white flex items-center space-x-2">
+                    <h2 className="text-xl font-bold text-text-primary flex items-center space-x-2">
                       <span>Google Calendar</span>
-                      {isCalendarConnected && <span className="text-emerald-400 text-xs font-normal bg-emerald-500/10 px-2 py-0.5 rounded-full">Connected</span>}
+                      {isCalendarConnected && <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">Connected</span>}
                     </h2>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-text-secondary">
                       Manage your events, calendars, scheduling times, and track meetings.
                     </p>
                   </div>
                 </div>
 
-                <div>
+                <div className="pt-2">
                   {isCalendarConnected ? (
-                    <div className="flex items-center space-x-2 text-emerald-400 font-medium">
-                      <CheckCircle2 className="h-5 w-5" />
-                      <span>Calendar authorized</span>
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-2 text-success font-semibold">
+                        <CheckCircle2 className="h-5 w-5" />
+                        <span>Calendar authorized</span>
+                      </div>
+                      <form action={disconnectPlugin.bind(null, 'googlecalendar')}>
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-danger/25 text-danger hover:bg-danger/10 px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer"
+                        >
+                          Disconnect
+                        </button>
+                      </form>
                     </div>
                   ) : (
                     <a
                       href="/api/auth/connect?plugin=googlecalendar"
-                      className="inline-flex items-center space-x-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-600/20 active:scale-95"
+                      className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
                     >
                       <span>Connect Google Calendar</span>
                       <ArrowRight className="h-4 w-4" />
@@ -161,10 +178,10 @@ export default async function OnboardingPage({
           </div>
 
           {/* Continue Action */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-2xl border border-white/5 bg-slate-900/20 backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-2xl border border-border bg-card">
             <div className="text-center sm:text-left">
-              <h3 className="font-semibold text-white text-sm sm:text-base">Onboarding Status</h3>
-              <p className="text-xs sm:text-sm text-slate-400">
+              <h3 className="font-semibold text-text-primary text-sm sm:text-base">Onboarding Status</h3>
+              <p className="text-xs sm:text-sm text-text-secondary">
                 {allConnected
                   ? "All integrations active. You're ready to proceed!"
                   : "Connect both services to unlock the full workflow dashboard."}
@@ -174,7 +191,7 @@ export default async function OnboardingPage({
               {!allConnected && (
                 <Link
                   href="/dashboard"
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-300 transition-colors"
+                  className="text-xs font-semibold text-text-muted hover:text-text-secondary transition-colors"
                 >
                   Bypass (Developer Mode)
                 </Link>
@@ -182,14 +199,14 @@ export default async function OnboardingPage({
               {allConnected ? (
                 <Link
                   href="/dashboard"
-                  className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white px-6 py-3 text-sm font-semibold shadow-lg shadow-purple-500/20 hover:scale-105 hover:shadow-purple-500/35 active:scale-95 transition-all duration-300"
+                  className="inline-flex items-center space-x-2 rounded-xl bg-gradient-to-r from-accent via-success to-accent text-white px-6 py-3 text-sm font-semibold shadow-sm hover:scale-105 active:scale-95 transition-all duration-300"
                 >
                   <span>Continue to Dashboard</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               ) : (
                 <div
-                  className="inline-flex items-center space-x-2 rounded-xl bg-slate-800 text-slate-400 border border-white/5 px-6 py-3 text-sm font-semibold cursor-not-allowed"
+                  className="inline-flex items-center space-x-2 rounded-xl bg-surface-subtle text-text-muted border border-border px-6 py-3 text-sm font-semibold cursor-not-allowed"
                 >
                   <span>Continue to Dashboard</span>
                   <ArrowRight className="h-4 w-4" />
