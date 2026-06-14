@@ -91,7 +91,7 @@ export default function Header({ user, projectName }: HeaderProps) {
           {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
         </button>
         <div className="flex items-center justify-center h-8 w-8">
-          <UserButton appearance={theme === 'dark' ? { baseTheme: dark } : undefined} />
+          <UserButton appearance={theme === 'dark' ? ({ baseTheme: dark } as any) : undefined} />
         </div>
       </div>
     </header>
