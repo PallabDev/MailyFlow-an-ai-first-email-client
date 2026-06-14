@@ -7,6 +7,5 @@ declare global {
 
 export const liveEmailsEmitter = global.globalEmitter || new EventEmitter();
 
-if (process.env.NODE_ENV !== 'production') {
-  global.globalEmitter = liveEmailsEmitter;
-}
+global.globalEmitter = liveEmailsEmitter;
+
