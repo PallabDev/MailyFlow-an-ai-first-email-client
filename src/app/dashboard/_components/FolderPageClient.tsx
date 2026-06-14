@@ -588,7 +588,7 @@ export default function FolderPageClient({
                   key={`${email.id}-${idx}`}
                   onClick={() => setSelectedEmail(email)}
                   className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
-                    isUnread ? 'bg-surface-elevated' : 'bg-background/40'
+                    isUnread ? 'bg-background/40' : 'bg-surface-elevated'
                   }`}
                 >
                   {/* Unread dot indicator on the left margin */}

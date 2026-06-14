@@ -23,21 +23,28 @@ export default async function OnboardingPage({
   const oauthError = resolvedSearchParams.error;
 
   // Query database to see what's connected for this user
-  const connectedAccounts = await db
-    .select({
-      name: corsairIntegrations.name,
-      tenantId: corsairAccounts.tenantId,
-      config: corsairAccounts.config,
-    })
-    .from(corsairAccounts)
-    .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-    .where(
-      eq(corsairAccounts.tenantId, userId)
-    );
+  let connectedAccounts: any[] = [];
+  let dbError = false;
+  try {
+    connectedAccounts = await db
+      .select({
+        name: corsairIntegrations.name,
+        tenantId: corsairAccounts.tenantId,
+        config: corsairAccounts.config,
+      })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        eq(corsairAccounts.tenantId, userId)
+      );
+  } catch (err) {
+    console.error("Database connection/quota error on onboarding page:", err);
+    dbError = true;
+  }
 
   const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
   const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
-  const allConnected = isGmailConnected && isCalendarConnected;
+  const allConnected = (isGmailConnected && isCalendarConnected) || dbError;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary antialiased font-sans">
@@ -71,6 +78,12 @@ export default async function OnboardingPage({
               Let's connect your workspace accounts to bootstrap your integrations and prepare your AI workflows.
             </p>
           </div>
+
+          {dbError && (
+            <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-sm max-w-md mx-auto text-center font-medium">
+              ⚠️ Database storage quota exceeded. Running in offline/fallback mode. You can still continue to the dashboard.
+            </div>
+          )}
 
           {oauthError && (
             <div className="p-4 rounded-xl border border-danger/20 bg-danger/5 text-danger text-sm max-w-md mx-auto text-center font-medium">

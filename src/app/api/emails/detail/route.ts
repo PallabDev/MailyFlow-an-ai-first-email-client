@@ -4,7 +4,6 @@ import { db, corsair } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
-import { MOCK_EMAILS } from '@/utils/mock-emails';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,13 +19,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing email id parameter.' }, { status: 400 });
     }
 
-    if (id.startsWith('mock-')) {
-      const mockEmail = MOCK_EMAILS.find(m => m.id === id);
-      if (mockEmail) {
-        return NextResponse.json(mockEmail);
-      }
-      return NextResponse.json({ error: 'Mock email not found.' }, { status: 404 });
-    }
 
     // Check if user has connected accounts
     let connectedAccounts: ConnectedAccount[] = [];

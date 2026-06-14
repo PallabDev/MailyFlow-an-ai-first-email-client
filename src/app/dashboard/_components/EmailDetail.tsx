@@ -136,6 +136,7 @@ export default function EmailDetail({
                 className="w-full border-0 overflow-hidden bg-transparent"
                 scrolling="no"
                 title="Email Body Content"
+                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
               />
             </div>
           )}

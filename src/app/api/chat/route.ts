@@ -16,11 +16,16 @@ export async function GET(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const messages = await db
-      .select()
-      .from(chatMessages)
-      .where(eq(chatMessages.userId, userId))
-      .orderBy(asc(chatMessages.createdAt));
+    let messages: any[] = [];
+    try {
+      messages = await db
+        .select()
+        .from(chatMessages)
+        .where(eq(chatMessages.userId, userId))
+        .orderBy(asc(chatMessages.createdAt));
+    } catch (dbErr) {
+      console.error('Failed to fetch chat messages from DB, returning empty array fallback:', dbErr);
+    }
 
     return NextResponse.json({ messages });
   } catch (error: unknown) {
@@ -57,23 +62,26 @@ export async function POST(req: NextRequest) {
 
     const userMsgText = messages[messages.length - 1]?.content || '';
 
-    // Insert user message in DB
-    await db.insert(chatMessages).values({
-      id: userMessageId,
-      userId,
-      role: 'user',
-      content: userMsgText,
-      status: 'completed',
-    });
+    // Insert user and assistant messages in DB (wrap in try-catch to tolerate over-quota/locked DBs)
+    try {
+      await db.insert(chatMessages).values({
+        id: userMessageId,
+        userId,
+        role: 'user',
+        content: userMsgText,
+        status: 'completed',
+      });
 
-    // Insert assistant pending placeholder in DB
-    await db.insert(chatMessages).values({
-      id: assistantMessageId,
-      userId,
-      role: 'assistant',
-      content: '',
-      status: 'pending',
-    });
+      await db.insert(chatMessages).values({
+        id: assistantMessageId,
+        userId,
+        role: 'assistant',
+        content: '',
+        status: 'pending',
+      });
+    } catch (dbErr) {
+      console.error('Failed to save chat messages to DB, running in fallback mode:', dbErr);
+    }
 
     // Trigger Inngest workflow
     await inngest.send({
@@ -118,14 +126,18 @@ export async function PUT(req: NextRequest) {
     }
 
     // Update message status to cancelled in DB
-    await db
-      .update(chatMessages)
-      .set({
-        status: 'cancelled',
-        content: '⚠️ AI Request paused and cancelled by user.',
-        updatedAt: new Date(),
-      })
-      .where(eq(chatMessages.id, messageId));
+    try {
+      await db
+        .update(chatMessages)
+        .set({
+          status: 'cancelled',
+          content: '⚠️ AI Request paused and cancelled by user.',
+          updatedAt: new Date(),
+        })
+        .where(eq(chatMessages.id, messageId));
+    } catch (dbErr) {
+      console.error('Failed to cancel message status in DB:', dbErr);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

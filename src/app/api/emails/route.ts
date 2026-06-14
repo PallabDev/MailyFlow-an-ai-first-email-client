@@ -4,7 +4,6 @@ import { db, corsair, ensureGoogleCredentialsSynced } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
-import { MOCK_EMAILS } from '@/utils/mock-emails';
 
 export async function GET(req: NextRequest) {
   try {
@@ -185,18 +184,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // If we have no emails at all (e.g. no connection and no cache), return filtered mock emails
+    // If we have no emails at all (e.g. no connection and no cache), fallback to empty list
     if (emails.length === 0) {
-      const targetLabelsMap: Record<string, string[]> = {
-        inbox: ['INBOX'],
-        drafts: ['DRAFT'],
-        draft: ['DRAFT'],
-        sent: ['SENT'],
-        spam: ['SPAM'],
-        trash: ['TRASH'],
-      };
-      const targetLabels = targetLabelsMap[folder] || ['INBOX'];
-      emails = MOCK_EMAILS.filter(m => targetLabels.every(l => m.labelIds.includes(l)));
+      emails = [];
     }
 
     return NextResponse.json({

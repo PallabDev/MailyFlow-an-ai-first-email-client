@@ -23,6 +23,7 @@ export default async function DashboardLayout({
 
   // Check if both integrations are connected
   let connectedAccounts: any[] = [];
+  let dbError = false;
   try {
     connectedAccounts = await db
       .select({
@@ -34,12 +35,15 @@ export default async function DashboardLayout({
       .where(eq(corsairAccounts.tenantId, userId));
   } catch (error) {
     console.error('Error querying connected accounts in dashboard layout:', error);
+    dbError = true;
   }
 
   const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
   const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
 
-  if (!isGmailConnected || !isCalendarConnected) {
+  // If the database has a quota error, do NOT redirect to onboarding since they won't be able to connect anyway.
+  // Instead, allow them to view the dashboard with local mocks/memory fallback.
+  if (!dbError && (!isGmailConnected || !isCalendarConnected)) {
     redirect('/onboarding');
   }
 

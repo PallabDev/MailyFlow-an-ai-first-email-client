@@ -73,22 +73,30 @@ export const processAICall = inngest.createFunction(
       });
 
       // Load last 20 completed chat messages from the database for persistent AI memory context
-      const dbHistoryDesc = await db
-        .select({
-          role: chatMessages.role,
-          content: chatMessages.content,
-        })
-        .from(chatMessages)
-        .where(
-          and(
-            eq(chatMessages.userId, userId),
-            eq(chatMessages.status, 'completed')
+      let dbHistory: any[] = [];
+      try {
+        const dbHistoryDesc = await db
+          .select({
+            role: chatMessages.role,
+            content: chatMessages.content,
+          })
+          .from(chatMessages)
+          .where(
+            and(
+              eq(chatMessages.userId, userId),
+              eq(chatMessages.status, 'completed')
+            )
           )
-        )
-        .orderBy(desc(chatMessages.createdAt))
-        .limit(20);
+          .orderBy(desc(chatMessages.createdAt))
+          .limit(20);
 
-      const dbHistory = [...dbHistoryDesc].reverse();
+        dbHistory = [...dbHistoryDesc].reverse();
+      } catch (dbErr) {
+        console.error('Failed to load chat history from DB, running with single prompt context:', dbErr);
+        // Fallback to the latest user message in history
+        const latestUserMsg = messages && messages.length > 0 ? messages[messages.length - 1] : { role: 'user', content: 'Hello' };
+        dbHistory = [latestUserMsg];
+      }
 
       const formatHistoryMessages = (msgs: any[]) => {
         return msgs.map((m: any) => {
@@ -129,26 +137,30 @@ export const processAICall = inngest.createFunction(
 
     // Save output to the DB if the message has not been cancelled by the user
     await step.run('save-to-db', async () => {
-      // Fetch current status to check if cancelled
-      const existing = await db
-        .select({ status: chatMessages.status })
-        .from(chatMessages)
-        .where(eq(chatMessages.id, assistantMessageId))
-        .limit(1);
+      try {
+        // Fetch current status to check if cancelled
+        const existing = await db
+          .select({ status: chatMessages.status })
+          .from(chatMessages)
+          .where(eq(chatMessages.id, assistantMessageId))
+          .limit(1);
 
-      if (existing.length > 0 && existing[0].status === 'cancelled') {
-        // Request was cancelled by user, do not overwrite status
-        return;
+        if (existing.length > 0 && existing[0].status === 'cancelled') {
+          // Request was cancelled by user, do not overwrite status
+          return;
+        }
+
+        await db
+          .update(chatMessages)
+          .set({
+            content: resultText,
+            status: 'completed',
+            updatedAt: new Date(),
+          })
+          .where(eq(chatMessages.id, assistantMessageId));
+      } catch (dbErr) {
+        console.error('Failed to update assistant message in DB:', dbErr);
       }
-
-      await db
-        .update(chatMessages)
-        .set({
-          content: resultText,
-          status: 'completed',
-          updatedAt: new Date(),
-        })
-        .where(eq(chatMessages.id, assistantMessageId));
     });
 
     return { success: true };
@@ -170,14 +182,18 @@ inngest.createFunction(
     const funcEvent = errorPayload.event;
     if (funcEvent && funcEvent.name === 'chat.message.sent' && funcEvent.data?.assistantMessageId) {
       await step.run('mark-db-failed', async () => {
-        await db
-          .update(chatMessages)
-          .set({
-            status: 'failed',
-            content: '⚠️ Failed to generate AI response. Please try again.',
-            updatedAt: new Date(),
-          })
-          .where(eq(chatMessages.id, funcEvent.data.assistantMessageId));
+        try {
+          await db
+            .update(chatMessages)
+            .set({
+              status: 'failed',
+              content: '⚠️ Failed to generate AI response. Please try again.',
+              updatedAt: new Date(),
+            })
+            .where(eq(chatMessages.id, funcEvent.data.assistantMessageId));
+        } catch (dbErr) {
+          console.error('Failed to update status to failed in DB:', dbErr);
+        }
       });
     }
   }

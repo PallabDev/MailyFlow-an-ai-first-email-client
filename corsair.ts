@@ -19,13 +19,13 @@ export const corsair = createCorsair({
             webhookHooks: {
                 messageChanged: {
                     after: async (ctx, response) => {
-                        logger.info(`[Gmail Hook after] Success: ${response.success}, Data: ${JSON.stringify(response.data || {})}`);
+                        logger.info(`[Gmail Hook after] Webhook hook callback triggered. Success: ${response.success}, Type: ${response.data?.type || 'unknown'}`);
                         if (response.success && response.data) {
                             const eventType = response.data.type;
                             if (eventType === 'messageReceived' || eventType === 'messageLabelChanged') {
                                 const newEmail = response.data.message;
                                 if (newEmail && newEmail.id) {
-                                    console.log(`📩 Corsair Webhook New Mail/Label Received [${eventType}]:`, newEmail.id);
+                                    logger.info(`📩 [Gmail Hook] Received and processing email event [${eventType}]`);
                                     liveEmailsEmitter.emit('new-email', { emailId: newEmail.id });
                                 }
                             }

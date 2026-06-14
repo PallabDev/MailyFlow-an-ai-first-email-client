@@ -2,7 +2,6 @@ import { toNextJsHandler, processWebhook } from 'corsair';
 import { corsair, db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
-import { CorsairPlaceholder } from './_types';
 import logger from '@/utils/logger';
 import { liveEmailsEmitter } from '@/utils/emitter';
 
@@ -24,8 +23,13 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // Log incoming payload
-    logger.info(`[Webhook POST] Payload: ${JSON.stringify(body)}`);
+    // Log incoming webhook event info
+    const eventInfo = {
+      messageId: body.message?.messageId,
+      publishTime: body.message?.publishTime,
+      subscription: body.subscription,
+    };
+    logger.info(`[Webhook POST] Handled event: ${JSON.stringify(eventInfo)}`);
 
     // Check query params for tenantId, or query the database for the active gmail tenant
     const url = new URL(request.url);
@@ -50,7 +54,7 @@ export async function POST(request: Request) {
               )
             )
             .limit(1);
-          
+
           if (userAccounts.length > 0) {
             activeTenantId = userAccounts[0].tenantId;
           } else {
@@ -76,7 +80,7 @@ export async function POST(request: Request) {
       tenantId: activeTenantId || 'default',
     });
 
-    logger.info(`[Webhook POST] processWebhook Result: ${JSON.stringify(result)}`);
+    logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
 
     // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
     const isGmailWebhook = !!body.message?.data;
