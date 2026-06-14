@@ -4,6 +4,7 @@ import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { CorsairPlaceholder } from './_types';
 import { sendLogOnTelegram } from '@/utils/LiveTestLogOnTelegram';
+import { liveEmailsEmitter } from '@/utils/emitter';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',
@@ -88,6 +89,34 @@ export async function POST(request: Request) {
     try {
       await sendLogOnTelegram(`[Webhook POST] processWebhook Result: ${JSON.stringify(result)}`);
     } catch (e) {}
+
+    // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
+    const isGmailWebhook = !!body.message?.data;
+    if (isGmailWebhook && activeTenantId) {
+      try {
+        await sendLogOnTelegram(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
+        const client = corsair.withTenant(activeTenantId);
+        const listRes = await client.gmail.api.messages.list({
+          maxResults: 3,
+          labelIds: ['INBOX'],
+        });
+        if (listRes.messages && listRes.messages.length > 0) {
+          const ids = listRes.messages.map(m => m.id).filter(Boolean);
+          await sendLogOnTelegram(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
+          for (const msg of listRes.messages) {
+            if (msg.id) {
+              liveEmailsEmitter.emit('new-email', { emailId: msg.id });
+              await sendLogOnTelegram(`✉️ [Webhook POST] Custom Gmail sync: Yes, server sent message ID ${msg.id} event to client emitter`);
+            }
+          }
+        } else {
+          await sendLogOnTelegram(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
+        }
+      } catch (err) {
+        console.error('Error in custom Gmail sync:', err);
+        await sendLogOnTelegram(`❌ [Webhook POST] Custom Gmail sync error during search: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
 
     if (result.plugin) {
       console.log(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);

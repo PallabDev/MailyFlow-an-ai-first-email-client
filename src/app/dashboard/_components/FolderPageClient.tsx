@@ -120,8 +120,25 @@ export default function FolderPageClient({
       try {
         console.log('🔌 [Live Email SSE] Raw event message received:', event.data);
         const data = JSON.parse(event.data);
+        
+        if (data && data.type === 'init') {
+          console.log(`👋 [Live Email SSE] Handshake received from server: "${data.message}"`);
+          fetch('/api/debug/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `📱 [Client] Yes, client received handshake from server: "${data.message}"` })
+          }).catch(() => {});
+          return;
+        }
+
         if (data && data.emailId) {
           const emailId = data.emailId;
+          
+          fetch('/api/debug/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `📱 [Client] Yes, client received new-email event for ID: ${emailId}` })
+          }).catch(() => {});
           
           let alreadyExists = false;
           setEmailsState((prev) => {
@@ -130,6 +147,11 @@ export default function FolderPageClient({
           });
           if (alreadyExists) {
             console.log(`🔌 [Live Email SSE] Email ID ${emailId} is already in the list. Skipping.`);
+            fetch('/api/debug/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: `📱 [Client] Email ID ${emailId} is already in the list. Skipping fetch.` })
+            }).catch(() => {});
             return;
           }
 
@@ -140,6 +162,12 @@ export default function FolderPageClient({
             const newEmail = await res.json();
             console.log('🔌 [Live Email SSE] Fetched details successfully:', newEmail);
             
+            fetch('/api/debug/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: `📱 [Client] Yes, client fetched details for new email ID: ${emailId} with subject: "${newEmail.subject || '(no subject)'}"` })
+            }).catch(() => {});
+            
             // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
             setEmailsState((prev) => {
               if (prev.some((e) => e.id === newEmail.id)) return prev;
@@ -147,6 +175,11 @@ export default function FolderPageClient({
               // Verify labelIds match the current folder filters
               if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
                 console.log(`🔌 [Live Email SSE] New email ${newEmail.id} is not in INBOX. Skipping prepend.`);
+                fetch('/api/debug/log', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: `📱 [Client] New email ${newEmail.id} is not in INBOX (labelIds: ${JSON.stringify(newEmail.labelIds)}). Skipping prepend.` })
+                }).catch(() => {});
                 return prev;
               }
               if (folder === 'spam' && newEmail.labelIds && !newEmail.labelIds.includes('SPAM')) {
@@ -157,6 +190,11 @@ export default function FolderPageClient({
               }
               
               console.log(`🔌 [Live Email SSE] Prepended new email ${newEmail.id} to folder: ${folder}`);
+              fetch('/api/debug/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `📱 [Client] Yes, client prepended new email ID: ${newEmail.id} (subject: "${newEmail.subject || '(no subject)'}") to folder: ${folder}` })
+              }).catch(() => {});
               return [newEmail, ...prev];
             });
 
@@ -164,10 +202,20 @@ export default function FolderPageClient({
             window.dispatchEvent(new CustomEvent('refresh-labels'));
           } else {
             console.error(`🔌 [Live Email SSE] Failed to fetch details for email ID: ${emailId}. Status: ${res.status}`);
+            fetch('/api/debug/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: `📱 [Client] ❌ Failed to fetch details for email ID: ${emailId}. Status: ${res.status}` })
+            }).catch(() => {});
           }
         }
       } catch (err) {
         console.error('🔌 [Live Email SSE] Error handling live new email notification:', err);
+        fetch('/api/debug/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `📱 [Client] ❌ Error handling notification: ${err instanceof Error ? err.message : String(err)}` })
+        }).catch(() => {});
       }
     };
 
