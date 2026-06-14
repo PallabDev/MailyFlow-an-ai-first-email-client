@@ -83,7 +83,7 @@ export default function Sidebar({
   };
 
   return (
-    <aside className={`relative border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
+    <aside className={`relative z-30 border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
       isLeftSidebarCollapsed ? 'w-16' : 'w-60'
     }`}>
       {/* Absolute-positioned Symmetrical Toggle Button */}
@@ -97,14 +97,15 @@ export default function Sidebar({
 
       <div className="flex flex-col flex-1 min-h-0">
         {/* Logo Header */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border bg-card">
+        <div className="h-16 px-4 flex items-center border-b border-sidebar-border bg-card">
           {!isLeftSidebarCollapsed ? (
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2.5">
+              <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />
               <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
             </div>
           ) : (
             <div className="w-full flex items-center justify-center">
-              <span className="font-extrabold text-card-foreground tracking-tight text-sm">{projectName.substring(0, 2)}</span>
+              <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />
             </div>
           )}
         </div>

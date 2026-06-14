@@ -3,6 +3,7 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
+  color-scheme: light;
   --background: #ecf0ec; /* soft sage-gray background */
   --foreground: #2c2c2a;
   --card: #f4f7f4; /* light sage card */
@@ -41,6 +42,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: #1b1b18;
   --foreground: #e9e7df;
   --card: #242420;

@@ -223,7 +223,7 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
       )}
       <aside
         style={{ width: isRightSidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
-        className={`border-l border-border bg-sidebar-bg flex flex-col justify-between relative select-none shrink-0 ${
+        className={`border-l border-border bg-sidebar-bg flex flex-col justify-between relative z-30 select-none shrink-0 ${
           isResizing ? 'transition-none' : 'transition-all duration-300'
         } ${isRightSidebarCollapsed ? '' : 'min-w-[280px] max-w-[600px]'}`}
       >
