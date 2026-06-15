@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu } from 'lucide-react';
-import { useChatStore, ChatMessage } from '@/store/chatStore';
+import { useChatStore } from '@/store/chatStore';
 import { motion } from 'motion/react';
 
 type AIAssistantProps = {
