@@ -14,8 +14,10 @@
   
   --surface-elevated: #fbfcfb; /* very soft off-white green for elevations */
   --surface-subtle: #dbe0db; /* muted sage-gray for sidebar bg */
-  --border-row: #d8ded9;
-  --hover-row: #e2e6e2;
+  --border-row: #d4dad5; /* clearly visible row separator */
+  --hover-row: #e2e8e3; /* nice hover row */
+  --mail-unread-bg: #eaf0eb; /* soft sage green-gray tint for unread */
+  --mail-read-bg: #fbfcfb; /* clean white-ish for read */
   --accent: #5f7a68;
   --accent-glow: #45604f;
   --accent-soft: #d2dcd4;
@@ -53,8 +55,10 @@
   
   --surface-elevated: #242420;
   --surface-subtle: #161613;
-  --border-row: #232320;
-  --hover-row: #242420;
+  --border-row: #2e2e2a; /* clearly visible row separator (matching --border) */
+  --hover-row: #262e2a; /* hover row with subtle green accent */
+  --mail-unread-bg: #1c2420; /* elegant dark sage green tint for unread */
+  --mail-read-bg: #161613; /* dark card background */
   --accent: #8aa593;
   --accent-glow: #aac3b1;
   --accent-soft: #2a322c;
@@ -113,6 +117,8 @@
   --color-surface-subtle: var(--surface-subtle);
   --color-border-row: var(--border-row);
   --color-hover-row: var(--hover-row);
+  --color-mail-unread-bg: var(--mail-unread-bg);
+  --color-mail-read-bg: var(--mail-read-bg);
   --color-accent: var(--accent);
   --color-accent-glow: var(--accent-glow);
   --color-accent-soft: var(--accent-soft);

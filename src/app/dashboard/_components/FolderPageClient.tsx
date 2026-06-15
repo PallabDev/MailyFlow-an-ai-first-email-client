@@ -586,9 +586,32 @@ export default function FolderPageClient({
               return (
                 <div
                   key={`${email.id}-${idx}`}
-                  onClick={() => setSelectedEmail(email)}
+                  onClick={() => {
+                    setSelectedEmail(email);
+                    if (isUnread) {
+                      setEmailsState((prev) => {
+                        const updated = prev.map((e) => {
+                          if (e.id === email.id) {
+                            const currentLabels = e.labelIds || [];
+                            return {
+                              ...e,
+                              labelIds: currentLabels.filter((l) => l !== 'UNREAD'),
+                            };
+                          }
+                          return e;
+                        });
+                        if (emailCache[folder]) {
+                          emailCache[folder].emails = updated;
+                        }
+                        return updated;
+                      });
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('refresh-labels'));
+                      }, 100);
+                    }
+                  }}
                   className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
-                    isUnread ? 'bg-background/40' : 'bg-surface-elevated'
+                    isUnread ? 'bg-mail-unread-bg' : 'bg-mail-read-bg'
                   }`}
                 >
                   {/* Unread dot indicator on the left margin */}

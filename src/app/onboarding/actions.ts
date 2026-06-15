@@ -13,43 +13,40 @@ export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar') {
       throw new Error('Unauthorized');
     }
 
-    // 1. Get integration ID
-    const integration = await db
-      .select()
-      .from(corsairIntegrations)
-      .where(eq(corsairIntegrations.name, plugin))
-      .limit(1);
-
-    if (integration.length === 0) {
-      throw new Error(`Integration ${plugin} not found`);
-    }
-
-    // 2. Find the account ID
-    const account = await db
+    // 1. Find all accounts for the user connected to this integration name
+    const accounts = await db
       .select({ id: corsairAccounts.id })
       .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
       .where(
         and(
           eq(corsairAccounts.tenantId, userId),
-          eq(corsairAccounts.integrationId, integration[0].id)
+          eq(corsairIntegrations.name, plugin)
         )
-      )
-      .limit(1);
+      );
 
-    if (account.length > 0) {
-      const accountId = account[0].id;
+    for (const account of accounts) {
+      const accountId = account.id;
 
-      // 3. Delete dependent rows in corsair_entities
-      await db
-        .delete(corsairEntities)
-        .where(eq(corsairEntities.accountId, accountId));
+      // 2. Delete dependent rows in corsair_entities
+      try {
+        await db
+          .delete(corsairEntities)
+          .where(eq(corsairEntities.accountId, accountId));
+      } catch (err) {
+        console.error(`Failed to delete entities for account ${accountId}:`, err);
+      }
 
-      // 4. Delete dependent rows in corsair_events
-      await db
-        .delete(corsairEvents)
-        .where(eq(corsairEvents.accountId, accountId));
+      // 3. Delete dependent rows in corsair_events
+      try {
+        await db
+          .delete(corsairEvents)
+          .where(eq(corsairEvents.accountId, accountId));
+      } catch (err) {
+        console.error(`Failed to delete events for account ${accountId}:`, err);
+      }
 
-      // 5. Delete the user account connection
+      // 4. Delete the user account connection
       await db
         .delete(corsairAccounts)
         .where(eq(corsairAccounts.id, accountId));

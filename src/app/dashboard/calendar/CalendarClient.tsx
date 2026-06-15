@@ -237,7 +237,7 @@ export default function CalendarClient({
                 onClick={() => setIsGridCollapsed(!isGridCollapsed)}
                 className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-border bg-background text-text-secondary hover:text-text-primary hover:bg-hover-row transition-all md:hidden flex items-center space-x-1 cursor-pointer"
               >
-                <span>{isGridCollapsed ? 'Show Grid' : 'Hide Grid'}</span>
+                <span>{isGridCollapsed ? 'Show Calendar' : 'Hide Calendar'}</span>
               </button>
             </div>
             <div className="flex space-x-2">

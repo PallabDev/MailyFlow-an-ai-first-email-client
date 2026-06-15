@@ -51,6 +51,18 @@ export async function GET(req: NextRequest) {
       format: 'full',
     });
 
+    // Mark as read in Gmail (remove UNREAD label if it exists in labelIds)
+    if (full.labelIds && full.labelIds.includes('UNREAD')) {
+      try {
+        await client.gmail.api.messages.batchModify({
+          ids: [id],
+          removeLabelIds: ['UNREAD'],
+        });
+      } catch (err) {
+        console.error('Failed to mark message as read in Gmail:', err);
+      }
+    }
+
     const headers = (full.payload?.headers ?? []) as GmailHeader[];
     const subject = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'subject')?.value ?? '(no subject)';
     const from = headers.find((h: GmailHeader) => h.name?.toLowerCase() === 'from')?.value ?? '(unknown)';
