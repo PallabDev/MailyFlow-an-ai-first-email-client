@@ -196,7 +196,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (targetMsg) {
               set((state) => ({
                 messages: state.messages.map((m) =>
-                  m.id === actualAssistantMsgId ? targetMsg : m
+                  m.id === actualAssistantMsgId ? { ...targetMsg, clientKey: m.clientKey } : m
                 ),
               }));
 
