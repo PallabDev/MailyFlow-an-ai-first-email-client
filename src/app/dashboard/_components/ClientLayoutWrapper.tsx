@@ -36,6 +36,11 @@ export default function ClientLayoutWrapper({
     if (savedWidth) {
       useChatStore.getState().setSidebarWidth(Number(savedWidth));
     }
+
+    // Collapse left sidebar by default on mobile layouts
+    if (window.innerWidth < 768) {
+      setIsLeftSidebarCollapsed(true);
+    }
   }, []);
 
   return (
@@ -50,7 +55,12 @@ export default function ClientLayoutWrapper({
 
       {/* 2. MIDDLE CONTENT PANEL */}
       <div className="flex-1 flex flex-col min-w-0 border-r border-border bg-card">
-        <Header user={user} projectName={projectName} />
+        <Header
+          user={user}
+          projectName={projectName}
+          isLeftSidebarCollapsed={isLeftSidebarCollapsed}
+          setIsLeftSidebarCollapsed={setIsLeftSidebarCollapsed}
+        />
         {children}
       </div>
 

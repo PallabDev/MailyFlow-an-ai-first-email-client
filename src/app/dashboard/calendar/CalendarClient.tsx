@@ -44,6 +44,21 @@ export default function CalendarClient({
   const [eventsState, setEventsState] = useState<CalendarEvent[]>(initialEvents.length > 0 ? initialEvents : []);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [calendarErrorState, setCalendarErrorState] = useState<string | null>(calendarError);
+  const [isGridCollapsed, setIsGridCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsGridCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // States for Event Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -206,16 +221,25 @@ export default function CalendarClient({
         </button>
       </div>
 
-      {/* Calendar body layout: Left/Right Split */}
-      <div className="flex-1 flex flex-row min-h-0 divide-x divide-border bg-card">
+      {/* Calendar body layout: Stacked on mobile, Left/Right Split on desktop */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 md:divide-x divide-y md:divide-y-0 divide-border bg-card">
         
         {/* LEFT COLUMN: Calendar Month View */}
-        <div className="w-[360px] md:w-[380px] shrink-0 flex flex-col min-h-0 bg-card">
+        <div className="w-full md:w-[360px] lg:w-[380px] shrink-0 flex flex-col min-h-0 bg-card">
           {/* Month Selector Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-            <h3 className="font-bold text-text-primary text-sm">
-              {currentMonthDate.toLocaleDateString([], { month: 'long', year: 'numeric' })}
-            </h3>
+            <div className="flex items-center space-x-3">
+              <h3 className="font-bold text-text-primary text-sm">
+                {currentMonthDate.toLocaleDateString([], { month: 'long', year: 'numeric' })}
+              </h3>
+              {/* Collapse/Expand Toggle Button (mobile only) */}
+              <button
+                onClick={() => setIsGridCollapsed(!isGridCollapsed)}
+                className="px-2 py-0.5 text-[10px] font-bold rounded-lg border border-border bg-background text-text-secondary hover:text-text-primary hover:bg-hover-row transition-all md:hidden flex items-center space-x-1 cursor-pointer"
+              >
+                <span>{isGridCollapsed ? 'Show Grid' : 'Hide Grid'}</span>
+              </button>
+            </div>
             <div className="flex space-x-2">
               <button
                 onClick={handlePrevMonth}
@@ -233,7 +257,9 @@ export default function CalendarClient({
           </div>
 
           {/* Grid Container */}
-          <div className="p-6 bg-card shrink-0">
+          <div className={`p-6 bg-card shrink-0 transition-all duration-300 ${
+            isGridCollapsed && isMobile ? 'hidden' : 'block'
+          }`}>
             {/* Weekday headers */}
             <div className="grid grid-cols-7 gap-x-1.5 text-center text-xs font-bold text-text-muted uppercase tracking-wider mb-3">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (

@@ -13,7 +13,8 @@ import {
   Send,
   Clock,
   Link2,
-  CreditCard
+  CreditCard,
+  X
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -81,29 +82,43 @@ export default function Sidebar({
   const navigateToTab = (tab: string) => {
     const target = tab === 'drafts' ? 'draft' : tab;
     router.push(`/dashboard/${target}`);
+    // Auto-collapse sidebar on mobile clicks
+    if (window.innerWidth < 768) {
+      setIsLeftSidebarCollapsed(true);
+    }
   };
 
   return (
-    <aside className={`relative z-30 border-r border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
-      isLeftSidebarCollapsed ? 'w-16' : 'w-60'
+    <aside className={`relative z-30 border-sidebar-border bg-sidebar-bg text-sidebar-text flex flex-col justify-between transition-all duration-300 ${
+      isLeftSidebarCollapsed ? 'w-0 md:w-16 border-r-0 md:border-r' : 'w-60 border-r'
     }`}>
-      {/* Absolute-positioned Symmetrical Toggle Button */}
+      {/* Absolute-positioned Symmetrical Toggle Button (hidden on mobile, visible on desktop) */}
       <button
         onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
-        className="absolute -right-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer flex items-center justify-center h-7 w-7"
+        className="absolute -right-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer hidden md:flex items-center justify-center h-7 w-7"
         title={isLeftSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
       >
         {isLeftSidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
       </button>
 
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 overflow-hidden w-full">
         {/* Logo Header */}
-        <div className="h-16 px-4 flex items-center border-b border-sidebar-border bg-card">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border bg-card">
           {!isLeftSidebarCollapsed ? (
-            <div className="flex items-center space-x-2.5">
-              <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />
-              <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
-            </div>
+            <>
+              <div className="flex items-center space-x-2.5">
+                <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />
+                <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
+              </div>
+              {/* Close button inside sidebar on mobile */}
+              <button
+                onClick={() => setIsLeftSidebarCollapsed(true)}
+                className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer md:hidden flex items-center justify-center"
+                title="Collapse Sidebar"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </>
           ) : (
             <div className="w-full flex items-center justify-center">
               <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />

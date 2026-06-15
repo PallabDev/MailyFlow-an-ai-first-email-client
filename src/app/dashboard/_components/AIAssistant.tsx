@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, XCircle, Pause } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, XCircle, Pause, X } from 'lucide-react';
 import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { motion } from 'motion/react';
 
@@ -127,8 +127,8 @@ function Typewriter({ text, speed = 20 }: { text: string; speed?: number }) {
 }
 
 export default function AIAssistant({ user, projectName }: AIAssistantProps) {
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const {
     messages,
     chatLoading,
@@ -140,7 +140,22 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
     setSidebarWidth,
     setChatInput,
     clearPolling,
+    isRightSidebarCollapsed,
+    setIsRightSidebarCollapsed,
   } = useChatStore();
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsRightSidebarCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setIsRightSidebarCollapsed]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -222,13 +237,17 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
         <div className="fixed inset-0 z-[9999] cursor-col-resize bg-transparent select-none pointer-events-auto" />
       )}
       <aside
-        style={{ width: isRightSidebarCollapsed ? '48px' : `${sidebarWidth}px` }}
-        className={`border-l border-border bg-sidebar-bg flex flex-col justify-between relative z-30 select-none shrink-0 ${
+        style={{ width: isRightSidebarCollapsed ? (isMobile ? '0px' : '48px') : (isMobile ? '100%' : `${sidebarWidth}px`) }}
+        className={`border-l border-border bg-sidebar-bg flex flex-col justify-between select-none shrink-0 ${
           isResizing ? 'transition-none' : 'transition-all duration-300'
-        } ${isRightSidebarCollapsed ? '' : 'min-w-[280px] max-w-[600px]'}`}
+        } ${
+          isRightSidebarCollapsed
+            ? (isMobile ? 'border-l-0 overflow-hidden relative z-30' : 'relative z-30')
+            : (isMobile ? 'fixed inset-0 z-[100] w-full h-full bg-sidebar-bg border-l-0' : 'relative z-30 min-w-[280px] max-w-[600px]')
+        }`}
       >
-        {/* Resizable drag handle (visible only when expanded) */}
-        {!isRightSidebarCollapsed && (
+        {/* Resizable drag handle (visible only when expanded and not on mobile) */}
+        {!isRightSidebarCollapsed && !isMobile && (
           <div
             onMouseDown={handleMouseDown}
             className="absolute -left-[2px] top-16 bottom-0 w-[4px] cursor-col-resize hover:bg-success bg-transparent z-40 transition-colors duration-150"
@@ -237,28 +256,40 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
         )}
 
       {/* Toggle Collapse button */}
-      <button
-        onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-        className="absolute -left-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer flex items-center justify-center h-7 w-7"
-        title={isRightSidebarCollapsed ? 'Expand AI Assistant' : 'Collapse AI Assistant'}
-      >
-        {isRightSidebarCollapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-      </button>
+      {!isMobile && (
+        <button
+          onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
+          className="absolute -left-3 top-4 p-1 rounded-full border border-border dark:border-[#3e3e3a] bg-card text-text-secondary hover:text-text-primary hover:bg-hover-row hover:scale-105 transition-all shadow-md z-50 cursor-pointer flex items-center justify-center h-7 w-7"
+          title={isRightSidebarCollapsed ? 'Expand AI Assistant' : 'Collapse AI Assistant'}
+        >
+          {isRightSidebarCollapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+      )}
 
       {isRightSidebarCollapsed ? (
         /* COLLAPSED ASSISTANT COLUMN */
-        <div className="flex flex-col items-center py-6 space-y-6">
-          <Sparkles className="h-5 w-5 text-[#6e9b7e]" />
-        </div>
+        !isMobile && (
+          <div className="flex flex-col items-center py-6 space-y-6">
+            <Sparkles className="h-5 w-5 text-[#6e9b7e]" />
+          </div>
+        )
       ) : (
         /* EXPANDED ASSISTANT SIDEBAR */
-        <div className="flex flex-col flex-1 min-h-0 select-text">
+        <div className="flex flex-col flex-1 min-h-0 select-text overflow-hidden w-full h-full">
           {/* Header */}
           <div className="h-16 px-6 border-b border-border flex items-center justify-between bg-card shrink-0">
             <div className="flex items-center space-x-2">
               <Sparkles className="h-4.5 w-4.5 text-[#6e9b7e]" />
               <span className="font-bold text-foreground text-sm">AI Assistant</span>
             </div>
+            {/* Close Button */}
+            <button
+              onClick={() => setIsRightSidebarCollapsed(true)}
+              className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
+              title="Close AI Assistant"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
           </div>
 
           {/* Scrollable Chat Area */}

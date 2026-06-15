@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun } from 'lucide-react';
+import { Search, Moon, Sun, MessageSquare, Menu } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { useChatStore } from '@/store/chatStore';
@@ -15,9 +15,16 @@ type HeaderProps = {
     imageUrl: string;
   };
   projectName: string;
+  isLeftSidebarCollapsed: boolean;
+  setIsLeftSidebarCollapsed: (v: boolean) => void;
 };
 
-export default function Header({ user, projectName }: HeaderProps) {
+export default function Header({
+  user,
+  projectName,
+  isLeftSidebarCollapsed,
+  setIsLeftSidebarCollapsed
+}: HeaderProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -25,7 +32,11 @@ export default function Header({ user, projectName }: HeaderProps) {
   const [searchVal, setSearchVal] = useState(searchParams.get('q') || '');
   const searchInputRef = useRef<HTMLInputElement>(null);
   
-  const { theme, setTheme } = useChatStore();
+  const { theme, setTheme, isRightSidebarCollapsed, setIsRightSidebarCollapsed } = useChatStore();
+
+  const toggleAIChat = () => {
+    setIsRightSidebarCollapsed(!isRightSidebarCollapsed);
+  };
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -64,7 +75,18 @@ export default function Header({ user, projectName }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card text-foreground shrink-0 transition-colors">
+    <header className="h-16 border-b border-border flex items-center px-4 md:px-6 bg-card text-foreground shrink-0 transition-colors gap-3 justify-between">
+      {/* Hamburger menu for left sidebar toggling on mobile (only shown when sidebar is collapsed) */}
+      {isLeftSidebarCollapsed && (
+        <button
+          onClick={() => setIsLeftSidebarCollapsed(!isLeftSidebarCollapsed)}
+          className="p-1.5 hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground md:hidden flex items-center justify-center shrink-0"
+          title="Expand Sidebar"
+        >
+          <Menu className="h-4.5 w-4.5" />
+        </button>
+      )}
+
       {/* Centered Search */}
       <div className="flex-1 max-w-lg mx-auto relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -83,6 +105,18 @@ export default function Header({ user, projectName }: HeaderProps) {
 
       {/* Right Header Controls */}
       <div className="flex items-center space-x-3 text-slate-500">
+        <button
+          onClick={toggleAIChat}
+          className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center ${
+            !isRightSidebarCollapsed
+              ? 'text-[#6e9b7e] bg-accent-soft/40 dark:bg-accent-soft/10 scale-105'
+              : 'text-slate-500 hover:text-foreground hover:bg-sidebar-hover'
+          }`}
+          title={isRightSidebarCollapsed ? 'Open AI Assistant Chat' : 'Close AI Assistant Chat'}
+        >
+          <MessageSquare className="h-4.5 w-4.5" />
+        </button>
+
         <button
           onClick={toggleTheme}
           className="p-1.5 hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground"
