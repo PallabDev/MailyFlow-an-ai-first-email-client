@@ -75,8 +75,8 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 TOPIC_ID=projects/your-gcp-project/topics/your-gmail-pubsub-topic
 
-# OpenAI AI Model Key
-AI_KEY=your_openai_api_key
+# OpenAI API Key
+OPENAI_API_KEY=your_openai_api_key
 
 # Razorpay credentials
 RAZORPAY_KEY_ID=your_razorpay_key_id
