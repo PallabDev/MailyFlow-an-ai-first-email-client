@@ -1,9 +1,14 @@
+"use client";
+
+import React, { useState } from "react";
 import { Check } from "lucide-react";
 import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";
 import Reveal from "../ui/Reveal";
 import Button from "../ui/Button";
 import GlassCard from "../ui/GlassCard";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 interface Plan {
   name: string;
@@ -22,7 +27,11 @@ const PLANS: Plan[] = [
     name: "Starter",
     price: "Free",
     ops: "20 AI operations / day",
-    features: ["Gmail integration", "Calendar integration", "AI Assistant"],
+    features: [
+      "Gmail integration (Manual usage free/unlimited)",
+      "Calendar integration (Manual usage free/unlimited)",
+      "20 daily AI Operations/calls",
+    ],
     cta: "Start free",
     ctaVariant: "secondary",
   },
@@ -33,8 +42,9 @@ const PLANS: Plan[] = [
     ops: "100 AI operations / day",
     features: [
       "Everything in Starter",
-      "Smart Workflows",
-      "Priority Processing",
+      "Smart Workflows & webhooks",
+      "100 daily AI Operations/calls",
+      "Priority response speed",
     ],
     cta: "Get Professional",
     ctaVariant: "primary",
@@ -48,8 +58,9 @@ const PLANS: Plan[] = [
     ops: "300 AI operations / day",
     features: [
       "Everything in Pro",
-      "Advanced Automation",
-      "Team Workspaces",
+      "Advanced Automation chains",
+      "300 daily AI Operations/calls",
+      "Dedicated workflow support",
     ],
     cta: "Contact sales",
     ctaVariant: "secondary",
@@ -57,8 +68,31 @@ const PLANS: Plan[] = [
 ];
 
 export default function Pricing() {
+  const { userId } = useAuth();
+  const router = useRouter();
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleCheckout = async (plan: Plan) => {
+    if (plan.name === "Starter") {
+      router.push(userId ? "/dashboard" : "/sign-up");
+      return;
+    }
+
+    if (!userId) {
+      // If not logged in, redirect to login page with billing page redirect URL
+      const redirectPath = encodeURIComponent("/dashboard/billing");
+      router.push(`/sign-in?redirect_url=${redirectPath}`);
+      return;
+    }
+
+    router.push("/dashboard/billing");
+  };
+
   return (
     <section id="pricing" className="relative py-24 md:py-32">
+      {/* Target anchor for payments redirect */}
+      <div id="payment" className="absolute -top-20" />
+      
       {/* subtle grid backdrop */}
       <div aria-hidden className="absolute inset-0 -z-10 bg-grid opacity-40" />
 
@@ -66,20 +100,43 @@ export default function Pricing() {
         <SectionHeading
           eyebrow="Pricing"
           title="Start free. Scale when it pays for itself."
-          subtitle="No credit card required. Upgrade anytime as your team grows."
+          subtitle="We charge strictly for AI calls. Gmail and Calendar manual tool usage is absolutely free & unlimited."
         />
 
         <div className="grid gap-6 lg:grid-cols-3 lg:items-center">
           {PLANS.map((plan, i) => (
             <Reveal key={plan.name} delay={i * 100}>
               {plan.highlighted ? (
-                <HighlightedCard plan={plan} />
+                <div className="relative lg:scale-[1.04]">
+                  {/* glow behind card */}
+                  <div
+                    aria-hidden
+                    className="animate-glow pointer-events-none absolute -inset-3 -z-10 rounded-xl blur-2xl"
+                    style={{ background: "var(--glow)" }}
+                  />
+                  {/* card */}
+                  <div className="relative flex flex-col gap-6 overflow-hidden rounded-xl border border-accent bg-surface p-7 shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
+                    {/* Most popular pill */}
+                    <div className="absolute right-5 top-5">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white">
+                        <span className="h-1 w-1 rounded-full bg-white opacity-80" />
+                        Most popular
+                      </span>
+                    </div>
+                    <PlanContent
+                      plan={plan}
+                      isLoading={loadingPlan === plan.name}
+                      onSelect={() => handleCheckout(plan)}
+                    />
+                  </div>
+                </div>
               ) : (
-                <GlassCard
-                  hover
-                  className="flex flex-col gap-6 p-7"
-                >
-                  <PlanContent plan={plan} />
+                <GlassCard hover className="flex flex-col gap-6 p-7">
+                  <PlanContent
+                    plan={plan}
+                    isLoading={loadingPlan === plan.name}
+                    onSelect={() => handleCheckout(plan)}
+                  />
                 </GlassCard>
               )}
             </Reveal>
@@ -90,31 +147,15 @@ export default function Pricing() {
   );
 }
 
-function HighlightedCard({ plan }: { plan: Plan }) {
-  return (
-    <div className="relative lg:scale-[1.04]">
-      {/* glow behind card */}
-      <div
-        aria-hidden
-        className="animate-glow pointer-events-none absolute -inset-3 -z-10 rounded-xl blur-2xl"
-        style={{ background: "var(--glow)" }}
-      />
-      {/* card */}
-      <div className="relative flex flex-col gap-6 overflow-hidden rounded-xl border border-accent bg-surface p-7 shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
-        {/* Most popular pill */}
-        <div className="absolute right-5 top-5">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white">
-            <span className="h-1 w-1 rounded-full bg-white opacity-80" />
-            Most popular
-          </span>
-        </div>
-        <PlanContent plan={plan} />
-      </div>
-    </div>
-  );
-}
-
-function PlanContent({ plan }: { plan: Plan }) {
+function PlanContent({
+  plan,
+  isLoading,
+  onSelect,
+}: {
+  plan: Plan;
+  isLoading: boolean;
+  onSelect: () => void;
+}) {
   return (
     <>
       {/* header */}
@@ -157,9 +198,19 @@ function PlanContent({ plan }: { plan: Plan }) {
           variant={plan.ctaVariant}
           glow={plan.ctaGlow}
           magnetic
-          className="w-full"
+          className="w-full text-center"
+          onClick={onSelect}
+          disabled={isLoading}
         >
-          {plan.cta}
+          {isLoading ? (
+            <div className="flex items-center justify-center space-x-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"></div>
+            </div>
+          ) : (
+            plan.cta
+          )}
         </Button>
       </div>
     </>

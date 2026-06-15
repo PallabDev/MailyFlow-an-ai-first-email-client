@@ -4,6 +4,7 @@ import { db, corsair, ensureGoogleCredentialsSynced } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { ConnectedAccount, CalendarConfig, CreateEventRequest, UpdateEventRequest, DeleteEventRequest } from './_types';
+import { checkRateLimit } from '@/utils/rate-limit';
 
 async function getCalendarClient(userId: string) {
   let connectedAccounts: ConnectedAccount[] = [];
@@ -36,6 +37,11 @@ export async function GET(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(userId, 'calendar');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -94,6 +100,11 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
+    const rateLimit = await checkRateLimit(userId, 'calendar');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
+    }
+
     const { event } = (await req.json()) as CreateEventRequest;
     if (!event) {
       return NextResponse.json({ error: 'Event details are required' }, { status: 400 });
@@ -125,6 +136,11 @@ export async function PUT(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(userId, 'calendar');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
     }
 
     const { id, event } = (await req.json()) as UpdateEventRequest;
@@ -159,6 +175,11 @@ export async function DELETE(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(userId, 'calendar');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
     }
 
     const { searchParams } = new URL(req.url);

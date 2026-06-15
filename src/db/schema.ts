@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, text, jsonb, timestamp, integer } from 'drizzle-orm/pg-core';
 
 export const corsairIntegrations = pgTable('corsair_integrations', {
     id: text('id').primaryKey(),
@@ -55,6 +55,29 @@ export const healthLogs = pgTable('health_logs', {
     status: text('status').notNull(),
     message: text('message'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const userSubscriptions = pgTable('user_subscriptions', {
+    userId: text('user_id').primaryKey(),
+    planName: text('plan_name').notNull().default('Starter'), // 'Starter' | 'Professional' | 'Business'
+    status: text('status').notNull().default('active'), // 'active' | 'cancelled'
+    razorpaySubscriptionId: text('razorpay_subscription_id'),
+    razorpayPaymentId: text('razorpay_payment_id'),
+    price: text('price').notNull().default('0'),
+    startDate: timestamp('start_date', { withTimezone: true }).notNull().defaultNow(),
+    endDate: timestamp('end_date', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const userUsage = pgTable('user_usage', {
+    userId: text('user_id').primaryKey(),
+    aiCallsCount: integer('ai_calls_count').notNull().default(0),
+    gmailCallsCount: integer('gmail_calls_count').notNull().default(0),
+    calendarCallsCount: integer('calendar_calls_count').notNull().default(0),
+    lastResetDate: text('last_reset_date').notNull(), // 'YYYY-MM-DD'
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 

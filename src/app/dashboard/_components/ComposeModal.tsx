@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, RefreshCw, Send } from 'lucide-react';
+import { X, RefreshCw, Send, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
 
 type ComposeModalProps = {
   isOpen: boolean;
@@ -14,6 +14,14 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
   const [composeBody, setComposeBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3500);
+  };
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,18 +39,20 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
       });
 
       if (res.ok) {
-        alert('Email sent successfully!');
+        showToast('Email sent successfully!', 'success');
         setComposeTo('');
         setComposeSubject('');
         setComposeBody('');
-        onClose();
+        setTimeout(() => {
+          onClose();
+        }, 1500);
       } else {
         const data = await res.json();
-        alert(`Error: ${data.error || 'Failed to send email'}`);
+        showToast(data.error || 'Failed to send email', 'error');
       }
     } catch (err) {
       console.error('Error sending email:', err);
-      alert('Failed to send email.');
+      showToast('Failed to send email.', 'error');
     } finally {
       setSendingEmail(false);
     }
@@ -50,7 +60,7 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
 
   const handleSaveDraft = async () => {
     if (!composeTo || !composeSubject || !composeBody) {
-      alert('Please fill out all fields (To, Subject, Body) before saving a draft.');
+      showToast('Please fill out all fields before saving a draft.', 'info');
       return;
     }
     setSavingDraft(true);
@@ -66,20 +76,22 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
       });
 
       if (res.ok) {
-        alert('Draft saved successfully!');
+        showToast('Draft saved successfully!', 'success');
         setComposeTo('');
         setComposeSubject('');
         setComposeBody('');
-        onClose();
         // Trigger labels count update and email list refresh
         window.dispatchEvent(new CustomEvent('refresh-labels'));
+        setTimeout(() => {
+          onClose();
+        }, 1500);
       } else {
         const data = await res.json();
-        alert(`Error: ${data.error || 'Failed to save draft'}`);
+        showToast(data.error || 'Failed to save draft', 'error');
       }
     } catch (err) {
       console.error('Error saving draft:', err);
-      alert('Failed to save draft.');
+      showToast('Failed to save draft.', 'error');
     } finally {
       setSavingDraft(false);
     }
@@ -89,6 +101,20 @@ export default function ComposeModal({ isOpen, onClose }: ComposeModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      {toast && (
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[110] flex items-center space-x-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg transition-all animate-in fade-in slide-in-from-top-4 duration-300 ${
+          toast.type === 'success'
+            ? 'bg-card/90 border-success/45 text-text-primary shadow-success/5'
+            : toast.type === 'error'
+            ? 'bg-card/90 border-danger/45 text-text-primary shadow-danger/5'
+            : 'bg-card/90 border-warning/45 text-text-primary shadow-warning/5'
+        }`}>
+          {toast.type === 'success' && <CheckCircle2 className="h-5 w-5 text-success shrink-0" />}
+          {toast.type === 'error' && <AlertCircle className="h-5 w-5 text-danger shrink-0" />}
+          {toast.type === 'info' && <InfoIcon className="h-5 w-5 text-warning shrink-0" />}
+          <span className="text-sm font-semibold">{toast.message}</span>
+        </div>
+      )}
       <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl relative animate-zoom-in text-text-primary">
         <div className="h-14 px-6 border-b border-border flex items-center justify-between bg-surface-subtle rounded-t-2xl">
           <span className="font-bold text-text-primary text-sm">Compose New Email</span>

@@ -13,12 +13,12 @@ export default async function DashboardLayout({
 }) {
   const { userId } = await auth();
   if (!userId) {
-    redirect('/sign-in');
+    redirect('/sign-in?redirect_url=' + encodeURIComponent('/dashboard/inbox'));
   }
 
   const user = await currentUser();
   if (!user) {
-    redirect('/sign-in');
+    redirect('/sign-in?redirect_url=' + encodeURIComponent('/dashboard/inbox'));
   }
 
   // Check if both integrations are connected

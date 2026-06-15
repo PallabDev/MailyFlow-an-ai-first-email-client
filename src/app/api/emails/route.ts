@@ -4,6 +4,7 @@ import { db, corsair, ensureGoogleCredentialsSynced } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
+import { checkRateLimit } from '@/utils/rate-limit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,6 +13,11 @@ export async function GET(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit(userId, 'gmail');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
     }
 
     const { searchParams } = new URL(req.url);

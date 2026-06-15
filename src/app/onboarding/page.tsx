@@ -15,7 +15,7 @@ export default async function OnboardingPage({
 }) {
   const { userId } = await auth();
   if (!userId) {
-    redirect('/sign-in');
+    redirect('/sign-in?redirect_url=' + encodeURIComponent('/onboarding'));
   }
 
   const user = await currentUser();

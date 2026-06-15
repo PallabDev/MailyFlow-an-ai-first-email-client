@@ -7,6 +7,7 @@ import { inngest } from '@/inngest/client';
 import { chatMessageSchema } from '@/utils/validation';
 import crypto from 'crypto';
 import { ChatRequestBody } from './_types';
+import { checkRateLimit } from '@/utils/rate-limit';
 
 // GET: Retrieve all chat messages for authenticated user
 export async function GET(req: NextRequest) {
@@ -41,6 +42,12 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
+    }
+
+    // Rate Limiter Check for AI operations
+    const rateLimit = await checkRateLimit(userId, 'ai');
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: rateLimit.error }, { status: 429 });
     }
 
     const user = await currentUser();

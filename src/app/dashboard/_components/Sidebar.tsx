@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   Send,
   Clock,
-  Link2
+  Link2,
+  CreditCard
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -213,6 +214,23 @@ export default function Sidebar({
               >
                 <Link2 className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Integrations</span>}
+              </button>
+            </nav>
+          </div>
+
+          {/* Billing Section */}
+          <div className="space-y-1">
+            <nav className="space-y-0.5">
+              <button
+                onClick={() => navigateToTab('billing')}
+                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+                  activeTab === 'billing'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
+                }`}
+              >
+                <CreditCard className="h-4.5 w-4.5 shrink-0" />
+                {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Billing</span>}
               </button>
             </nav>
           </div>

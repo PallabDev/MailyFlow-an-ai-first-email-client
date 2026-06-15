@@ -1,8 +1,11 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { Sparkles, Menu, X } from "lucide-react";
 import Link from "next/link";
 import Button from "../ui/Button";
 import ThemeToggle from "../ui/ThemeToggle";
+import { UserButton, useAuth } from "@clerk/nextjs";
 
 const LINKS = [
   { label: "Features", href: "/#features" },
@@ -13,6 +16,7 @@ const LINKS = [
 ];
 
 export default function Navbar() {
+  const { isSignedIn, isLoaded } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -56,16 +60,36 @@ export default function Navbar() {
             ))}
           </div>
 
-          <div className="hidden items-center gap-2 md:flex">
+          {/* Desktop Right items */}
+          <div className="hidden items-center gap-3 md:flex">
             <ThemeToggle />
-            <Link href="/sign-in">
-              <Button variant="ghost" className="px-4">Sign In</Button>
-            </Link>
-            <Link href="/sign-up">
-              <Button variant="primary" glow magnetic className="px-4">Get Started</Button>
-            </Link>
+            {isLoaded && (
+              <>
+                {!isSignedIn && (
+                  <>
+                    <Link href="/sign-in">
+                      <Button variant="ghost" className="px-4">Sign In</Button>
+                    </Link>
+                    <Link href="/sign-up">
+                      <Button variant="primary" glow magnetic className="px-4">Get Started</Button>
+                    </Link>
+                  </>
+                )}
+                {isSignedIn && (
+                  <>
+                    <Link href="/dashboard">
+                      <Button variant="secondary" className="px-4">Dashboard</Button>
+                    </Link>
+                    <div className="flex h-9 w-9 items-center justify-center">
+                      <UserButton />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
 
+          {/* Mobile Menu Toggle Button */}
           <div className="flex items-center gap-2 md:hidden">
             <ThemeToggle />
             <button
@@ -91,13 +115,31 @@ export default function Navbar() {
                   {l.label}
                 </a>
               ))}
-              <div className="mt-2 flex gap-2">
-                <Link href="/sign-in" className="flex-1">
-                  <Button variant="secondary" className="w-full">Sign In</Button>
-                </Link>
-                <Link href="/sign-up" className="flex-1">
-                  <Button variant="primary" className="w-full">Get Started</Button>
-                </Link>
+              <div className="mt-2">
+                {isLoaded && (
+                  <>
+                    {!isSignedIn && (
+                      <div className="flex gap-2">
+                        <Link href="/sign-in" className="flex-1" onClick={() => setOpen(false)}>
+                          <Button variant="secondary" className="w-full">Sign In</Button>
+                        </Link>
+                        <Link href="/sign-up" className="flex-1" onClick={() => setOpen(false)}>
+                          <Button variant="primary" className="w-full">Get Started</Button>
+                        </Link>
+                      </div>
+                    )}
+                    {isSignedIn && (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-surface2 border border-line">
+                        <Link href="/dashboard" className="flex-1 mr-4" onClick={() => setOpen(false)}>
+                          <Button variant="secondary" className="w-full">Go to Dashboard</Button>
+                        </Link>
+                        <div className="flex h-9 w-9 items-center justify-center pr-1">
+                          <UserButton />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
