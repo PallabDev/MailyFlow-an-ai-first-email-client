@@ -107,7 +107,7 @@ export default function Header({
       <div className="flex items-center space-x-3 text-slate-500">
         <button
           onClick={toggleAIChat}
-          className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center ${
+          className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer md:hidden flex items-center justify-center ${
             !isRightSidebarCollapsed
               ? 'text-[#6e9b7e] bg-accent-soft/40 dark:bg-accent-soft/10 scale-105'
               : 'text-slate-500 hover:text-foreground hover:bg-sidebar-hover'

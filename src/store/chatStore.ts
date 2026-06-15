@@ -165,7 +165,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
 
       // Start polling for the assistant's reply
+      let elapsedSeconds = 0;
       const intervalId = setInterval(async () => {
+        elapsedSeconds += 1;
+        if (elapsedSeconds > 90) {
+          get().clearPolling();
+          set((state) => ({
+            chatLoading: false,
+            messages: state.messages.map((m) =>
+              m.id === actualAssistantMsgId
+                ? {
+                    ...m,
+                    status: 'failed',
+                    content: '⚠️ Failed to do that, please try again later.',
+                  }
+                : m
+            ),
+          }));
+          return;
+        }
         try {
           const pollRes = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
           if (pollRes.ok) {

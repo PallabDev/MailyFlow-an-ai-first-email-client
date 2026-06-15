@@ -145,12 +145,15 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   } = useChatStore();
 
   useEffect(() => {
+    let wasDesktop = typeof window !== 'undefined' ? window.innerWidth >= 768 : true;
+
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      if (mobile) {
+      if (mobile && wasDesktop) {
         setIsRightSidebarCollapsed(true);
       }
+      wasDesktop = !mobile;
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -333,10 +336,10 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                     {isPending ? (
                       <PremiumPulsingLoader />
                     ) : isAssistant && isLast && isRecent ? (
-                      <Typewriter text={msg.content} />
+                      <Typewriter text={msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : '')} />
                     ) : (
                       <div className="font-normal space-y-1">
-                        {formatMessageContent(msg.content)}
+                        {formatMessageContent(msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : ''))}
                       </div>
                     )}
                   </div>
