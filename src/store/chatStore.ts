@@ -11,6 +11,7 @@ export interface ChatMessage {
 
 interface ChatState {
   messages: ChatMessage[];
+  historyMessages: ChatMessage[]; // Store all historical messages fetched from DB
   chatLoading: boolean;
   chatInput: string;
   isPaused: boolean;
@@ -21,6 +22,8 @@ interface ChatState {
   setTheme: (theme: 'light' | 'dark') => void;
   setIsRightSidebarCollapsed: (collapsed: boolean) => void;
   fetchMessages: (userId: string) => Promise<void>;
+  fetchHistory: (userId: string) => Promise<void>;
+  setMessages: (messages: ChatMessage[]) => void;
   sendMessage: (
     text: string,
     userId: string,
@@ -42,6 +45,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
+  historyMessages: [],
   chatLoading: false,
   chatInput: '',
   isPaused: false,
@@ -93,6 +97,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error fetching chat history:', error);
     }
   },
+
+  fetchHistory: async (userId) => {
+    try {
+      const res = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        set({ historyMessages: data.messages || [] });
+      }
+    } catch (error) {
+      console.error('Error fetching full chat history:', error);
+    }
+  },
+
+  setMessages: (msgs) => set({ messages: msgs }),
 
   sendMessage: async (text, userId, timezone, localTime, userDetails) => {
     if (!text.trim()) return;
@@ -203,6 +221,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               if (targetMsg.status !== 'pending') {
                 get().clearPolling();
                 set({ chatLoading: false });
+                // Refresh full history list in background to include this new interaction session
+                get().fetchHistory(userId).catch(() => {});
               }
             }
           }

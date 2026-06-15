@@ -131,29 +131,31 @@ export async function GET(req: NextRequest) {
             .then((rows) => rows[0]);
 
           if (gmailAccount) {
-            // Check and insert Calendar account inside a transaction to prevent duplicate constraint violation races
-            await db.transaction(async (tx) => {
-              const existingCalendarAccount = await tx
-                .select()
-                .from(corsairAccounts)
-                .where(
-                  and(
-                    eq(corsairAccounts.tenantId, tenantId),
-                    eq(corsairAccounts.integrationId, calendarIntegration.id)
-                  )
+            // Check if calendar account exists and insert it immediately so that it is committed and visible to the key managers
+            const existingCalendarAccount = await db
+              .select()
+              .from(corsairAccounts)
+              .where(
+                and(
+                  eq(corsairAccounts.tenantId, tenantId),
+                  eq(corsairAccounts.integrationId, calendarIntegration.id)
                 )
-                .then((rows) => rows[0]);
+              )
+              .then((rows) => rows[0]);
 
-              if (!existingCalendarAccount) {
-                await tx.insert(corsairAccounts).values({
+            if (!existingCalendarAccount) {
+              try {
+                await db.insert(corsairAccounts).values({
                   id: crypto.randomUUID(),
                   tenantId,
                   integrationId: calendarIntegration.id,
                   config: {},
                   dek: gmailAccount.dek,
                 });
+              } catch (insertErr) {
+                console.warn('[OAuth Callback] Calendar account insert race warning:', insertErr);
               }
-            });
+            }
           }
 
           // Now instantiate the account key managers to copy tokens

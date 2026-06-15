@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu } from 'lucide-react';
-import { useChatStore } from '@/store/chatStore';
+import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu, History, Plus, MessageSquare } from 'lucide-react';
+import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { motion } from 'motion/react';
 
 type AIAssistantProps = {
@@ -160,15 +160,93 @@ function Typewriter({ text, speed = 20 }: { text: string; speed?: number }) {
   return <div className="space-y-1">{formatMessageContent(displayedText)}</div>;
 }
 
+// Helper to group messages into sessions based on a 2-hour inactivity gap
+function groupMessagesIntoSessions(msgs: ChatMessage[]) {
+  if (msgs.length === 0) return [];
+  
+  // Ensure messages are sorted by createdAt ascending
+  const sortedMsgs = [...msgs].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+  
+  const sessions: ChatMessage[][] = [];
+  let currentSession: ChatMessage[] = [sortedMsgs[0]];
+  
+  for (let i = 1; i < sortedMsgs.length; i++) {
+    const prevMsg = sortedMsgs[i - 1];
+    const currMsg = sortedMsgs[i];
+    
+    const prevTime = new Date(prevMsg.createdAt).getTime();
+    const currTime = new Date(currMsg.createdAt).getTime();
+    
+    // 2 hours threshold in milliseconds = 2 * 60 * 60 * 1000 = 7200000
+    if (currTime - prevTime <= 7200000) {
+      currentSession.push(currMsg);
+    } else {
+      sessions.push(currentSession);
+      currentSession = [currMsg];
+    }
+  }
+  
+  if (currentSession.length > 0) {
+    sessions.push(currentSession);
+  }
+  
+  // Return sessions sorted descending by their start time (most recent first)
+  return sessions.reverse();
+}
+
+function getSessionTitle(sessionMessages: ChatMessage[]) {
+  const firstUserMsg = sessionMessages.find(m => m.role === 'user');
+  if (firstUserMsg && firstUserMsg.content.trim()) {
+    const text = firstUserMsg.content.trim();
+    return text.length > 40 ? text.substring(0, 40) + '...' : text;
+  }
+  const firstMsg = sessionMessages[0];
+  if (firstMsg && firstMsg.content.trim()) {
+    const text = firstMsg.content.trim();
+    return text.length > 40 ? text.substring(0, 40) + '...' : text;
+  }
+  return 'Untitled Chat';
+}
+
+function getSessionTimeLabel(date: Date) {
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  
+  if (isToday) {
+    return `Today at ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday at ${timeStr}`;
+  } else if (diffDays <= 7) {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return `${days[date.getDay()]} at ${timeStr}`;
+  } else {
+    return `${date.toLocaleDateString()} at ${timeStr}`;
+  }
+}
+
 export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeView, setActiveView] = useState<'chat' | 'history'>('chat');
+
   const {
     messages,
+    historyMessages,
     chatLoading,
     chatInput,
     sidebarWidth,
-    fetchMessages,
+    fetchHistory,
+    setMessages,
     sendMessage,
     cancelRequest,
     setSidebarWidth,
@@ -200,9 +278,10 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
 
   // Load chat messages history on mount
   useEffect(() => {
-    fetchMessages(user.id);
+    setMessages([]);
+    fetchHistory(user.id);
     return () => clearPolling();
-  }, [user.id, fetchMessages, clearPolling]);
+  }, [user.id, fetchHistory, setMessages, clearPolling]);
 
   // Smart Auto-Scroll to bottom (only scroll if user is already at the bottom or sent a message)
   useEffect(() => {
@@ -268,6 +347,25 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
     }
   };
 
+  const handleNewChat = () => {
+    setMessages([]);
+    setActiveView('chat');
+  };
+
+  const handleToggleHistory = () => {
+    if (activeView === 'history') {
+      setActiveView('chat');
+    } else {
+      setActiveView('history');
+      fetchHistory(user.id);
+    }
+  };
+
+  const handleSelectSession = (sessionMsgs: ChatMessage[]) => {
+    setMessages(sessionMsgs);
+    setActiveView('chat');
+  };
+
   return (
     <>
       {isResizing && (
@@ -315,129 +413,196 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
             <div className="h-16 px-6 border-b border-border flex items-center justify-between bg-card shrink-0">
               <div className="flex items-center space-x-2">
                 <Sparkles className="h-4.5 w-4.5 text-[#6e9b7e]" />
-                <span className="font-bold text-foreground text-sm">AI Assistant</span>
+                <span className="font-bold text-foreground text-sm">
+                  {activeView === 'history' ? 'Chat History' : 'AI Assistant'}
+                </span>
               </div>
-              {/* Close Button */}
-              <button
-                onClick={() => setIsRightSidebarCollapsed(true)}
-                className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
-                title="Close AI Assistant"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
+              <div className="flex items-center space-x-1">
+                {/* New Chat Button */}
+                <button
+                  onClick={handleNewChat}
+                  className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
+                  title="New Chat"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                {/* History Toggle Button */}
+                <button
+                  onClick={handleToggleHistory}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+                    activeView === 'history'
+                      ? 'bg-success/15 text-success'
+                      : 'text-text-secondary hover:bg-sidebar-hover hover:text-text-primary'
+                  }`}
+                  title="Chat History"
+                >
+                  <History className="h-4 w-4" />
+                </button>
+                {/* Close Button */}
+                <button
+                  onClick={() => setIsRightSidebarCollapsed(true)}
+                  className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
+                  title="Close AI Assistant"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Chat Area */}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarGutter: 'stable' }}>
-              {messages.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-                  <Sparkles className="h-8 w-8 text-[#6e9b7e]/40 mb-2" />
-                  <p className="text-xs">
-                    Ask me anything about your emails, drafting answers, or scheduling calendar events!
-                  </p>
-                </div>
-              )}
-
-              {messages.map((msg, index) => {
-                const isAssistant = msg.role === 'assistant';
-                const isPending = msg.status === 'pending';
-                const isCancelled = msg.status === 'cancelled';
-                const isFailed = msg.status === 'failed';
-                const isLast = index === messages.length - 1;
-                const isRecent = new Date().getTime() - new Date(msg.createdAt).getTime() < 12000;
-
-                return (
-                  <motion.div
-                    key={msg.clientKey || msg.id || index}
-                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.25, ease: [0.215, 0.610, 0.355, 1.000] }}
-                    className={`flex flex-col space-y-1 max-w-[85%] ${isAssistant ? 'self-start' : 'self-end ml-auto'
-                      }`}
-                  >
-                    <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200 break-words ${isAssistant
-                      ? isCancelled
-                        ? 'bg-danger/10 border border-danger/20 text-danger'
-                        : isFailed
-                          ? 'bg-danger/10 border border-danger/20 text-danger'
-                          : 'bg-card border border-border text-foreground'
-                      : 'bg-[#e4e9e5] dark:bg-sidebar-active-bg text-slate-800 dark:text-white border border-border'
-                      }`}>
-                      {isPending ? (
-                        <AgentProgressLoader />
-                      ) : isAssistant && isLast && isRecent ? (
-                        <Typewriter text={msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : '')} />
-                      ) : (
-                        <div className="font-normal space-y-1">
-                          {formatMessageContent(msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : ''))}
-                        </div>
-                      )}
+              {activeView === 'history' ? (
+                <div className="space-y-3">
+                  {groupMessagesIntoSessions(historyMessages).length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                      <History className="h-8 w-8 text-[#6e9b7e]/40 mb-2 animate-pulse" />
+                      <p className="text-xs">No chat history found.</p>
                     </div>
-                  </motion.div>
-                );
-              })}
+                  ) : (
+                    groupMessagesIntoSessions(historyMessages).map((session, index) => {
+                      const title = getSessionTitle(session);
+                      const timeLabel = getSessionTimeLabel(new Date(session[0].createdAt));
+                      
+                      return (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.03 }}
+                          onClick={() => handleSelectSession(session)}
+                          className="p-4 bg-card hover:bg-hover-row border border-border rounded-xl cursor-pointer transition-all duration-200 group flex items-start space-x-3 shadow-sm active:scale-[0.99]"
+                        >
+                          <MessageSquare className="h-4 w-4 text-[#6e9b7e] shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground truncate group-hover:text-[#6e9b7e] transition-colors">
+                              {title}
+                            </h4>
+                            <p className="text-[11px] text-text-secondary mt-1 flex items-center space-x-1.5">
+                              <span>{timeLabel}</span>
+                              <span>•</span>
+                              <span>{session.length} message{session.length !== 1 ? 's' : ''}</span>
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <>
+                  {messages.length === 0 && (
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                      <Sparkles className="h-8 w-8 text-[#6e9b7e]/40 mb-2 animate-pulse" />
+                      <p className="text-xs">
+                        Ask me anything about your emails, drafting answers, or scheduling calendar events!
+                      </p>
+                    </div>
+                  )}
+
+                  {messages.map((msg, index) => {
+                    const isAssistant = msg.role === 'assistant';
+                    const isPending = msg.status === 'pending';
+                    const isCancelled = msg.status === 'cancelled';
+                    const isFailed = msg.status === 'failed';
+                    const isLast = index === messages.length - 1;
+                    const isRecent = new Date().getTime() - new Date(msg.createdAt).getTime() < 12000;
+
+                    return (
+                      <motion.div
+                        key={msg.clientKey || msg.id || index}
+                        initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.25, ease: [0.215, 0.610, 0.355, 1.000] }}
+                        className={`flex flex-col space-y-1 max-w-[85%] ${isAssistant ? 'self-start' : 'self-end ml-auto'
+                          }`}
+                      >
+                        <div className={`p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm transition-all duration-200 break-words ${isAssistant
+                          ? isCancelled
+                            ? 'bg-danger/10 border border-danger/20 text-danger'
+                            : isFailed
+                              ? 'bg-danger/10 border border-danger/20 text-danger'
+                              : 'bg-card border border-border text-foreground'
+                          : 'bg-[#e4e9e5] dark:bg-sidebar-active-bg text-slate-800 dark:text-white border border-border'
+                          }`}>
+                          {isPending ? (
+                            <AgentProgressLoader />
+                          ) : isAssistant && isLast && isRecent ? (
+                            <Typewriter text={msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : '')} />
+                          ) : (
+                            <div className="font-normal space-y-1">
+                              {formatMessageContent(msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : ''))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </>
+              )}
 
               <div ref={chatEndRef} />
             </div>
 
             {/* Bottom Actions & Input */}
-            <div className="p-4 border-t border-border bg-card shrink-0">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendChat(chatInput);
-                }}
-                className="relative w-full flex flex-col"
-              >
-                <textarea
-                  ref={textareaRef}
-                  rows={3}
-                  placeholder="Ask anything..."
-                  value={chatInput}
-                  disabled={chatLoading}
-                  onChange={(e) => {
-                    setChatInput(e.target.value);
-                    if (textareaRef.current) {
-                      textareaRef.current.style.height = 'auto';
-                      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
-                    }
+            {activeView === 'chat' && (
+              <div className="p-4 border-t border-border bg-card shrink-0">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSendChat(chatInput);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
-                      if (isMobile) {
-                        return;
+                  className="relative w-full flex flex-col"
+                >
+                  <textarea
+                    ref={textareaRef}
+                    rows={3}
+                    placeholder="Ask anything..."
+                    value={chatInput}
+                    disabled={chatLoading}
+                    onChange={(e) => {
+                      setChatInput(e.target.value);
+                      if (textareaRef.current) {
+                        textareaRef.current.style.height = 'auto';
+                        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
                       }
-                      if (!e.shiftKey) {
-                        e.preventDefault();
-                        handleSendChat(chatInput);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+                        if (isMobile) {
+                          return;
+                        }
+                        if (!e.shiftKey) {
+                          e.preventDefault();
+                          handleSendChat(chatInput);
+                        }
                       }
-                    }
-                  }}
-                  className="w-full bg-background border border-border rounded-xl py-2.5 pl-4 pr-12 text-sm text-foreground placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none overflow-y-auto"
-                  style={{ minHeight: '90px', maxHeight: '180px' }}
-                />
-                {chatLoading ? (
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-danger hover:bg-danger/80 text-white transition-all flex items-center justify-center cursor-pointer shadow-sm animate-pulse"
-                    title="Pause AI Response"
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={!chatInput.trim()}
-                    className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-success text-white hover:bg-success/80 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Send Message"
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </form>
-            </div>
+                    }}
+                    className="w-full bg-background border border-border rounded-xl py-2.5 pl-4 pr-12 text-sm text-foreground placeholder-slate-400 focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none overflow-y-auto"
+                    style={{ minHeight: '90px', maxHeight: '180px' }}
+                  />
+                  {chatLoading ? (
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-danger hover:bg-danger/80 text-white transition-all flex items-center justify-center cursor-pointer shadow-sm animate-pulse"
+                      title="Pause AI Response"
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim()}
+                      className="absolute right-2.5 bottom-2.5 p-1.5 rounded-full bg-success text-white hover:bg-success/80 transition-all flex items-center justify-center cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Send Message"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </form>
+              </div>
+            )}
           </div>
         )}
       </aside>
