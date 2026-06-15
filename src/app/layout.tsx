@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MailyFlow — AI First Mail Client",
-  description: "A premium AI-agent integration platform for gmail and calendar.",
+  title: "MailyFlow — Your AI Email Assistant for Productivity",
+  description: "A Premium AI Agent Platform for Gmail & Google Calendar",
 };
 
 export default function RootLayout({
