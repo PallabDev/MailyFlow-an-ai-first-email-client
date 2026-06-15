@@ -146,10 +146,11 @@ export default function Sidebar({
 
         {/* Navigation Sections */}
         <div className="flex-1 overflow-y-auto px-2 py-4 space-y-6">
+          {/* Workspace Group */}
           <div className="space-y-1">
             {!isLeftSidebarCollapsed && (
               <div className="flex items-center justify-between px-3 mb-1">
-                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Mail</span>
+                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Workspace</span>
               </div>
             )}
             <nav className="space-y-0.5">
@@ -214,12 +215,7 @@ export default function Sidebar({
                 <Clock className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Trash</span>}
               </button>
-            </nav>
-          </div>
 
-          {/* Calendar Section */}
-          <div className="space-y-1">
-            <nav className="space-y-0.5">
               <button
                 onClick={() => navigateToTab('calendar')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
@@ -234,8 +230,13 @@ export default function Sidebar({
             </nav>
           </div>
 
-          {/* Integrations Section */}
+          {/* Settings Group */}
           <div className="space-y-1">
+            {!isLeftSidebarCollapsed && (
+              <div className="flex items-center justify-between px-3 mb-1">
+                <span className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Settings</span>
+              </div>
+            )}
             <nav className="space-y-0.5">
               <button
                 onClick={() => navigateToTab('integrations')}
@@ -248,12 +249,7 @@ export default function Sidebar({
                 <Link2 className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Integrations</span>}
               </button>
-            </nav>
-          </div>
 
-          {/* Billing Section */}
-          <div className="space-y-1">
-            <nav className="space-y-0.5">
               <button
                 onClick={() => navigateToTab('billing')}
                 className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
@@ -310,19 +306,14 @@ export default function Sidebar({
                 <p className="text-xs font-bold text-card-foreground truncate leading-tight">
                   {user?.firstName || 'User'}
                 </p>
-                <p className="text-[10px] text-text-muted truncate leading-none mt-0.5">
+                <p className="text-[10px] text-text-secondary truncate leading-none mt-0.5">
                   {user?.email || ''}
                 </p>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center space-y-3">
-            {/* Mini status indicator */}
-            <div className="flex flex-col space-y-1">
-              <div className={`w-2 h-2 rounded-full ${gmailConnected ? 'bg-success' : 'bg-slate-400'}`} title={`Gmail: ${gmailConnected ? 'Connected' : 'Disconnected'}`}></div>
-              <div className={`w-2 h-2 rounded-full ${calendarConnected ? 'bg-success' : 'bg-slate-400'}`} title={`Calendar: ${calendarConnected ? 'Connected' : 'Disconnected'}`}></div>
-            </div>
+          <div className="flex flex-col items-center justify-center py-1">
             {/* User Profile Mini */}
             {user?.imageUrl ? (
               <img src={user.imageUrl} alt="Profile" className="h-6 w-6 rounded-full border border-border" />

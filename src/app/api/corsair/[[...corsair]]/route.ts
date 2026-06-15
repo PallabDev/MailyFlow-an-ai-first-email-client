@@ -35,8 +35,9 @@ export async function POST(request: Request) {
     // Force requiring tenantId to prevent cross-tenant message processing or misrouting
     const url = new URL(request.url);
     const activeTenantId = url.searchParams.get('tenantId');
+    const isGmailPubSub = !!(body.message && body.subscription);
 
-    if (!activeTenantId) {
+    if (!activeTenantId && !isGmailPubSub) {
       logger.error('[Webhook POST] Webhook rejected: Missing tenantId in query parameters.');
       return new Response(JSON.stringify({ error: 'Missing tenantId query parameter' }), {
         status: 400,
@@ -44,14 +45,15 @@ export async function POST(request: Request) {
       });
     }
 
-    logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId}`);
+    if (activeTenantId) {
+      logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId}`);
 
-    // Try processing the webhook first
-    const result = await processWebhook(corsair, headersObj, body, {
-      tenantId: activeTenantId,
-    });
+      // Try processing the webhook first
+      const result = await processWebhook(corsair, headersObj, body, {
+        tenantId: activeTenantId,
+      });
 
-    logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
+      logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
 
     // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
     const isGmailWebhook = !!body.message?.data;
@@ -106,6 +108,7 @@ export async function POST(request: Request) {
           ...(result.responseHeaders || {}),
         },
       });
+    }
     }
   } catch (error) {
     logger.error('Error parsing or processing webhook payload:', error);
