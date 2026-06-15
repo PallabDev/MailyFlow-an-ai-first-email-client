@@ -179,6 +179,51 @@ export async function GET(req: NextRequest) {
               }
             })
           );
+
+          // Save/update the database cache (corsair_entities)
+          if (gmailAccount) {
+            try {
+              for (const email of emails) {
+                const entityRowId = `e_messages_${email.id}_a_${gmailAccount.id}`;
+                const entityData = {
+                  id: email.id,
+                  snippet: email.snippet,
+                  subject: email.subject,
+                  from: email.from,
+                  date: email.date,
+                  labelIds: email.labelIds,
+                  payload: {
+                    headers: [
+                      { name: 'Subject', value: email.subject },
+                      { name: 'From', value: email.from },
+                      { name: 'Date', value: email.date }
+                    ]
+                  }
+                };
+
+                await db
+                  .insert(corsairEntities)
+                  .values({
+                    id: entityRowId,
+                    accountId: gmailAccount.id,
+                    entityId: email.id,
+                    entityType: 'messages',
+                    version: '1',
+                    data: entityData,
+                    updatedAt: new Date(),
+                  })
+                  .onConflictDoUpdate({
+                    target: corsairEntities.id,
+                    set: {
+                      data: entityData,
+                      updatedAt: new Date(),
+                    }
+                  });
+              }
+            } catch (cacheErr) {
+              console.error('Failed to cache fetched emails in database:', cacheErr);
+            }
+          }
         }
         fetchedFromGmail = true;
       } catch (gmailErr: unknown) {

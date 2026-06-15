@@ -125,7 +125,12 @@ export default function FolderPageClient({
       // Run revalidation in the background silently
       fetchEmails(false, true);
     } else {
-      fetchEmails(false, false);
+      // Fetch DB cache first, then run revalidation in the background
+      const loadInitial = async () => {
+        await fetchEmails(false, false);
+        fetchEmails(false, true);
+      };
+      loadInitial();
     }
   }, [folder]);
 

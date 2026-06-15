@@ -2,6 +2,7 @@ import { toNextJsHandler, processWebhook } from 'corsair';
 import { corsair } from '@/utils/corsair';
 import logger from '@/utils/logger';
 import { liveEmailsEmitter } from '@/utils/emitter';
+import { createClerkClient } from '@clerk/nextjs/server';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
 
     // Force requiring tenantId to prevent cross-tenant message processing or misrouting
     const url = new URL(request.url);
-    const activeTenantId = url.searchParams.get('tenantId');
+    let activeTenantId = url.searchParams.get('tenantId');
     const isGmailPubSub = !!(body.message && body.subscription);
 
     if (!activeTenantId && !isGmailPubSub) {
@@ -43,6 +44,43 @@ export async function POST(request: Request) {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    if (!activeTenantId && isGmailPubSub) {
+      // Decode the payload to resolve the emailAddress
+      let gmailEmail: string | null = null;
+      if (body.message?.data) {
+        try {
+          const decoded = Buffer.from(body.message.data, 'base64').toString('utf-8');
+          const parsed = JSON.parse(decoded);
+          if (parsed && typeof parsed.emailAddress === 'string') {
+            gmailEmail = parsed.emailAddress;
+            logger.info(`[Webhook POST] Decoded Gmail email address: ${gmailEmail}`);
+          }
+        } catch (err) {
+          logger.error('[Webhook POST] Failed to parse Gmail Pub/Sub message data:', err);
+        }
+      }
+
+      if (gmailEmail) {
+        try {
+          const clerkClient = createClerkClient({
+            secretKey: process.env.CLERK_SECRET_KEY,
+          });
+          const response = await clerkClient.users.getUserList({
+            emailAddress: [gmailEmail],
+          });
+          const user = response.data[0];
+          if (user) {
+            activeTenantId = user.id;
+            logger.info(`[Webhook POST] Resolved tenantId from email ${gmailEmail}: ${activeTenantId}`);
+          } else {
+            logger.error(`[Webhook POST] No user found in Clerk for email: ${gmailEmail}`);
+          }
+        } catch (err) {
+          logger.error('[Webhook POST] Clerk user lookup failed:', err);
+        }
+      }
     }
 
     if (activeTenantId) {
