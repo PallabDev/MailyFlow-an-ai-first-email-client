@@ -44,7 +44,8 @@ export default async function OnboardingPage({
 
   const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
   const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
-  const allConnected = (isGmailConnected && isCalendarConnected) || dbError;
+  const isGoogleConnected = isGmailConnected && isCalendarConnected;
+  const allConnected = isGoogleConnected || dbError;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary antialiased font-sans">
@@ -92,33 +93,38 @@ export default async function OnboardingPage({
           )}
 
           {/* Cards Grid */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Gmail Integration Card */}
+          <div className="max-w-xl mx-auto w-full">
+            {/* Google Workspace Card */}
             <div className={`relative overflow-hidden rounded-2xl border p-8 transition-all duration-300 ${
-              isGmailConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
+              isGoogleConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
             }`}>
               <div className="flex flex-col h-full justify-between space-y-6">
                 <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
-                    <Mail className="h-6 w-6" />
+                  <div className="flex space-x-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
+                      <Mail className="h-6 w-6" />
+                    </div>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                      <Calendar className="h-6 w-6" />
+                    </div>
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-text-primary flex items-center space-x-2">
-                      <span>Google Mail</span>
-                      {isGmailConnected && <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">Connected</span>}
+                      <span>Google Workspace</span>
+                      {isGoogleConnected && <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">Connected</span>}
                     </h2>
-                    <p className="mt-1 text-sm text-text-secondary">
-                      Sync your emails, drafts, and allow your agent to help organize your inbox.
+                    <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+                      Connect your Google Account to authorize MailyFlow to sync your emails, drafts, and calendar events. This enables your AI assistant to draft emails and schedule calendar meetings.
                     </p>
                   </div>
                 </div>
 
                 <div className="pt-2">
-                  {isGmailConnected ? (
+                  {isGoogleConnected ? (
                     <div className="flex items-center justify-between w-full">
                       <div className="flex items-center space-x-2 text-success font-semibold">
                         <CheckCircle2 className="h-5 w-5" />
-                        <span>Gmail authorized</span>
+                        <span>Google account authorized</span>
                       </div>
                       <form action={disconnectPlugin.bind(null, 'gmail')}>
                         <button
@@ -134,56 +140,7 @@ export default async function OnboardingPage({
                       href="/api/auth/connect?plugin=gmail"
                       className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
                     >
-                      <span>Connect Google Mail</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Google Calendar Card */}
-            <div className={`relative overflow-hidden rounded-2xl border p-8 transition-all duration-300 ${
-              isCalendarConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
-            }`}>
-              <div className="flex flex-col h-full justify-between space-y-6">
-                <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                    <Calendar className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-text-primary flex items-center space-x-2">
-                      <span>Google Calendar</span>
-                      {isCalendarConnected && <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">Connected</span>}
-                    </h2>
-                    <p className="mt-1 text-sm text-text-secondary">
-                      Manage your events, calendars, scheduling times, and track meetings.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  {isCalendarConnected ? (
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 text-success font-semibold">
-                        <CheckCircle2 className="h-5 w-5" />
-                        <span>Calendar authorized</span>
-                      </div>
-                      <form action={disconnectPlugin.bind(null, 'googlecalendar')}>
-                        <button
-                          type="submit"
-                          className="rounded-lg border border-danger/25 text-danger hover:bg-danger/10 px-3 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer"
-                        >
-                          Disconnect
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <a
-                      href="/api/auth/connect?plugin=googlecalendar"
-                      className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
-                    >
-                      <span>Connect Google Calendar</span>
+                      <span>Connect Google Account</span>
                       <ArrowRight className="h-4 w-4" />
                     </a>
                   )}

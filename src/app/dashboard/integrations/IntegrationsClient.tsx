@@ -125,112 +125,69 @@ export default function IntegrationsClient({
         <div className="space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-text-muted">Connected Services</h2>
           
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Google Mail Integration Card */}
-            <div className={`rounded-2xl border p-6 transition-all duration-300 ${
-              isGmailConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
-            }`}>
-              <div className="flex flex-col h-full justify-between space-y-6">
-                <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
-                    <Mail className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-text-primary flex items-center space-x-2">
-                      <span>Google Mail</span>
-                      {isGmailConnected && (
-                        <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">
-                          Connected
-                        </span>
-                      )}
-                    </h3>
-                    <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-                      Authorizes MailyFlow to read, draft, and organize your emails. Enables automated drafts suggestions.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  {isGmailConnected ? (
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 text-success font-semibold text-sm">
-                        <CheckCircle2 className="h-4.5 w-4.5" />
-                        <span>Authorized</span>
+          <div className="max-w-xl">
+            {/* Google Workspace Integration Card */}
+            {(() => {
+              const isGoogleConnected = isGmailConnected && isCalendarConnected;
+              return (
+                <div className={`rounded-2xl border p-6 transition-all duration-300 ${
+                  isGoogleConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
+                }`}>
+                  <div className="flex flex-col h-full justify-between space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex space-x-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
+                          <Mail className="h-6 w-6" />
+                        </div>
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                          <CalendarIcon className="h-6 w-6" />
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleDisconnect('gmail')}
-                        disabled={gmailLoading}
-                        className="rounded-xl border border-danger/25 text-danger hover:bg-danger/10 px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer flex items-center space-x-1.5"
-                      >
-                        {gmailLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        <span>Disconnect</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <a
-                      href="/api/auth/connect?plugin=gmail"
-                      className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
-                    >
-                      <span>Connect Google Mail</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Google Calendar Integration Card */}
-            <div className={`rounded-2xl border p-6 transition-all duration-300 ${
-              isCalendarConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
-            }`}>
-              <div className="flex flex-col h-full justify-between space-y-6">
-                <div className="space-y-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                    <CalendarIcon className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-text-primary flex items-center space-x-2">
-                      <span>Google Calendar</span>
-                      {isCalendarConnected && (
-                        <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">
-                          Connected
-                        </span>
-                      )}
-                    </h3>
-                    <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-                      Syncs with your primary Google calendar. Allows the AI assistant to read schedule events and schedule meetings.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  {isCalendarConnected ? (
-                    <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center space-x-2 text-success font-semibold text-sm">
-                        <CheckCircle2 className="h-4.5 w-4.5" />
-                        <span>Authorized</span>
+                      <div>
+                        <h3 className="text-lg font-bold text-text-primary flex items-center space-x-2">
+                          <span>Google Account</span>
+                          {isGoogleConnected && (
+                            <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">
+                              Connected
+                            </span>
+                          )}
+                        </h3>
+                        <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
+                          Authorizes MailyFlow to read, draft, and organize your emails, and sync with your primary Google calendar to manage events and meetings.
+                        </p>
                       </div>
-                      <button
-                        onClick={() => handleDisconnect('googlecalendar')}
-                        disabled={calendarLoading}
-                        className="rounded-xl border border-danger/25 text-danger hover:bg-danger/10 px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer flex items-center space-x-1.5"
-                      >
-                        {calendarLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        <span>Disconnect</span>
-                      </button>
                     </div>
-                  ) : (
-                    <a
-                      href="/api/auth/connect?plugin=googlecalendar"
-                      className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
-                    >
-                      <span>Connect Google Calendar</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </a>
-                  )}
+
+                    <div className="pt-2">
+                      {isGoogleConnected ? (
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center space-x-2 text-success font-semibold text-sm">
+                            <CheckCircle2 className="h-4.5 w-4.5" />
+                            <span>Authorized</span>
+                          </div>
+                          <button
+                            onClick={() => handleDisconnect('gmail')}
+                            disabled={gmailLoading}
+                            className="rounded-xl border border-danger/25 text-danger hover:bg-danger/10 px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer flex items-center space-x-1.5"
+                          >
+                            {gmailLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                            <span>Disconnect</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <a
+                          href="/api/auth/connect?plugin=gmail"
+                          className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
+                        >
+                          <span>Connect Google Account</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
 

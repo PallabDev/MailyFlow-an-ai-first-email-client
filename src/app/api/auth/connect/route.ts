@@ -31,7 +31,26 @@ export async function GET(req: NextRequest) {
       redirectUri,
     });
 
-    return NextResponse.redirect(url);
+    let finalUrl = url;
+    if (plugin === 'gmail') {
+      const parsedUrl = new URL(url);
+      const existingScope = parsedUrl.searchParams.get('scope') || '';
+      const googleCalendarScope = 'https://www.googleapis.com/auth/calendar';
+      
+      const scopeList = existingScope.split(' ');
+      if (!scopeList.includes(googleCalendarScope)) {
+        scopeList.push(googleCalendarScope);
+      }
+      
+      parsedUrl.searchParams.set('scope', scopeList.join(' '));
+      // Force prompt=consent and access_type=offline to guarantee refresh token is returned
+      parsedUrl.searchParams.set('prompt', 'consent');
+      parsedUrl.searchParams.set('access_type', 'offline');
+      
+      finalUrl = parsedUrl.toString();
+    }
+
+    return NextResponse.redirect(finalUrl);
   } catch (error: unknown) {
     console.error('Error in connect API:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';

@@ -3,17 +3,17 @@
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities, corsairEvents } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
-export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar') {
+export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar' | 'google') {
   try {
     const { userId } = await auth();
     if (!userId) {
       throw new Error('Unauthorized');
     }
 
-    // 1. Find all accounts for the user connected to this integration name
+    // 1. Find all accounts for the user connected to Gmail or Google Calendar
     const accounts = await db
       .select({ id: corsairAccounts.id })
       .from(corsairAccounts)
@@ -21,7 +21,10 @@ export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar') {
       .where(
         and(
           eq(corsairAccounts.tenantId, userId),
-          eq(corsairIntegrations.name, plugin)
+          or(
+            eq(corsairIntegrations.name, 'gmail'),
+            eq(corsairIntegrations.name, 'googlecalendar')
+          )
         )
       );
 
@@ -52,8 +55,9 @@ export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar') {
         .where(eq(corsairAccounts.id, accountId));
     }
 
-    // 6. Revalidate the onboarding page cache so it updates immediately
+    // 6. Revalidate pages cache so it updates immediately
     revalidatePath('/onboarding');
+    revalidatePath('/dashboard/integrations');
   } catch (error) {
     console.error('Error disconnecting plugin:', error);
     throw error;
