@@ -54,8 +54,11 @@ export async function POST(request: Request) {
           const decoded = Buffer.from(body.message.data, 'base64').toString('utf-8');
           const parsed = JSON.parse(decoded);
           if (parsed && typeof parsed.emailAddress === 'string') {
-            gmailEmail = parsed.emailAddress;
-            logger.info(`[Webhook POST] Decoded Gmail email address: ${gmailEmail}`);
+            const emailStr = parsed.emailAddress;
+            gmailEmail = emailStr;
+            const [local, domain] = emailStr.split('@');
+            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
+            logger.info(`[Webhook POST] Decoded Gmail email address: ${maskedLocal}@${domain || 'unknown'}`);
           }
         } catch (err) {
           logger.error('[Webhook POST] Failed to parse Gmail Pub/Sub message data:', err);
@@ -73,9 +76,13 @@ export async function POST(request: Request) {
           const user = response.data[0];
           if (user) {
             activeTenantId = user.id;
-            logger.info(`[Webhook POST] Resolved tenantId from email ${gmailEmail}: ${activeTenantId}`);
+            const [local, domain] = gmailEmail.split('@');
+            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
+            logger.info(`[Webhook POST] Resolved tenantId from email ${maskedLocal}@${domain || 'unknown'}: ${activeTenantId}`);
           } else {
-            logger.error(`[Webhook POST] No user found in Clerk for email: ${gmailEmail}`);
+            const [local, domain] = gmailEmail.split('@');
+            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
+            logger.error(`[Webhook POST] No user found in Clerk for email: ${maskedLocal}@${domain || 'unknown'}`);
           }
         } catch (err) {
           logger.error('[Webhook POST] Clerk user lookup failed:', err);
