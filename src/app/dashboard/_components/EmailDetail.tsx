@@ -66,10 +66,15 @@ export default function EmailDetail({
     fetchDetail();
   }, [email]);
 
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
-      if (e.data && e.data.type === 'resize-iframe') {
-        setIframeHeight(`${e.data.height}px`);
+      // Validate that message is from our specific iframe contentWindow (prevention of wildcard origin vulnerability)
+      if (iframeRef.current && e.source === iframeRef.current.contentWindow) {
+        if (e.data && e.data.type === 'resize-iframe') {
+          setIframeHeight(`${e.data.height}px`);
+        }
       }
     };
     window.addEventListener('message', handleMessage);
@@ -131,6 +136,7 @@ export default function EmailDetail({
           {!loading && !error && detailEmail && (
             <div className="bg-surface-subtle rounded-xl border border-border p-4">
               <iframe
+                ref={iframeRef}
                 srcDoc={getEmailHtml(detailEmail, true, isDark)}
                 style={{ height: iframeHeight }}
                 className="w-full border-0 overflow-hidden bg-transparent"

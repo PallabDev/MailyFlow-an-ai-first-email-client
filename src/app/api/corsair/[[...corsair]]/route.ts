@@ -1,7 +1,5 @@
 import { toNextJsHandler, processWebhook } from 'corsair';
-import { corsair, db } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq, and, ne } from 'drizzle-orm';
+import { corsair } from '@/utils/corsair';
 import logger from '@/utils/logger';
 import { liveEmailsEmitter } from '@/utils/emitter';
 
@@ -10,6 +8,9 @@ const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
 });
 
 export { GET };
+
+// Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
+const seenEmails = new Map<string, Set<string>>();
 
 export async function POST(request: Request) {
   // Clone request to avoid consuming body stream if we need to fallback
@@ -31,60 +32,30 @@ export async function POST(request: Request) {
     };
     logger.info(`[Webhook POST] Handled event: ${JSON.stringify(eventInfo)}`);
 
-    // Check query params for tenantId, or query the database for the active gmail tenant
+    // Force requiring tenantId to prevent cross-tenant message processing or misrouting
     const url = new URL(request.url);
-    let activeTenantId = url.searchParams.get('tenantId') || undefined;
+    const activeTenantId = url.searchParams.get('tenantId');
 
     if (!activeTenantId) {
-      try {
-        const gmailIntegration = await db
-          .select()
-          .from(corsairIntegrations)
-          .where(eq(corsairIntegrations.name, 'gmail'))
-          .limit(1);
-
-        if (gmailIntegration.length > 0) {
-          const userAccounts = await db
-            .select()
-            .from(corsairAccounts)
-            .where(
-              and(
-                eq(corsairAccounts.integrationId, gmailIntegration[0].id),
-                ne(corsairAccounts.tenantId, 'dev')
-              )
-            )
-            .limit(1);
-
-          if (userAccounts.length > 0) {
-            activeTenantId = userAccounts[0].tenantId;
-          } else {
-            const fallbackAccounts = await db
-              .select()
-              .from(corsairAccounts)
-              .where(eq(corsairAccounts.integrationId, gmailIntegration[0].id))
-              .limit(1);
-            if (fallbackAccounts.length > 0) {
-              activeTenantId = fallbackAccounts[0].tenantId;
-            }
-          }
-        }
-      } catch (err) {
-        logger.error('Error finding tenant for webhook:', err);
-      }
+      logger.error('[Webhook POST] Webhook rejected: Missing tenantId in query parameters.');
+      return new Response(JSON.stringify({ error: 'Missing tenantId query parameter' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId || 'default'}`);
+    logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId}`);
 
     // Try processing the webhook first
     const result = await processWebhook(corsair, headersObj, body, {
-      tenantId: activeTenantId || 'default',
+      tenantId: activeTenantId,
     });
 
     logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
 
     // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
     const isGmailWebhook = !!body.message?.data;
-    if (isGmailWebhook && activeTenantId) {
+    if (isGmailWebhook) {
       try {
         logger.info(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
         const client = corsair.withTenant(activeTenantId);
@@ -92,13 +63,30 @@ export async function POST(request: Request) {
           maxResults: 3,
           labelIds: ['INBOX'],
         });
+
         if (listRes.messages && listRes.messages.length > 0) {
-          const ids = listRes.messages.map(m => m.id).filter(Boolean);
+          const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
           logger.info(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
-          for (const msg of listRes.messages) {
-            if (msg.id) {
-              liveEmailsEmitter.emit('new-email', { emailId: msg.id });
-              logger.info(`✉️ [Webhook POST] Custom Gmail sync: Yes, server sent message ID ${msg.id} event to client emitter`);
+          
+          if (!seenEmails.has(activeTenantId)) {
+            // First run for this tenant: initialize the set with the current IDs without emitting them to prevent boot spam
+            seenEmails.set(activeTenantId, new Set(ids));
+            logger.info(`[Webhook POST] Custom Gmail sync: Initialized seen emails list for tenant ${activeTenantId}: ${JSON.stringify(ids)}`);
+          } else {
+            const tenantSeen = seenEmails.get(activeTenantId)!;
+            for (const msg of listRes.messages) {
+              if (msg.id && !tenantSeen.has(msg.id)) {
+                tenantSeen.add(msg.id);
+                // Evict older entries to keep the set bounded (limit to 50)
+                if (tenantSeen.size > 50) {
+                  const firstKey = tenantSeen.keys().next().value;
+                  if (firstKey !== undefined) {
+                    tenantSeen.delete(firstKey);
+                  }
+                }
+                liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
+                logger.info(`✉️ [Webhook POST] Custom Gmail sync: Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
+              }
             }
           }
         } else {

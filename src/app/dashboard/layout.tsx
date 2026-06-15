@@ -2,7 +2,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import React from 'react';
 import ClientLayoutWrapper from './_components/ClientLayoutWrapper';
-import { db } from '@/utils/corsair';
+import { db, renewWatchesIfNeeded } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -21,9 +21,13 @@ export default async function DashboardLayout({
     redirect('/sign-in?redirect_url=' + encodeURIComponent('/dashboard/inbox'));
   }
 
+  // Trigger watch renewal in the background (runs asynchronously on page load)
+  renewWatchesIfNeeded(userId).catch((err) => {
+    console.error('[Dashboard Layout] Watch renewal check failed:', err);
+  });
+
   // Check if both integrations are connected
   let connectedAccounts: any[] = [];
-  let dbError = false;
   try {
     connectedAccounts = await db
       .select({
@@ -35,15 +39,13 @@ export default async function DashboardLayout({
       .where(eq(corsairAccounts.tenantId, userId));
   } catch (error) {
     console.error('Error querying connected accounts in dashboard layout:', error);
-    dbError = true;
   }
 
   const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
   const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
 
-  // If the database has a quota error, do NOT redirect to onboarding since they won't be able to connect anyway.
-  // Instead, allow them to view the dashboard with local mocks/memory fallback.
-  if (!dbError && (!isGmailConnected || !isCalendarConnected)) {
+  // If either integration is disconnected, redirect to onboarding page
+  if (!isGmailConnected || !isCalendarConnected) {
     redirect('/onboarding');
   }
 
@@ -62,5 +64,4 @@ export default async function DashboardLayout({
       {children}
     </ClientLayoutWrapper>
   );
-
 }

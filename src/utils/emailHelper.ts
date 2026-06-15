@@ -2,6 +2,43 @@ export const isHtml = (str: string) => {
   return /<[a-z][\s\S]*>/i.test(str);
 };
 
+// Client-side lightweight HTML sanitizer to prevent stored XSS in emails
+export function sanitizeHtml(html: string): string {
+  if (typeof window === 'undefined') return html;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Remove blacklisted elements
+    const blacklist = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'applet', 'form', 'svg'];
+    blacklist.forEach(tag => {
+      doc.querySelectorAll(tag).forEach(el => el.remove());
+    });
+
+    // Traverse and clean attributes
+    const allElements = doc.querySelectorAll('*');
+    allElements.forEach(el => {
+      // Remove inline event handlers (on*) and javascript: links
+      const attrs = Array.from(el.attributes);
+      attrs.forEach(attr => {
+        const name = attr.name.toLowerCase();
+        const val = attr.value.toLowerCase();
+        
+        if (name.startsWith('on')) {
+          el.removeAttribute(attr.name);
+        } else if ((name === 'href' || name === 'src' || name === 'action') && val.startsWith('javascript:')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    
+    return doc.body.innerHTML;
+  } catch (e) {
+    console.error('HTML Sanitization failed', e);
+    return '';
+  }
+}
+
 export const formatPlainTextInput = (text: string) => {
   let html = text
     .replace(/&/g, '&amp;')
@@ -33,13 +70,13 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
   let rawHtml = email.body;
   if (!isHtml(rawHtml)) {
     rawHtml = formatPlainTextInput(rawHtml);
+  } else {
+    rawHtml = sanitizeHtml(rawHtml);
   }
 
-  // When we use `filter: invert(...)` to handle dark mode, the color transformations are:
-  // - Light elements (e.g. background #ffffff) become dark.
-  // - Dark elements (e.g. text #2c2c2a) become light.
-  // Therefore, to make dark mode readable, we define the base stylesheet using light mode colors
-  // (dark text, blue links) and let the CSS filter invert them to their dark mode counterparts.
+  // Resolve parent origin dynamically to enforce strict postMessage destination (prevents wildcard origin vulnerability)
+  const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
+
   const textColor = '#2c2c2a';
   const linkColor = '#2563eb';
 
@@ -83,7 +120,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
               document.body.offsetHeight,
               document.documentElement.offsetHeight
             );
-            window.parent.postMessage({ type: 'resize-iframe', height: height }, '*');
+            window.parent.postMessage({ type: 'resize-iframe', height: height }, "${parentOrigin}");
           }
           function forceBlankLinks() {
             var links = document.getElementsByTagName('a');
@@ -163,5 +200,5 @@ export const formatEmailDate = (dateVal: string | Date | number | undefined): st
   hours = hours ? hours : 12;
   const hoursStr = String(hours).padStart(2, '0');
 
-  return `${day}/${month}/${year} with ${hoursStr}:${minutes} ${ampm}`;
+  return `${day}/${month}/${year} at ${hoursStr}:${minutes} ${ampm}`;
 };

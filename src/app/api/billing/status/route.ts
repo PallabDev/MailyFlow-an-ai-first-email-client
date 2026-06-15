@@ -45,22 +45,11 @@ export async function GET(req: NextRequest) {
     let gmailCount = usage?.gmailCallsCount ?? 0;
     let calendarCount = usage?.calendarCallsCount ?? 0;
 
-    // Reset daily counters on fetch if date has changed
+    // Reset daily counters logically on read if date has changed (idempotent, actual write happens on next rate limit check)
     if (usage && usage.lastResetDate !== todayStr) {
       aiCount = 0;
       gmailCount = 0;
       calendarCount = 0;
-
-      await db
-        .update(userUsage)
-        .set({
-          aiCallsCount: 0,
-          gmailCallsCount: 0,
-          calendarCallsCount: 0,
-          lastResetDate: todayStr,
-          updatedAt: new Date(),
-        })
-        .where(eq(userUsage.userId, userId));
     }
 
     return NextResponse.json({

@@ -198,11 +198,11 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Start a fresh AI assistant instance on mount/refresh
+  // Load chat messages history on mount
   useEffect(() => {
-    useChatStore.setState({ messages: [] });
+    fetchMessages(user.id);
     return () => clearPolling();
-  }, []);
+  }, [user.id, fetchMessages, clearPolling]);
 
   // Smart Auto-Scroll to bottom (only scroll if user is already at the bottom or sent a message)
   useEffect(() => {

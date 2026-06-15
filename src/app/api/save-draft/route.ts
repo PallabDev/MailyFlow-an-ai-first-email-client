@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { corsair, hasActiveConnection } from '@/utils/corsair';
 
 interface SaveDraftRequest {
   to: string;
   subject: string;
   body: string;
-}
-
-interface ConnectedAccountBasic {
-  name: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -26,19 +20,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fields: to, subject, and body are required' }, { status: 400 });
     }
 
-    // Determine active tenant id
-    let connectedAccounts: ConnectedAccountBasic[] = [];
-    try {
-      connectedAccounts = await db
-        .select({ name: corsairIntegrations.name })
-        .from(corsairAccounts)
-        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-        .where(eq(corsairAccounts.tenantId, userId));
-    } catch (e) {
-      console.error('Error fetching connected accounts for draft:', e);
+    // 1. Sanitize to prevent SMTP / Email Header Injection (deny newlines)
+    if (/[\r\n]/.test(to) || /[\r\n]/.test(subject)) {
+      return NextResponse.json({ error: 'Invalid characters in subject or recipient address.' }, { status: 400 });
     }
 
-    const hasGmailConnection = connectedAccounts.some(acc => acc.name === 'gmail');
+    // Validate recipient email address format(s)
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+    const recipients = to.split(',').map(s => s.trim());
+    for (const recipient of recipients) {
+      if (!emailRegex.test(recipient)) {
+        return NextResponse.json({ error: `Invalid recipient email format: ${recipient}` }, { status: 400 });
+      }
+    }
+
+    // Determine active connection using hasActiveConnection helper
+    const hasGmailConnection = await hasActiveConnection(userId, 'gmail');
     if (!hasGmailConnection) {
       return NextResponse.json({ error: 'Please connect your Gmail account on the onboarding page before creating drafts.' }, { status: 400 });
     }

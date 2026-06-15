@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
+import { db, hasActiveConnection } from '@/utils/corsair';
 import { chatMessages } from '@/db/schema';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, and } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { chatMessageSchema } from '@/utils/validation';
 import crypto from 'crypto';
@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { messages, timezone, localTime } = parseResult.data;
-    const { userDetails } = body; // client passes connection status and profile details
+
+    // Resolve connection status server-side from DB/Corsair key manager before triggering Inngest
+    const hasGmailConnection = await hasActiveConnection(userId, 'gmail');
+    const hasCalendarConnection = await hasActiveConnection(userId, 'googlecalendar');
 
     const userMessageId = crypto.randomUUID();
     const assistantMessageId = crypto.randomUUID();
@@ -98,8 +101,8 @@ export async function POST(req: NextRequest) {
         userFirstName: user.firstName,
         userLastName: user.lastName,
         userEmail: user.emailAddresses[0]?.emailAddress || '',
-        hasGmailConnection: userDetails?.hasGmailConnection ?? false,
-        hasCalendarConnection: userDetails?.hasCalendarConnection ?? false,
+        hasGmailConnection,
+        hasCalendarConnection,
         messages: messages, // history of last 6 messages
         timezone,
         localTime,
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Cancel active message processing
+// PUT: Cancel active message processing (prevention of IDOR)
 export async function PUT(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -132,7 +135,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Message ID is required for cancellation' }, { status: 400 });
     }
 
-    // Update message status to cancelled in DB
+    // Update message status to cancelled in DB - strictly scoped to user to prevent IDOR
     try {
       await db
         .update(chatMessages)
@@ -141,7 +144,7 @@ export async function PUT(req: NextRequest) {
           content: '⚠️ AI Request paused and cancelled by user.',
           updatedAt: new Date(),
         })
-        .where(eq(chatMessages.id, messageId));
+        .where(and(eq(chatMessages.id, messageId), eq(chatMessages.userId, userId)));
     } catch (dbErr) {
       console.error('Failed to cancel message status in DB:', dbErr);
     }

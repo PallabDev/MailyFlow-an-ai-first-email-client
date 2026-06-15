@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair } from '@/utils/corsair';
+import { db, corsair, hasActiveConnection } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { ConnectedAccount, GmailConfig, LabelData } from './_types';
+import { LabelData } from './_types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,31 +12,31 @@ export async function GET(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    // Check if user has connected accounts
-    let connectedAccounts: ConnectedAccount[] = [];
-    try {
-      connectedAccounts = await db
-        .select({
-          id: corsairAccounts.id,
-          name: corsairIntegrations.name,
-          config: corsairAccounts.config,
-        })
-        .from(corsairAccounts)
-        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-        .where(eq(corsairAccounts.tenantId, userId));
-    } catch (error) {
-      console.error('Error querying connected accounts from DB:', error);
+    // Check if user has active connected accounts
+    const hasGmailConnection = await hasActiveConnection(userId, 'gmail');
+    if (!hasGmailConnection) {
+      return NextResponse.json({ error: 'Please connect your Google Account first.' }, { status: 403 });
     }
 
-    const gmailAccount = connectedAccounts.find(acc => acc.name === 'gmail');
-    const hasGmailConnection = !!gmailAccount && (gmailAccount.config as GmailConfig)?.access_token;
-    const gmailTenantId = hasGmailConnection ? userId : 'dev';
+    // Fetch the account row to resolve cache
+    const gmailAccount = await db
+      .select({ id: corsairAccounts.id })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, userId),
+          eq(corsairIntegrations.name, 'gmail')
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0]);
 
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === 'true';
 
     // Try to load counts from database cache first
-    if (!forceRefresh && hasGmailConnection && gmailAccount) {
+    if (!forceRefresh && gmailAccount) {
       try {
         const rows = await db
           .select()
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest) {
         const spamRow = rows.find(r => r.entityId === 'SPAM');
 
         if (inboxRow || draftsRow || spamRow) {
-          const isGmailConnected = connectedAccounts.some(acc => acc.name === 'gmail' && (acc.config as any)?.access_token);
-          const isCalendarConnected = connectedAccounts.some(acc => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
+          const isGmailConnected = await hasActiveConnection(userId, 'gmail');
+          const isCalendarConnected = await hasActiveConnection(userId, 'googlecalendar');
           return NextResponse.json({
             inbox: {
               unread: inboxRow ? ((inboxRow.data as LabelData).messagesUnread ?? 0) : 0,
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const client = corsair.withTenant(gmailTenantId);
+    const client = corsair.withTenant(userId);
 
     const handleLabelError = (err: unknown) => {
       const errStr = err instanceof Error ? err.message : String(err);
@@ -94,8 +94,8 @@ export async function GET(req: NextRequest) {
       client.gmail.api.labels.get({ id: 'SPAM' }).catch(handleLabelError),
     ]);
 
-    const isGmailConnected = connectedAccounts.some(acc => acc.name === 'gmail' && (acc.config as any)?.access_token);
-    const isCalendarConnected = connectedAccounts.some(acc => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
+    const isGmailConnected = await hasActiveConnection(userId, 'gmail');
+    const isCalendarConnected = await hasActiveConnection(userId, 'googlecalendar');
     return NextResponse.json({
       inbox: {
         unread: inbox?.messagesUnread ?? 0,

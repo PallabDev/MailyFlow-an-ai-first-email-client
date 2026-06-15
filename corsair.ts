@@ -26,7 +26,7 @@ export const corsair = createCorsair({
                                 const newEmail = response.data.message;
                                 if (newEmail && newEmail.id) {
                                     logger.info(`📩 [Gmail Hook] Received and processing email event [${eventType}]`);
-                                    liveEmailsEmitter.emit('new-email', { emailId: newEmail.id });
+                                    liveEmailsEmitter.emit('new-email', { emailId: newEmail.id, tenantId: ctx.tenantId });
                                 }
                             }
                         }

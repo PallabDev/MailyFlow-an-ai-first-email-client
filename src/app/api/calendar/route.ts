@@ -50,24 +50,9 @@ export async function GET(req: NextRequest) {
 
     const client = await getCalendarClient(userId);
     if (!client) {
-      // Return beautiful mock/virtual events for onboarding and demonstration
       return NextResponse.json({
-        events: [
-          {
-            id: 'mock-event-1',
-            summary: 'MailyFlow Demo Session 🗓️',
-            description: 'This is a mock calendar event. Connect your Google Calendar to see your actual events!',
-            start: { dateTime: new Date(Date.now() + 3600 * 1000).toISOString() },
-            end: { dateTime: new Date(Date.now() + 7200 * 1000).toISOString() },
-          },
-          {
-            id: 'mock-event-2',
-            summary: 'Review Inbox with AI Copilot 🤖',
-            description: 'Try checking your emails with the right sidebar!',
-            start: { dateTime: new Date(Date.now() + 86400 * 1000).toISOString() },
-            end: { dateTime: new Date(Date.now() + 86400 * 1000 + 1800 * 1000).toISOString() },
-          }
-        ],
+        events: [],
+        needsConnection: true,
       });
     }
 

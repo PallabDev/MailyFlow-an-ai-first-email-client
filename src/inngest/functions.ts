@@ -31,6 +31,25 @@ export const processAICall = inngest.createFunction(
 
     // Run the OpenAI agent execution step
     const resultText = await step.run('openai-agent-run', async () => {
+      // Helper function to check if cancelled
+      const checkCancelled = async () => {
+        try {
+          const existing = await db
+            .select({ status: chatMessages.status })
+            .from(chatMessages)
+            .where(eq(chatMessages.id, assistantMessageId))
+            .limit(1);
+          return existing.length > 0 && existing[0].status === 'cancelled';
+        } catch (err) {
+          console.error('Failed to check cancel status:', err);
+          return false;
+        }
+      };
+
+      if (await checkCancelled()) {
+        return '__CANCELLED__';
+      }
+
       // Configure the OpenAI provider for agents
       const openaiProvider = new OpenAIProvider({
         openAIClient: openai,
@@ -113,7 +132,16 @@ export const processAICall = inngest.createFunction(
         });
       };
 
+      if (await checkCancelled()) {
+        return '__CANCELLED__';
+      }
+
       const result = await run(agent, formatHistoryMessages(dbHistory));
+
+      if (await checkCancelled()) {
+        return '__CANCELLED__';
+      }
+
       let outputText = result.finalOutput || '';
 
       // Strip any leaked function/tool call tags
@@ -137,6 +165,9 @@ export const processAICall = inngest.createFunction(
 
     // Save output to the DB if the message has not been cancelled by the user
     await step.run('save-to-db', async () => {
+      if (resultText === '__CANCELLED__') {
+        return;
+      }
       try {
         // Fetch current status to check if cancelled
         const existing = await db
@@ -168,7 +199,7 @@ export const processAICall = inngest.createFunction(
 );
 
 // Listen for errors to log/track workflow failure states
-inngest.createFunction(
+export const trackFailedAICalls = inngest.createFunction(
   {
     id: 'track-failed-ai-calls',
     name: 'Track Failed AI Calls',

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair } from '@/utils/corsair';
+import { db, corsair, hasActiveConnection } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { TrashEmailRequest, ConnectedAccount, GmailConfig } from './_types';
+import { TrashEmailRequest } from './_types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,32 +17,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message ID is required' }, { status: 400 });
     }
 
-    // 1. Check if user has active connected accounts under their userId
-    let userConnectedAccounts: ConnectedAccount[] = [];
-    try {
-      userConnectedAccounts = await db
-        .select({
-          id: corsairAccounts.id,
-          name: corsairIntegrations.name,
-          config: corsairAccounts.config,
-        })
-        .from(corsairAccounts)
-        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-        .where(eq(corsairAccounts.tenantId, userId));
-    } catch (error) {
-      console.error('Error querying user connected accounts from DB:', error);
+    // Check Gmail Connection via hasActiveConnection
+    const hasGmailConnection = await hasActiveConnection(userId, 'gmail');
+    if (!hasGmailConnection) {
+      return NextResponse.json({ error: 'Please connect your Google Account first.' }, { status: 403 });
     }
 
-    // Filter only active connections
-    const activeConnections = userConnectedAccounts.filter(acc => {
-      const cfg = acc.config as GmailConfig;
-      return cfg && cfg.access_token;
-    });
-
-    const hasUserConnections = activeConnections.length > 0;
-    const activeTenantId = hasUserConnections ? userId : 'dev';
-
-    const client = corsair.withTenant(activeTenantId);
+    const client = corsair.withTenant(userId);
 
     // Call Gmail API to trash or delete the message
     if (permanently) {
@@ -55,27 +36,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Query connected accounts for the active tenant to correctly resolve accountId in DB cache
-    let activeConnectedAccounts = userConnectedAccounts;
-    if (activeTenantId === 'dev') {
-      try {
-        activeConnectedAccounts = await db
-          .select({
-            id: corsairAccounts.id,
-            name: corsairIntegrations.name,
-            config: corsairAccounts.config,
-          })
-          .from(corsairAccounts)
-          .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-          .where(eq(corsairAccounts.tenantId, 'dev'));
-      } catch (error) {
-        console.error('Error querying dev connected accounts from DB:', error);
-      }
-    }
+    // Query connected accounts for the active tenant to correctly resolve accountId in DB cache
+    const gmailAccount = await db
+      .select({ id: corsairAccounts.id })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, userId),
+          eq(corsairIntegrations.name, 'gmail')
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0]);
 
     // Delete from local DB cache
     try {
-      const gmailAccount = activeConnectedAccounts.find(acc => acc.name === 'gmail');
       if (gmailAccount) {
         await db
           .delete(corsairEntities)

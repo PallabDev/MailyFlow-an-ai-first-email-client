@@ -3,6 +3,18 @@ export async function register() {
     return;
   }
 
+  // Validate environment variables on startup
+  try {
+    const { validateEnv } = await import('./utils/validation');
+    validateEnv();
+    console.log('✅ [Startup] Environment variables validated successfully.');
+  } catch (err) {
+    console.error('❌ [Startup] Environment validation failed:', err);
+    if (process.env.NODE_ENV === 'production') {
+      throw err;
+    }
+  }
+
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
     return;
   }
