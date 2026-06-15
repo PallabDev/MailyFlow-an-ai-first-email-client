@@ -305,4 +305,28 @@ body {
 .draw-line { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.1s ease; }
 .draw-line.drawn { stroke-dashoffset: 0; }
 
+@keyframes marqueeVertical {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+@keyframes marqueeVerticalReverse {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
+}
+
+.marquee-vertical-track {
+  animation: marqueeVertical 35s linear infinite;
+}
+
+.marquee-vertical-track-reverse {
+  animation: marqueeVerticalReverse 35s linear infinite;
+}
+
+.marquee-vertical-pause:hover .marquee-vertical-track,
+.marquee-vertical-pause:hover .marquee-vertical-track-reverse {
+  animation-play-state: paused;
+}
+
+
 

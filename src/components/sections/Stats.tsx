@@ -5,15 +5,16 @@ import Counter from "../ui/Counter";
 
 interface Stat {
   value: number;
-  suffix: string;
+  prefix?: string;
+  suffix?: string;
   label: string;
 }
 
 const STATS: Stat[] = [
-  { value: 50, suffix: "K+", label: "Emails processed" },
-  { value: 10, suffix: "K+", label: "Meetings scheduled" },
-  { value: 95, suffix: "%",  label: "Approval rate" },
-  { value: 500, suffix: "+", label: "Teams" },
+  { prefix: "< ", value: 60, suffix: "s", label: "Secure Google OAuth setup time" },
+  { value: 10, suffix: "x", label: "Increase in email review speed" },
+  { value: 100, suffix: "%", label: "AI draft sandbox approval rate" },
+  { prefix: "< ", value: 1, suffix: "s", label: "Webhook email push sync latency" },
 ];
 
 export default function Stats() {
@@ -21,9 +22,9 @@ export default function Stats() {
     <section className="relative py-24 md:py-32">
       <Container className="flex flex-col gap-14">
         <SectionHeading
-          eyebrow="By the numbers"
-          title="Teams ship inbox-zero with MailyFlow"
-          subtitle="Real results from teams who replaced manual email management with AI-powered workflows."
+          eyebrow="Instant Impact"
+          title="Inbox-zero is closer than you think"
+          subtitle="No onboarding delays or training periods. Connect your workspace in seconds and experience instant inbox relief."
         />
 
         {/* stats band */}
@@ -61,6 +62,7 @@ function StatCell({ stat }: { stat: Stat }) {
     <div className="flex flex-col items-center gap-2 px-8 py-10 text-center">
       <Counter
         value={stat.value}
+        prefix={stat.prefix}
         suffix={stat.suffix}
         className="font-display text-4xl font-semibold tracking-tight text-text sm:text-5xl"
       />

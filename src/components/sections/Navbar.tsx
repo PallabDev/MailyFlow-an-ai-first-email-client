@@ -5,11 +5,11 @@ import Button from "../ui/Button";
 import ThemeToggle from "../ui/ThemeToggle";
 
 const LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "AI Workflows", href: "#playground" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Testimonials", href: "#testimonials" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Features", href: "/#features" },
+  { label: "AI Workflows", href: "/#playground" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Testimonials", href: "/#testimonials" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export default function Navbar() {
@@ -39,10 +39,10 @@ export default function Navbar() {
           className="flex items-center justify-between px-4 transition-all duration-300"
           style={{ height: scrolled ? 56 : 68 }}
         >
-          <a href="#top" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <img src="/icon.png" alt="MailyFlow Logo" className="h-7 w-7 object-contain shrink-0" />
             <span className="font-display text-[17px] font-semibold tracking-tight text-text">MailyFlow</span>
-          </a>
+          </Link>
 
           <div className="hidden items-center gap-1 md:flex">
             {LINKS.map((l) => (

@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
 import Container from "../ui/Container";
 
 const Github = ({ size = 16, strokeWidth = 1.8 }: { size?: number; strokeWidth?: number }) => (
@@ -50,9 +50,29 @@ const Linkedin = ({ size = 16, strokeWidth = 1.8 }: { size?: number; strokeWidth
 );
 
 const COLS = [
-  { title: "Product", links: ["Features", "Pricing", "AI Workflows", "FAQ"] },
-  { title: "Company", links: ["About", "Blog", "Careers", "Contact"] },
-  { title: "Resources", links: ["Documentation", "Changelog", "Privacy", "Terms"] },
+  {
+    title: "Product",
+    links: [
+      { label: "Features", href: "/#features" },
+      { label: "Pricing", href: "/#pricing" },
+      { label: "FAQ", href: "/#faq" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Refund Policy", href: "/refunds" },
+    ],
+  },
+  {
+    title: "Support",
+    links: [
+      { label: "Contact Us", href: "mailto:support@mailyflow.com" },
+      { label: "Changelog", href: "/changelog" },
+    ],
+  },
 ];
 
 export default function Footer() {
@@ -62,10 +82,10 @@ export default function Footer() {
       <Container className="py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="flex flex-col gap-4">
-            <a href="#top" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <img src="/icon.png" alt="MailyFlow Logo" className="h-7 w-7 object-contain shrink-0" />
               <span className="font-display text-[17px] font-semibold tracking-tight text-text">MailyFlow</span>
-            </a>
+            </Link>
             <p className="max-w-xs text-sm leading-relaxed text-muted">
               Your AI employee for email and calendar. Describe the outcome — MailyFlow does the work.
             </p>
@@ -87,13 +107,13 @@ export default function Footer() {
               ))}
             </div>
           </div>
-
+ 
           {COLS.map((col) => (
             <div key={col.title} className="flex flex-col gap-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-text">{col.title}</p>
               {col.links.map((l) => (
-                <a key={l} href="#" className="text-sm text-muted transition-colors hover:text-text">
-                  {l}
+                <a key={l.label} href={l.href} className="text-sm text-muted transition-colors hover:text-text">
+                  {l.label}
                 </a>
               ))}
             </div>

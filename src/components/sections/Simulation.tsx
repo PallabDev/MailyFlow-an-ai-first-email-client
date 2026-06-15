@@ -113,7 +113,7 @@ function SimWindow({ def, index }: { def: SimDef; index: number }) {
   };
 
   return (
-    <div className="flex flex-col h-[380px] overflow-hidden rounded-xl border border-line bg-surface shadow-[0_2px_12px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_12px_-5px_rgba(0,0,0,0.3)]">
+    <div className="flex flex-col h-[400px] overflow-hidden rounded-xl border border-line bg-surface shadow-[0_2px_12px_-5px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_12px_-5px_rgba(0,0,0,0.3)]">
       {/* 1. Header (AI Assistant header style) */}
       <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-line bg-surface select-none">
         <div className="flex items-center gap-1.5">
@@ -193,12 +193,12 @@ function SimWindow({ def, index }: { def: SimDef; index: number }) {
       <div className="border-t border-line bg-surface px-3 py-2.5 flex gap-2 items-center">
         <div
           onClick={handleSend}
-          className="flex-1 bg-surface2 border border-line rounded-xl px-3 py-1.5 text-[10.5px] text-text text-left cursor-pointer hover:border-line-strong transition-colors truncate min-h-[30px] flex items-center select-none"
+          className="flex-1 bg-surface2 border border-line rounded-xl px-3 py-1.5 text-[10.5px] text-text text-left cursor-pointer hover:border-line-strong transition-colors min-h-[52px] flex items-center select-none"
         >
           {status === "waiting" ? (
-            <span className="text-text font-normal truncate">{def.prompt}</span>
+            <span className="text-text font-normal line-clamp-3 text-wrap break-words">{def.prompt}</span>
           ) : (
-            <span className="text-muted italic truncate">Ask anything...</span>
+            <span className="text-muted italic line-clamp-3 text-wrap break-words">Ask anything...</span>
           )}
         </div>
 

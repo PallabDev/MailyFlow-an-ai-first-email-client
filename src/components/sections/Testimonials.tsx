@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star } from "lucide-react";
 import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";
 import GlassCard from "../ui/GlassCard";
@@ -11,133 +10,160 @@ interface Testimonial {
   role: string;
   initials: string;
   avatarStyle: string;
+  handle?: string;
 }
 
 const TESTIMONIALS: Testimonial[] = [
   {
-    quote:
-      "MailyFlow cut my inbox time in half. I used to spend 90 minutes every morning just triaging — now I spend 15. The AI drafts are eerily good.",
-    name: "Priya Mehta",
-    role: "Founder, Stacklane",
-    initials: "PM",
+    quote: "Honestly, we tried building our own internal email triage script using OpenAI. Complete mess. MailyFlow's MCP orchestration just works out of the box. Saved us weeks.",
+    name: "Aarav Mehta",
+    role: "Co-founder, DevScale",
+    initials: "AM",
+    handle: "@aarav_m",
     avatarStyle: "background: var(--accent); color: #fff;",
   },
   {
-    quote:
-      "As an EA managing three executives, MailyFlow is the only tool that actually understands context. Scheduling used to eat my afternoons. Not anymore.",
-    name: "Jordan Ellis",
-    role: "Executive Assistant, Meridian Capital",
-    initials: "JE",
+    quote: "I get around 200 emails a day from merchants. MailyFlow's semantic search is magic—I can search 'merchant complains about stripe refunds last week' and it gets the exact thread.",
+    name: "Kavya Nair",
+    role: "Product Manager, Razorpay",
+    initials: "KN",
+    handle: "@kavyanair_",
     avatarStyle: "background: var(--primary); color: #fff;",
   },
   {
-    quote:
-      "We onboarded the whole ops team in a day. The approval gate is brilliant — AI does the heavy lifting, humans stay in control. Exactly what we needed.",
-    name: "Sana Okafor",
-    role: "Head of Operations, Vanta Labs",
-    initials: "SO",
+    quote: "The Zero-Trust Draft Staging is the only reason our security team approved MailyFlow. The AI drafts replies, but nothing goes out without a human click.",
+    name: "Ishaan Sharma",
+    role: "Founding Engineer, Khatabook",
+    initials: "IS",
+    handle: "@ishaan_sha",
     avatarStyle: "background: var(--secondary); color: var(--accent-ink);",
   },
   {
-    quote:
-      "I was skeptical about AI email tools after trying three others. MailyFlow is different. It actually reads the thread and drafts something I'd write myself.",
-    name: "Marcus Tran",
-    role: "Product Lead, Orbit Systems",
-    initials: "MT",
+    quote: "MailyFlow's unified dashboard is incredibly fast. Plus, the monthly calendar grid and email feed sync are so seamless. Huge fan of the UX.",
+    name: "Ananya Patel",
+    role: "Frontend Architect, Swiggy",
+    initials: "AP",
+    handle: "@ananya_codes",
     avatarStyle: "background: var(--accent); color: #fff;",
   },
   {
-    quote:
-      "10 hours saved per week is not an exaggeration. I tracked it. The calendar automation alone is worth the subscription — no more back-and-forth scheduling.",
-    name: "Leila Vasquez",
-    role: "CEO, Nomad Studio",
-    initials: "LV",
+    quote: "MailyFlow saves me at least 12 hours a week. The AI context memory is super smart—it actually remembers the thread context up to 20 messages back.",
+    name: "Divyanshu Goel",
+    role: "CEO, Finflo",
+    initials: "DG",
+    handle: "@divyanshu_g",
     avatarStyle: "background: var(--primary); color: #fff;",
   },
   {
-    quote:
-      "Our investor update emails used to take two hours to compile. MailyFlow pulls the data, drafts the narrative, and queues it for my review. Game changer.",
-    name: "Arjun Kapoor",
-    role: "Co-founder, Clearpath AI",
-    initials: "AK",
+    quote: "Ditch Gmail's standard UI. MailyFlow is what an email client should be in 2026. The MCP tool calling to auto-update our DB on specific events is insane.",
+    name: "Rohan Deshmukh",
+    role: "Engineering Lead, CRED",
+    initials: "RD",
+    handle: "@rohan_d",
     avatarStyle: "background: var(--secondary); color: var(--accent-ink);",
   },
   {
-    quote:
-      "MailyFlow's sandbox security gives our compliance team peace of mind. We can run complex auto-replies safely knowing the approval gate is unbreakable.",
-    name: "Leah Chen",
-    role: "Engineering Director, Bloom Health",
-    initials: "LC",
+    quote: "My calendar booking link is constantly abused. With MailyFlow, the AI screens calendar requests in my email first. Safe to say my sanity is back.",
+    name: "Priya Sen",
+    role: "Developer Relations, Hasura",
+    initials: "PS",
+    handle: "@priyasen_dev",
     avatarStyle: "background: var(--accent); color: #fff;",
   },
   {
-    quote:
-      "We integrated MailyFlow with our CRM via the automated workflow builder. Now, when warm leads email us, AI qualifies them, updates HubSpot, and schedules a call in seconds.",
-    name: "Devon Miller",
-    role: "Growth Lead, Pilot AI",
-    initials: "DM",
+    quote: "Our customer success ops went from high-latency to instant. Staged AI drafts let the team review and reply in a single keypress. Brilliant approval gate.",
+    name: "Vikram Malhotra",
+    role: "VP Engineering, Groww",
+    initials: "VM",
+    handle: "@vikram_malhotra",
     avatarStyle: "background: var(--primary); color: #fff;",
   },
   {
-    quote:
-      "I've tried every email client on the market. MailyFlow is the first one that doesn't just manage my inbox—it actually handles the work for me.",
-    name: "Elena Rostova",
-    role: "Managing Partner, Apex Ventures",
-    initials: "ER",
+    quote: "I hate email. I've built five custom scripts to auto-sort my inbox but gave up. MailyFlow solved this for me in 5 minutes. Best purchase this year.",
+    name: "Meera Iyer",
+    role: "Indie Hacker",
+    initials: "MI",
+    handle: "@meera_iyer",
+    avatarStyle: "background: var(--secondary); color: var(--accent-ink);",
+  },
+  {
+    quote: "Managing candidate outreach was a full-time job. The AI assistant schedules interviews, matches slots, and stages candidate follow-ups perfectly.",
+    name: "Aditya Joshi",
+    role: "Technical Recruiter, Zepto",
+    initials: "AJ",
+    handle: "@aditya_j",
+    avatarStyle: "background: var(--accent); color: #fff;",
+  },
+  {
+    quote: "No more copy-pasting customer details to HubSpot. The webhooks feed drops incoming messages straight into our dashboard, keeping CRM synced.",
+    name: "Riya Verma",
+    role: "Operations Lead, Meesho",
+    initials: "RV",
+    handle: "@riya_v",
+    avatarStyle: "background: var(--primary); color: #fff;",
+  },
+  {
+    quote: "Tried other AI clients, they hallucinate and send weird replies. MailyFlow's human-in-the-loop sandboxing is the right way to build AI agents.",
+    name: "Siddharth Roy",
+    role: "Core Contributor, OpenMail",
+    initials: "SR",
+    handle: "@siddharth_codes",
+    avatarStyle: "background: var(--secondary); color: var(--accent-ink);",
+  },
+  {
+    quote: "We integrated Google Calendar and Gmail in two clicks. The reasoning chain animation on their landing page is exactly what happens under the hood.",
+    name: "Neha Gupta",
+    role: "Tech Lead, InMobi",
+    initials: "NG",
+    handle: "@nehagupta_tech",
+    avatarStyle: "background: var(--accent); color: #fff;",
+  },
+  {
+    quote: "MailyFlow's semantic email parser handles natural language search better than anything. Our dev ops queries find log updates in seconds.",
+    name: "Tarun Kapoor",
+    role: "CTO, Zomato Labs",
+    initials: "TK",
+    handle: "@tarunkapoor",
+    avatarStyle: "background: var(--primary); color: #fff;",
+  },
+  {
+    quote: "The UI design of MailyFlow is incredibly premium. It's clean, lightning fast, and feels like a native desktop app. 10/10 UX.",
+    name: "Sneha Hegde",
+    role: "Product Designer, Jupiter",
+    initials: "SH",
+    handle: "@sneha_hegde",
     avatarStyle: "background: var(--secondary); color: var(--accent-ink);",
   },
 ];
 
-const ADVANCE_MS = 3500;
-
 export default function Testimonials() {
-  const [index, setIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(3);
-  const intervalRef = useRef<number | null>(null);
+  // Split into 3 columns
+  const col1 = [
+    TESTIMONIALS[0],
+    TESTIMONIALS[3],
+    TESTIMONIALS[6],
+    TESTIMONIALS[9],
+    TESTIMONIALS[12],
+  ];
+  const col2 = [
+    TESTIMONIALS[1],
+    TESTIMONIALS[4],
+    TESTIMONIALS[7],
+    TESTIMONIALS[10],
+    TESTIMONIALS[13],
+  ];
+  const col3 = [
+    TESTIMONIALS[2],
+    TESTIMONIALS[5],
+    TESTIMONIALS[8],
+    TESTIMONIALS[11],
+    TESTIMONIALS[14],
+  ];
 
-  const total = TESTIMONIALS.length;
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 640) {
-        setVisibleCount(1);
-      } else if (window.innerWidth < 1024) {
-        setVisibleCount(2);
-      } else {
-        setVisibleCount(3);
-      }
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const maxIndex = total - visibleCount;
-
-  useEffect(() => {
-    if (index > maxIndex) {
-      setIndex(maxIndex);
-    }
-  }, [visibleCount, maxIndex, index]);
-
-  const next = useCallback(() => {
-    setIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
-  }, [maxIndex]);
-
-  const prev = useCallback(() => {
-    setIndex((prev) => (prev <= 0 ? maxIndex : prev - 1));
-  }, [maxIndex]);
-
-  useEffect(() => {
-    if (isPaused) return;
-    intervalRef.current = window.setInterval(next, ADVANCE_MS);
-    return () => {
-      if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
-    };
-  }, [isPaused, next]);
-
-  const translatePct = -(index * (100 / total));
+  // Duplicate lists for seamless scrolling
+  const col1Doubled = [...col1, ...col1];
+  const col2Doubled = [...col2, ...col2];
+  const col3Doubled = [...col3, ...col3];
 
   return (
     <section id="testimonials" className="relative py-24 md:py-32 overflow-hidden">
@@ -152,68 +178,29 @@ export default function Testimonials() {
         />
 
         <Reveal delay={100}>
-          <div
-            className="relative"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
-          >
-            {/* overflow clip */}
-            <div className="overflow-hidden">
-              {/* sliding track */}
-              <div
-                className="flex"
-                style={{
-                  transform: `translateX(${translatePct}%)`,
-                  transition: "transform 0.55s cubic-bezier(0.16,1,0.3,1)",
-                  width: `${(total / visibleCount) * 100}%`,
-                }}
-              >
-                {TESTIMONIALS.map((t, i) => (
-                  <div
-                    key={i}
-                    style={{ width: `${100 / total}%`, padding: "0 10px" }}
-                  >
-                    <TestimonialCard testimonial={t} />
-                  </div>
+          <div className="relative h-[650px] w-full overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_10%,black_90%,transparent)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-full marquee-vertical-pause">
+              {/* Column 1 */}
+              <div className="flex flex-col gap-6 marquee-vertical-track">
+                {col1Doubled.map((t, idx) => (
+                  <TestimonialCard key={`col1-${idx}`} testimonial={t} />
+                ))}
+              </div>
+
+              {/* Column 2 */}
+              <div className="hidden md:flex flex-col gap-6 marquee-vertical-track-reverse">
+                {col2Doubled.map((t, idx) => (
+                  <TestimonialCard key={`col2-${idx}`} testimonial={t} />
+                ))}
+              </div>
+
+              {/* Column 3 */}
+              <div className="hidden lg:flex flex-col gap-6 marquee-vertical-track">
+                {col3Doubled.map((t, idx) => (
+                  <TestimonialCard key={`col3-${idx}`} testimonial={t} />
                 ))}
               </div>
             </div>
-
-            {/* prev / next arrows */}
-            <button
-              onClick={prev}
-              aria-label="Previous testimonial"
-              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted shadow-sm transition-all hover:border-line-strong hover:text-text sm:-left-5"
-            >
-              <ChevronLeft size={16} strokeWidth={2} />
-            </button>
-            <button
-              onClick={next}
-              aria-label="Next testimonial"
-              className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted shadow-sm transition-all hover:border-line-strong hover:text-text sm:-right-5"
-            >
-              <ChevronRight size={16} strokeWidth={2} />
-            </button>
-          </div>
-        </Reveal>
-
-        {/* dot indicators */}
-        <Reveal delay={200}>
-          <div className="flex items-center justify-center gap-2">
-            {Array.from({ length: maxIndex + 1 }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIndex(i)}
-                aria-label={`Go to slide ${i + 1}`}
-                className="transition-all duration-300"
-                style={{
-                  width: i === index ? "24px" : "8px",
-                  height: "8px",
-                  borderRadius: "9999px",
-                  background: i === index ? "var(--accent)" : "var(--border-strong)",
-                }}
-              />
-            ))}
           </div>
         </Reveal>
       </Container>
@@ -223,36 +210,48 @@ export default function Testimonials() {
 
 function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
-    <GlassCard hover className="flex h-full flex-col gap-5 p-6">
-      {/* stars */}
-      <div className="flex gap-1">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <Star
-            key={i}
-            size={14}
-            strokeWidth={0}
-            fill="var(--accent)"
-          />
-        ))}
+    <GlassCard hover className="flex flex-col gap-4 p-5 text-left select-none">
+      {/* Author Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {/* Colored Initials Avatar */}
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold shadow-sm select-none"
+            style={{ ...(parseCSSStyle(testimonial.avatarStyle)) }}
+          >
+            {testimonial.initials}
+          </span>
+          <div className="flex flex-col text-left">
+            <span className="text-sm font-semibold text-text-primary leading-tight">
+              {testimonial.name}
+            </span>
+            <span className="text-xs text-text-muted">
+              {testimonial.handle || `@${testimonial.initials.toLowerCase()}_tech`}
+            </span>
+          </div>
+        </div>
+        
+        {/* Star Rating */}
+        <div className="flex gap-0.5 mt-1 shrink-0">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star
+              key={i}
+              size={11}
+              strokeWidth={0}
+              fill="var(--accent)"
+            />
+          ))}
+        </div>
       </div>
 
-      {/* quote */}
-      <p className="flex-1 text-sm leading-relaxed text-text">
+      {/* Quote Body */}
+      <p className="text-sm leading-relaxed text-text-secondary">
         &ldquo;{testimonial.quote}&rdquo;
       </p>
 
-      {/* author */}
-      <div className="flex items-center gap-3 border-t border-line pt-4">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
-          style={{ ...(parseCSSStyle(testimonial.avatarStyle)) }}
-        >
-          {testimonial.initials}
-        </span>
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-text">{testimonial.name}</span>
-          <span className="text-xs text-muted">{testimonial.role}</span>
-        </div>
+      {/* Role Footer */}
+      <div className="flex items-center gap-1.5 border-t border-line/40 pt-3 text-[11px] font-medium text-text-muted">
+        <span>{testimonial.role}</span>
       </div>
     </GlassCard>
   );
