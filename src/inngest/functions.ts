@@ -1,7 +1,7 @@
 import { inngest } from './client';
 import { db, corsair } from '@/utils/corsair';
 import { chatMessages, userSubscriptions } from '@/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
@@ -369,8 +369,18 @@ export const syncGmailWebhook = inngest.createFunction(
                       tenantSeen.delete(firstKey);
                     }
                   }
+                  // 1. Emit locally for immediate response
                   liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
                   console.log(`✉️ [Inngest Sync] Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
+
+                  // 2. Publish to Postgres NOTIFY to sync across instances
+                  try {
+                    const payload = JSON.stringify({ emailId: msg.id, tenantId: activeTenantId });
+                    await db.execute(sql`SELECT pg_notify('new_email', ${payload})`);
+                    console.log(`🔊 [Inngest Sync] Published pg_notify for new email event`);
+                  } catch (pgErr) {
+                    console.error('[Inngest Sync] Failed to publish pg_notify:', pgErr);
+                  }
                 }
               }
             }

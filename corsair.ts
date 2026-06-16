@@ -13,6 +13,51 @@ import logger from './src/utils/logger';
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
 
+// Shared PG notification listener to bridge webhooks across instances in real-time
+let pgListenerClient: any = null;
+
+async function startPgListener() {
+    if (pgListenerClient) return;
+
+    try {
+        const client = await pool.connect();
+        pgListenerClient = client;
+
+        await client.query('LISTEN new_email');
+        console.log('🔊 [PG Listener] Successfully listening to new_email Postgres channel');
+
+        client.on('notification', (msg) => {
+            if (msg.channel === 'new_email' && msg.payload) {
+                try {
+                    const data = JSON.parse(msg.payload);
+                    if (data.emailId && data.tenantId) {
+                        logger.info(`🔊 [PG Listener] Received notification for email ${data.emailId}, tenant: ${data.tenantId}`);
+                        liveEmailsEmitter.emit('new-email', { emailId: data.emailId, tenantId: data.tenantId });
+                    }
+                } catch (e) {
+                    console.error('[PG Listener] Failed to parse notification payload:', e);
+                }
+            }
+        });
+
+        client.on('error', (err) => {
+            console.error('[PG Listener] DB client error, reconnecting...', err);
+            pgListenerClient = null;
+            client.release();
+            setTimeout(startPgListener, 5000);
+        });
+    } catch (err) {
+        console.error('[PG Listener] Failed to start listening to Postgres notifications:', err);
+        pgListenerClient = null;
+        setTimeout(startPgListener, 5000);
+    }
+}
+
+// Start the listener
+if (process.env.DATABASE_URL) {
+    startPgListener().catch(err => console.error('[PG Listener] Error in startup:', err));
+}
+
 export const corsair = createCorsair({
     plugins: [
         gmail({
@@ -26,7 +71,18 @@ export const corsair = createCorsair({
                                 const newEmail = response.data.message;
                                 if (newEmail && newEmail.id) {
                                     logger.info(`📩 [Gmail Hook] Received and processing email event [${eventType}]`);
+                                    
+                                    // 1. Emit locally for immediate response
                                     liveEmailsEmitter.emit('new-email', { emailId: newEmail.id, tenantId: ctx.tenantId });
+                                    
+                                    // 2. Publish to Postgres NOTIFY to sync across instances
+                                    try {
+                                        const payload = JSON.stringify({ emailId: newEmail.id, tenantId: ctx.tenantId });
+                                        await pool.query('SELECT pg_notify($1, $2)', ['new_email', payload]);
+                                        logger.info(`🔊 [Gmail Hook] Published pg_notify for new email event`);
+                                    } catch (pgErr) {
+                                        logger.error(`[Gmail Hook] Failed to send pg_notify:`, pgErr);
+                                    }
                                 }
                             }
                         }

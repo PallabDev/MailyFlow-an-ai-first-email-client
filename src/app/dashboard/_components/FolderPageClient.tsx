@@ -247,6 +247,51 @@ export default function FolderPageClient({
     };
   }, [folder]);
 
+  // Poll the database cache in the background every 15 seconds to ensure changes reflect even if SSE drops
+  useEffect(() => {
+    let active = true;
+
+    const pollCache = async () => {
+      try {
+        const res = await fetch(`/api/emails?folder=${folder}&limit=20`);
+        if (!active) return;
+        if (res.ok) {
+          const data = await res.json();
+          let fetchedEmails = data.emails ?? [];
+          if (fetchedEmails.length === 0 && data.isDevFallback) {
+            return;
+          }
+
+          setEmailsState((prev) => {
+            // Compare IDs to see if there is any difference
+            const hasChanges = fetchedEmails.length !== prev.length || 
+              fetchedEmails.some((e: any, idx: number) => e.id !== prev[idx]?.id);
+            
+            if (hasChanges) {
+              // Update the in-memory cache
+              if (emailCache[folder]) {
+                emailCache[folder].emails = fetchedEmails;
+              }
+              // Dispatch counts refresh
+              window.dispatchEvent(new CustomEvent('refresh-labels'));
+              return fetchedEmails;
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.error('Error in background database cache poll:', err);
+      }
+    };
+
+    const interval = setInterval(pollCache, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [folder]);
+
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
