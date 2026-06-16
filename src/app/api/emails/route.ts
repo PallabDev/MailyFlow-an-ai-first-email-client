@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db, corsair, ensureGoogleCredentialsSynced, hasActiveConnection } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
 
@@ -67,6 +67,16 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .then(rows => rows[0]);
 
+    const labelIdsMap: Record<string, string[]> = {
+      inbox: ['INBOX'],
+      drafts: ['DRAFT'],
+      draft: ['DRAFT'],
+      sent: ['SENT'],
+      spam: ['SPAM'],
+      trash: ['TRASH'],
+    };
+    const targetLabels = labelIdsMap[folder] || ['INBOX'];
+
     // 1. Try DB cache first if not forceRefresh or if cooldown is active
     if ((!forceRefresh || isCooldownActive) && gmailAccount) {
       try {
@@ -76,19 +86,12 @@ export async function GET(req: NextRequest) {
           .where(
             and(
               eq(corsairEntities.accountId, gmailAccount.id),
-              eq(corsairEntities.entityType, 'messages')
+              eq(corsairEntities.entityType, 'messages'),
+              sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
             )
-          )) as CorsairEntityRow[];
-
-        const labelIdsMap: Record<string, string[]> = {
-          inbox: ['INBOX'],
-          drafts: ['DRAFT'],
-          draft: ['DRAFT'],
-          sent: ['SENT'],
-          spam: ['SPAM'],
-          trash: ['TRASH'],
-        };
-        const targetLabels = labelIdsMap[folder] || ['INBOX'];
+          )
+          .orderBy(desc(corsairEntities.updatedAt))
+          .limit(limit)) as CorsairEntityRow[];
 
         const dbEmails = rows
           .map((r: CorsairEntityRow) => {
@@ -115,18 +118,13 @@ export async function GET(req: NextRequest) {
               date,
               subject,
               snippet: msg.snippet ?? '',
-              body: msg.body ?? '',
+              body: '', // Empty body in list view to save network/DB egress
               labelIds: msg.labelIds ?? [],
             };
-          })
-          .filter((msg: EmailItem) => {
-            const msgLabels = msg.labelIds || [];
-            return targetLabels.every(label => msgLabels.includes(label));
           });
 
         if (dbEmails.length > 0) {
-          dbEmails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          emails = dbEmails.slice(0, limit);
+          emails = dbEmails;
           apiNextPageToken = null;
           fetchedFromGmail = true;
         }
@@ -268,19 +266,12 @@ export async function GET(req: NextRequest) {
               .where(
                 and(
                   eq(corsairEntities.accountId, gmailAccount.id),
-                  eq(corsairEntities.entityType, 'messages')
+                  eq(corsairEntities.entityType, 'messages'),
+                  sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
                 )
-              )) as CorsairEntityRow[];
-
-            const labelIdsMap: Record<string, string[]> = {
-              inbox: ['INBOX'],
-              drafts: ['DRAFT'],
-              draft: ['DRAFT'],
-              sent: ['SENT'],
-              spam: ['SPAM'],
-              trash: ['TRASH'],
-            };
-            const targetLabels = labelIdsMap[folder] || ['INBOX'];
+              )
+              .orderBy(desc(corsairEntities.updatedAt))
+              .limit(limit)) as CorsairEntityRow[];
 
             const dbEmails = rows
               .map((r: CorsairEntityRow) => {
@@ -307,18 +298,13 @@ export async function GET(req: NextRequest) {
                   date,
                   subject,
                   snippet: msg.snippet ?? '',
-                  body: msg.body ?? '',
+                  body: '', // Empty body in list view to save network/DB egress
                   labelIds: msg.labelIds ?? [],
                 };
-              })
-              .filter((msg: EmailItem) => {
-                const msgLabels = msg.labelIds || [];
-                return targetLabels.every(label => msgLabels.includes(label));
               });
 
             if (dbEmails.length > 0) {
-              dbEmails.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-              emails = dbEmails.slice(0, limit);
+              emails = dbEmails;
               apiNextPageToken = null;
             }
           } catch (dbErr) {

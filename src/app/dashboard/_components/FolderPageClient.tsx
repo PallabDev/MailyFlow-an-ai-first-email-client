@@ -263,11 +263,17 @@ export default function FolderPageClient({
     };
   }, [folder]);
 
-  // Poll the database cache in the background every 15 seconds to ensure changes reflect even if SSE drops
+  // Poll the database cache in the background every 30 seconds to ensure changes reflect even if SSE drops.
+  // Visibility check is added to pause polling completely when the browser tab is hidden or minimized, saving DB egress.
   useEffect(() => {
     let active = true;
 
     const pollCache = async () => {
+      if (document.hidden) {
+        console.log('📱 [Cache Poller] Tab is in background, skipping background poll to save bandwidth.');
+        return;
+      }
+
       try {
         const res = await fetch(`/api/emails?folder=${folder}&limit=20`);
         if (!active) return;
@@ -301,7 +307,7 @@ export default function FolderPageClient({
       }
     };
 
-    const interval = setInterval(pollCache, 15000);
+    const interval = setInterval(pollCache, 30000);
 
     return () => {
       active = false;
