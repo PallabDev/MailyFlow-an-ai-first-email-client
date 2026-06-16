@@ -175,6 +175,13 @@ export async function renewWatchesIfNeeded(tenantId: string) {
               const watchData = await watchRes.json() as any;
               const newExpiration = watchData.expiration;
               await (accountKm as any).set_calendar_watch_expiration(String(newExpiration));
+              
+              // Save channel ID and resource ID for cancellation
+              await (accountKm as any).set_calendar_watch_channel_id(channelId);
+              if (watchData.resourceId) {
+                await (accountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+              }
+              
               console.log(`[Watch Renewal] Calendar watch successfully renewed for tenant: ${tenantId}`);
             }
           }
@@ -183,5 +190,140 @@ export async function renewWatchesIfNeeded(tenantId: string) {
     }
   } catch (err) {
     console.error('[Watch Renewal] Error checking/renewing watches:', err);
+  }
+}
+
+export async function stopWatchesForTenant(tenantId: string) {
+  try {
+    const kek = process.env.CORSAIR_KEK;
+    if (!kek) return;
+
+    const database = createCorsairDatabase(pool);
+
+    // 1. Stop Gmail watch
+    const gmailConnected = await hasActiveConnection(tenantId, 'gmail');
+    if (gmailConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'gmail',
+        tenantId,
+        kek,
+        database
+      });
+
+      const integrationKm = createIntegrationKeyManager({
+        authType: "oauth_2",
+        integrationName: 'gmail',
+        kek,
+        database
+      });
+
+      const clientId = await integrationKm.get_client_id();
+      const clientSecret = await integrationKm.get_client_secret();
+      const refreshToken = await accountKm.get_refresh_token();
+
+      if (clientId && clientSecret && refreshToken) {
+        console.log(`[Watch Disconnect] Stopping Gmail watch for tenant: ${tenantId}`);
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+          })
+        });
+
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json() as any;
+          const accessToken = tokenData.access_token;
+
+          const stopRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/stop", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            }
+          });
+
+          if (stopRes.ok) {
+            console.log(`[Watch Disconnect] Gmail watch successfully stopped for tenant: ${tenantId}`);
+          } else {
+            const errText = await stopRes.text();
+            console.error(`[Watch Disconnect] Gmail watch stop API failed: ${errText}`);
+          }
+        }
+      }
+    }
+
+    // 2. Stop Calendar watch
+    const calendarConnected = await hasActiveConnection(tenantId, 'googlecalendar');
+    if (calendarConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'googlecalendar',
+        tenantId,
+        kek,
+        database,
+        extraAccountFields: ['calendar_watch_channel_id', 'calendar_watch_resource_id']
+      });
+
+      const channelId = await (accountKm as any).get_calendar_watch_channel_id();
+      const resourceId = await (accountKm as any).get_calendar_watch_resource_id();
+
+      if (channelId && resourceId) {
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'googlecalendar',
+          kek,
+          database
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+
+        if (clientId && clientSecret && refreshToken) {
+          console.log(`[Watch Disconnect] Stopping Calendar watch for tenant: ${tenantId}`);
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json() as any;
+            const accessToken = tokenData.access_token;
+
+            const stopRes = await fetch("https://www.googleapis.com/calendar/v3/channels/stop", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                id: channelId,
+                resourceId: resourceId
+              })
+            });
+
+            if (stopRes.ok) {
+              console.log(`[Watch Disconnect] Calendar watch successfully stopped for tenant: ${tenantId}`);
+            } else {
+              const errText = await stopRes.text();
+              console.error(`[Watch Disconnect] Calendar watch stop API failed: ${errText}`);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Watch Disconnect] Error stopping watches on disconnect:', err);
   }
 }

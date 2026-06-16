@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
+import { db, stopWatchesForTenant } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities, corsairEvents } from '@/db/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -11,6 +11,13 @@ export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar' | 'goo
     const { userId } = await auth();
     if (!userId) {
       throw new Error('Unauthorized');
+    }
+
+    // Stop all Google watches for the user first to avoid orphaned subscriptions at Google
+    try {
+      await stopWatchesForTenant(userId);
+    } catch (watchErr) {
+      console.error('Failed to stop watches during disconnect:', watchErr);
     }
 
     // 1. Find all accounts for the user connected to Gmail or Google Calendar

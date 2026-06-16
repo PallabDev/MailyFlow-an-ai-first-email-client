@@ -232,6 +232,11 @@ export async function GET(req: NextRequest) {
 
                 if (watchRes.ok) {
                   const watchData = (await watchRes.json()) as GoogleWatchResponse;
+                  // Save channel ID and resource ID for cancellation
+                  await (calendarAccountKm as any).set_calendar_watch_channel_id(channelId);
+                  if (watchData.resourceId) {
+                    await (calendarAccountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+                  }
                   console.log(`[OAuth Callback] Calendar watch registered successfully from Gmail flow for tenant: ${tenantId}. Channel: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
                 } else {
                   const errText = await watchRes.text();
@@ -318,6 +323,11 @@ export async function GET(req: NextRequest) {
 
             if (watchRes.ok) {
               const watchData = (await watchRes.json()) as GoogleWatchResponse;
+              // Save channel ID and resource ID for cancellation
+              await (accountKm as any).set_calendar_watch_channel_id(channelId);
+              if (watchData.resourceId) {
+                await (accountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+              }
               console.log(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {
               const errText = await watchRes.text();

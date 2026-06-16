@@ -7,4 +7,6 @@ export interface GoogleTokenResponse {
 export interface GoogleWatchResponse {
   expiration?: string;
   historyId?: string;
+  resourceId?: string;
+  id?: string;
 }

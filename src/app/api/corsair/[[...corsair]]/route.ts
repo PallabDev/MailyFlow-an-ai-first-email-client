@@ -16,6 +16,8 @@ const seenEmails = new Map<string, Set<string>>();
 export async function POST(request: Request) {
   // Clone request to avoid consuming body stream if we need to fallback
   const clonedRequest = request.clone();
+  let isGmailPubSub = false;
+  let body: any = null;
 
   try {
     const headersObj: Record<string, string> = {};
@@ -23,7 +25,8 @@ export async function POST(request: Request) {
       headersObj[key] = value;
     });
 
-    const body = await request.json();
+    body = await request.json();
+    isGmailPubSub = !!(body.message && body.subscription);
 
     // Log incoming webhook event info
     const eventInfo = {
@@ -36,7 +39,6 @@ export async function POST(request: Request) {
     // Force requiring tenantId to prevent cross-tenant message processing or misrouting
     const url = new URL(request.url);
     let activeTenantId = url.searchParams.get('tenantId');
-    const isGmailPubSub = !!(body.message && body.subscription);
 
     if (!activeTenantId && !isGmailPubSub) {
       logger.error('[Webhook POST] Webhook rejected: Missing tenantId in query parameters.');
@@ -83,10 +85,21 @@ export async function POST(request: Request) {
             const [local, domain] = gmailEmail.split('@');
             const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
             logger.error(`[Webhook POST] No user found in Clerk for email: ${maskedLocal}@${domain || 'unknown'}`);
+            // Acknowledge the Pub/Sub message to prevent retries for non-existent users
+            return new Response(JSON.stringify({ success: true, message: 'No user found in Clerk' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
           }
         } catch (err) {
           logger.error('[Webhook POST] Clerk user lookup failed:', err);
         }
+      } else {
+        logger.error('[Webhook POST] Gmail Pub/Sub message did not contain a valid email address');
+        return new Response(JSON.stringify({ success: true, message: 'Invalid Gmail Pub/Sub email' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
     }
 
@@ -100,63 +113,79 @@ export async function POST(request: Request) {
 
       logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
 
-    // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
-    const isGmailWebhook = !!body.message?.data;
-    if (isGmailWebhook) {
-      try {
-        logger.info(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
-        const client = corsair.withTenant(activeTenantId);
-        const listRes = await client.gmail.api.messages.list({
-          maxResults: 3,
-          labelIds: ['INBOX'],
-        });
+      // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
+      const isGmailWebhook = !!body.message?.data;
+      if (isGmailWebhook) {
+        try {
+          logger.info(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
+          const client = corsair.withTenant(activeTenantId);
+          const listRes = await client.gmail.api.messages.list({
+            maxResults: 3,
+            labelIds: ['INBOX'],
+          });
 
-        if (listRes.messages && listRes.messages.length > 0) {
-          const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
-          logger.info(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
-          
-          if (!seenEmails.has(activeTenantId)) {
-            // First run for this tenant: initialize the set with the current IDs without emitting them to prevent boot spam
-            seenEmails.set(activeTenantId, new Set(ids));
-            logger.info(`[Webhook POST] Custom Gmail sync: Initialized seen emails list for tenant ${activeTenantId}: ${JSON.stringify(ids)}`);
-          } else {
-            const tenantSeen = seenEmails.get(activeTenantId)!;
-            for (const msg of listRes.messages) {
-              if (msg.id && !tenantSeen.has(msg.id)) {
-                tenantSeen.add(msg.id);
-                // Evict older entries to keep the set bounded (limit to 50)
-                if (tenantSeen.size > 50) {
-                  const firstKey = tenantSeen.keys().next().value;
-                  if (firstKey !== undefined) {
-                    tenantSeen.delete(firstKey);
+          if (listRes.messages && listRes.messages.length > 0) {
+            const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
+            logger.info(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
+            
+            if (!seenEmails.has(activeTenantId)) {
+              // First run for this tenant: initialize the set with the current IDs without emitting them to prevent boot spam
+              seenEmails.set(activeTenantId, new Set(ids));
+              logger.info(`[Webhook POST] Custom Gmail sync: Initialized seen emails list for tenant ${activeTenantId}: ${JSON.stringify(ids)}`);
+            } else {
+              const tenantSeen = seenEmails.get(activeTenantId)!;
+              for (const msg of listRes.messages) {
+                if (msg.id && !tenantSeen.has(msg.id)) {
+                  tenantSeen.add(msg.id);
+                  // Evict older entries to keep the set bounded (limit to 50)
+                  if (tenantSeen.size > 50) {
+                    const firstKey = tenantSeen.keys().next().value;
+                    if (firstKey !== undefined) {
+                      tenantSeen.delete(firstKey);
+                    }
                   }
+                  liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
+                  logger.info(`✉️ [Webhook POST] Custom Gmail sync: Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
                 }
-                liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
-                logger.info(`✉️ [Webhook POST] Custom Gmail sync: Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
               }
             }
+          } else {
+            logger.info(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
           }
-        } else {
-          logger.info(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
+        } catch (err) {
+          logger.error('Error in custom Gmail sync:', err);
         }
-      } catch (err) {
-        logger.error('Error in custom Gmail sync:', err);
+      }
+
+      if (result.plugin) {
+        logger.info(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
+        return new Response(JSON.stringify(result.response || { success: true }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(result.responseHeaders || {}),
+          },
+        });
       }
     }
 
-    if (result.plugin) {
-      logger.info(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
-      return new Response(JSON.stringify(result.response || { success: true }), {
+    // Acknowledge all other processed Gmail Pub/Sub webhook events to prevent Pub/Sub retry storms
+    if (isGmailPubSub) {
+      logger.info('[Webhook POST] Gmail Pub/Sub webhook processing complete, acknowledging with 200 OK');
+      return new Response(JSON.stringify({ success: true }), {
         status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(result.responseHeaders || {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
-    }
     }
   } catch (error) {
     logger.error('Error parsing or processing webhook payload:', error);
+    if (isGmailPubSub) {
+      logger.info('[Webhook POST] Error occurred during Gmail Pub/Sub processing, acknowledging with 200 OK to stop retries');
+      return new Response(JSON.stringify({ success: true, warning: 'Error during processing' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   // Fallback to default Corsair management handler with the cloned unconsumed request
