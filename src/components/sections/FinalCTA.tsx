@@ -156,7 +156,7 @@ export default function FinalCTA() {
 
         <Reveal delay={320}>
           <p className="mt-6 text-xs text-muted">
-            No credit card required &middot; Free plan includes 20 AI operations/day &middot; Cancel anytime
+            No credit card required &middot; Free plan includes 10 AI operations/day &middot; Cancel anytime
           </p>
         </Reveal>
       </Container>

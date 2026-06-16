@@ -9,9 +9,9 @@ export interface PlanLimits {
 }
 
 export const PLAN_LIMITS: Record<string, PlanLimits> = {
-  Starter: { aiLimit: 20, gmailLimit: 500, calendarLimit: 500 },
-  Professional: { aiLimit: 100, gmailLimit: 500, calendarLimit: 500 },
-  Business: { aiLimit: 300, gmailLimit: 500, calendarLimit: 500 },
+  Starter: { aiLimit: 10, gmailLimit: 500, calendarLimit: 500 },
+  Professional: { aiLimit: 30, gmailLimit: 500, calendarLimit: 500 },
+  Business: { aiLimit: 100, gmailLimit: 500, calendarLimit: 500 },
 };
 
 export async function checkRateLimit(

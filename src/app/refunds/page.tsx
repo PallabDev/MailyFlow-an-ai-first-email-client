@@ -54,7 +54,7 @@ export default function RefundsPage() {
                   3. Free Tier Availability
                 </h2>
                 <p>
-                  To ensure that MailyFlow meets your workspace requirements before committing financially, we offer a fully featured **Starter Free Plan** (offering 20 daily AI operations). We strongly encourage you to evaluate MailyFlow on the free tier before upgrading to a paid Professional or Business plan.
+                  To ensure that MailyFlow meets your workspace requirements before committing financially, we offer a fully featured **Starter Free Plan** (offering 10 daily AI operations). We strongly encourage you to evaluate MailyFlow on the free tier before upgrading to a paid Professional or Business plan.
                 </p>
 
                 <h2 className="font-display text-xl font-semibold text-text-primary mt-4">

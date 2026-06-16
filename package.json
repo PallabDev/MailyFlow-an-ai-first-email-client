@@ -8,7 +8,8 @@
         "start": "next start",
         "lint": "eslint",
         "db:push": "npx drizzle-kit push",
-        "db:clear": "tsx src/db/clear.ts"
+        "db:clear": "tsx src/db/clear.ts",
+        "plan:edit": "node scripts/plan-edit.js"
     },
     "dependencies": {
         "@clerk/nextjs": "^7.5.1",
