@@ -138,13 +138,17 @@ export default function FolderPageClient({
   useEffect(() => {
     const eventSource = new EventSource('/api/emails/live', { withCredentials: true });
 
-    eventSource.onopen = () => {};
+    eventSource.onopen = () => {
+      console.log('📱 [SSE Client] Connection opened successfully');
+    };
 
     eventSource.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('📱 [SSE Client] Message received on SSE stream:', data);
         
         if (data && data.type === 'init') {
+          console.log('📱 [SSE Client] Initial SSE handshake verified:', data.message);
           fetch('/api/debug/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -155,6 +159,7 @@ export default function FolderPageClient({
 
         if (data && data.emailId) {
           const emailId = data.emailId;
+          console.log('📱 [SSE Client] Received new-email event notification for ID:', emailId);
           
           fetch('/api/debug/log', {
             method: 'POST',
@@ -168,6 +173,7 @@ export default function FolderPageClient({
             return prev;
           });
           if (alreadyExists) {
+            console.log('📱 [SSE Client] Prepend skipped: Email ID already in list:', emailId);
             fetch('/api/debug/log', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -176,23 +182,25 @@ export default function FolderPageClient({
             return;
           }
 
+          console.log('📱 [SSE Client] Fetching email details from backend for ID:', emailId);
           // Load details of the newly arrived email
           const res = await fetch(`/api/emails/detail?id=${emailId}`);
+          console.log('📱 [SSE Client] Fetch email details response status:', res.status);
+          
           if (res.ok) {
             const newEmail = await res.json();
-            
-            fetch('/api/debug/log', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `📱 [Client] Fetched details for new email ID: ${emailId} ("${newEmail.subject || '(no subject)'}")` })
-            }).catch(() => {});
+            console.log('📱 [SSE Client] Successfully fetched details for new email:', newEmail);
             
             // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
             setEmailsState((prev) => {
-              if (prev.some((e) => e.id === newEmail.id)) return prev;
+              if (prev.some((e) => e.id === newEmail.id)) {
+                console.log('📱 [SSE Client] Prepend skipped (race condition: already exists in state):', newEmail.id);
+                return prev;
+              }
               
               // Verify labelIds match the current folder filters
               if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
+                console.log('📱 [SSE Client] Prepend skipped: Email does not contain INBOX label. Labels:', newEmail.labelIds);
                 fetch('/api/debug/log', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -201,12 +209,15 @@ export default function FolderPageClient({
                 return prev;
               }
               if (folder === 'spam' && newEmail.labelIds && !newEmail.labelIds.includes('SPAM')) {
+                console.log('📱 [SSE Client] Prepend skipped: Email does not contain SPAM label. Labels:', newEmail.labelIds);
                 return prev;
               }
               if (folder === 'trash' && newEmail.labelIds && !newEmail.labelIds.includes('TRASH')) {
+                console.log('📱 [SSE Client] Prepend skipped: Email does not contain TRASH label. Labels:', newEmail.labelIds);
                 return prev;
               }
               
+              console.log('📱 [SSE Client] Prepended new email successfully:', newEmail.id, `Subject: "${newEmail.subject}"`);
               fetch('/api/debug/log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -224,6 +235,7 @@ export default function FolderPageClient({
             // Refresh sidebar counts dynamically
             window.dispatchEvent(new CustomEvent('refresh-labels'));
           } else {
+            console.error('📱 [SSE Client] ❌ Failed to fetch details for email ID:', emailId);
             fetch('/api/debug/log', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -232,6 +244,7 @@ export default function FolderPageClient({
           }
         }
       } catch (err) {
+        console.error('📱 [SSE Client] ❌ Error handling notification:', err);
         fetch('/api/debug/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -240,9 +253,12 @@ export default function FolderPageClient({
       }
     };
 
-    eventSource.onerror = (err) => {};
+    eventSource.onerror = (err) => {
+      console.warn('📱 [SSE Client] ⚠️ SSE connection encountered an error:', err);
+    };
 
     return () => {
+      console.log('📱 [SSE Client] Closing SSE connection');
       eventSource.close();
     };
   }, [folder]);
@@ -268,6 +284,7 @@ export default function FolderPageClient({
               fetchedEmails.some((e: any, idx: number) => e.id !== prev[idx]?.id);
             
             if (hasChanges) {
+              console.log('📱 [Cache Poller] 🔄 Cache changed! Updating email list from database cache.');
               // Update the in-memory cache
               if (emailCache[folder]) {
                 emailCache[folder].emails = fetchedEmails;
@@ -280,7 +297,7 @@ export default function FolderPageClient({
           });
         }
       } catch (err) {
-        console.error('Error in background database cache poll:', err);
+        console.error('📱 [Cache Poller] ❌ Error in background database cache poll:', err);
       }
     };
 
