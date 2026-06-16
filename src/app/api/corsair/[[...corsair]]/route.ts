@@ -13,6 +13,20 @@ export { GET };
 // Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
 const seenEmails = new Map<string, Set<string>>();
 
+// Helper to detect 429 rate limit or quota exceeded errors
+const is429Error = (err: any): boolean => {
+  if (!err) return false;
+  const errMsg = String(err.message || err.error || err).toLowerCase();
+  return (
+    err.status === 429 ||
+    err.statusCode === 429 ||
+    err.body?.error?.code === 429 ||
+    errMsg.includes('too many requests') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit')
+  );
+};
+
 export async function POST(request: Request) {
   // Clone request to avoid consuming body stream if we need to fallback
   const clonedRequest = request.clone();
@@ -104,14 +118,42 @@ export async function POST(request: Request) {
     }
 
     if (activeTenantId) {
+      // Check if there is an active Gmail API 429 rate limit cooldown
+      const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+      if (cooldownExpiry && Date.now() < cooldownExpiry) {
+        const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
+        logger.warn(`⏳ [Webhook POST] Skipping Gmail API calls for tenant ${activeTenantId} due to active 429 cooldown. Cooldown active for another ${remainingSeconds} seconds.`);
+        
+        return new Response(JSON.stringify({ success: true, message: 'Skipped due to active 429 cooldown' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId}`);
 
       // Try processing the webhook first
-      const result = await processWebhook(corsair, headersObj, body, {
-        tenantId: activeTenantId,
-      });
+      let result: any = null;
+      try {
+        result = await processWebhook(corsair, headersObj, body, {
+          tenantId: activeTenantId,
+        });
 
-      logger.info(`[Webhook POST] processWebhook Result: ${result.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
+        if (result && (result.success === false || result.error)) {
+          if (is429Error(result)) {
+            logger.warn(`[Webhook POST] processWebhook result indicates a 429 Rate Limit error. Setting 20-minute cooldown.`);
+            (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+          }
+        }
+      } catch (err: any) {
+        if (is429Error(err)) {
+          logger.warn(`[Webhook POST] processWebhook threw 429 Rate Limit error. Setting 20-minute cooldown.`);
+          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        }
+        throw err;
+      }
+
+      logger.info(`[Webhook POST] processWebhook Result: ${result?.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
 
       // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
       const isGmailWebhook = !!body.message?.data;
@@ -154,10 +196,14 @@ export async function POST(request: Request) {
           }
         } catch (err) {
           logger.error('Error in custom Gmail sync:', err);
+          if (is429Error(err)) {
+            logger.warn(`[Webhook POST] Custom Gmail sync returned 429 Rate Limit error. Setting 20-minute cooldown.`);
+            (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+          }
         }
       }
 
-      if (result.plugin) {
+      if (result && result.plugin) {
         logger.info(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
         return new Response(JSON.stringify(result.response || { success: true }), {
           status: 200,
@@ -179,6 +225,10 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     logger.error('Error parsing or processing webhook payload:', error);
+    if (is429Error(error)) {
+      logger.warn(`[Webhook POST] Outer handler caught 429 Rate Limit error. Setting 20-minute cooldown.`);
+      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+    }
     if (isGmailPubSub) {
       logger.info('[Webhook POST] Error occurred during Gmail Pub/Sub processing, acknowledging with 200 OK to stop retries');
       return new Response(JSON.stringify({ success: true, warning: 'Error during processing' }), {
