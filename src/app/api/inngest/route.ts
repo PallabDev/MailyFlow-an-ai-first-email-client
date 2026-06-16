@@ -1,8 +1,8 @@
 import { serve } from 'inngest/next';
 import { inngest } from '@/inngest/client';
-import { processAICall, trackFailedAICalls } from '@/inngest/functions';
+import { processAICall, trackFailedAICalls, syncGmailWebhook } from '@/inngest/functions';
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [processAICall, trackFailedAICalls],
+  functions: [processAICall, trackFailedAICalls, syncGmailWebhook],
 });

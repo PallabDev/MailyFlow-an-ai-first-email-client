@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db, corsair } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
+
+const is429Error = (err: any): boolean => {
+  if (!err) return false;
+  const errMsg = String(err.message || err.error || err).toLowerCase();
+  return (
+    err.status === 429 ||
+    err.statusCode === 429 ||
+    err.body?.error?.code === 429 ||
+    errMsg.includes('too many requests') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit')
+  );
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +31,6 @@ export async function GET(req: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Missing email id parameter.' }, { status: 400 });
     }
-
 
     // Check if user has connected accounts
     let connectedAccounts: ConnectedAccount[] = [];
@@ -43,13 +55,76 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Please connect your Gmail account to view email details.' }, { status: 403 });
     }
 
+    // Check if Gmail is currently rate-limited (cooldown)
+    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
+
+    if (isCooldownActive) {
+      // Find the account row to get the account ID
+      const gmailAccount = await db
+        .select({ id: corsairAccounts.id })
+        .from(corsairAccounts)
+        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+        .where(
+          and(
+            eq(corsairAccounts.tenantId, userId),
+            eq(corsairIntegrations.name, 'gmail')
+          )
+        )
+        .limit(1)
+        .then(rows => rows[0]);
+
+      if (gmailAccount) {
+        // Look up in database entities cache
+        const cacheRow = await db
+          .select()
+          .from(corsairEntities)
+          .where(
+            and(
+              eq(corsairEntities.accountId, gmailAccount.id),
+              eq(corsairEntities.entityId, id),
+              eq(corsairEntities.entityType, 'messages')
+            )
+          )
+          .limit(1)
+          .then(rows => rows[0]);
+
+        if (cacheRow) {
+          const cachedData = cacheRow.data as any;
+          return NextResponse.json({
+            id: cachedData.id,
+            from: cachedData.from,
+            date: cachedData.date,
+            subject: cachedData.subject,
+            snippet: cachedData.snippet || '',
+            body: cachedData.body || cachedData.snippet || '(Offline/Cooldown: Email body not cached)',
+            labelIds: cachedData.labelIds || [],
+            isCached: true,
+          });
+        }
+      }
+
+      return NextResponse.json({
+        error: 'Gmail rate limit is active. Please wait a few minutes before viewing this email details.'
+      }, { status: 429 });
+    }
+
     const client = corsair.withTenant(userId);
 
     // Fetch full message payload
-    const full = await client.gmail.api.messages.get({
-      id: id,
-      format: 'full',
-    });
+    let full: any = null;
+    try {
+      full = await client.gmail.api.messages.get({
+        id: id,
+        format: 'full',
+      });
+    } catch (apiErr) {
+      if (is429Error(apiErr)) {
+        console.warn('[Emails Detail API] Gmail API returned 429. Setting 20-minute cooldown.');
+        (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+      }
+      throw apiErr;
+    }
 
     // Mark as read in Gmail (remove UNREAD label if it exists in labelIds)
     if (full.labelIds && full.labelIds.includes('UNREAD')) {
@@ -60,6 +135,10 @@ export async function GET(req: NextRequest) {
         });
       } catch (err) {
         console.error('Failed to mark message as read in Gmail:', err);
+        if (is429Error(err)) {
+          console.warn('[Emails Detail API] batchModify returned 429. Setting 20-minute cooldown.');
+          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        }
       }
     }
 
@@ -105,6 +184,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error in /api/emails/detail:', error);
+    if (is429Error(error)) {
+      console.warn('[Emails Detail API] Outer handler caught 429. Setting 20-minute cooldown.');
+      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+    }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
       errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';

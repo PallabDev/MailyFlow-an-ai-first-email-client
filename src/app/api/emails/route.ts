@@ -6,6 +6,19 @@ import { eq, and } from 'drizzle-orm';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
 
+const is429Error = (err: any): boolean => {
+  if (!err) return false;
+  const errMsg = String(err.message || err.error || err).toLowerCase();
+  return (
+    err.status === 429 ||
+    err.statusCode === 429 ||
+    err.body?.error?.code === 429 ||
+    errMsg.includes('too many requests') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit')
+  );
+};
+
 export async function GET(req: NextRequest) {
   try {
     await ensureGoogleCredentialsSynced();
@@ -32,6 +45,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Please connect your Gmail account on the onboarding page before fetching emails.' }, { status: 403 });
     }
 
+    // Check if Gmail is currently rate-limited (cooldown)
+    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
+
     let emails: EmailItem[] = [];
     let apiNextPageToken: string | null = null;
     let fetchedFromGmail = false;
@@ -50,8 +67,8 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .then(rows => rows[0]);
 
-    // 1. Try DB cache first if not forceRefresh
-    if (!forceRefresh && gmailAccount) {
+    // 1. Try DB cache first if not forceRefresh or if cooldown is active
+    if ((!forceRefresh || isCooldownActive) && gmailAccount) {
       try {
         const rows = (await db
           .select()
@@ -118,8 +135,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Fetch directly from Gmail API if cache is empty or forceRefresh is true
-    if (!fetchedFromGmail) {
+    // 2. Fetch directly from Gmail API if cache is empty or forceRefresh is true (and no active cooldown)
+    if (!fetchedFromGmail && !isCooldownActive) {
       try {
         const client = corsair.withTenant(userId);
 
@@ -167,6 +184,10 @@ export async function GET(req: NextRequest) {
                 };
               } catch (e: unknown) {
                 console.error(`Error fetching email details for message ID ${msg.id}:`, e);
+                if (is429Error(e)) {
+                  console.warn('[Emails GET API] Gmail message get returned 429. Setting 20-minute cooldown.');
+                  (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+                }
                 return {
                   id: msg.id!,
                   from: '(unknown)',
@@ -228,6 +249,11 @@ export async function GET(req: NextRequest) {
         fetchedFromGmail = true;
       } catch (gmailErr: unknown) {
         console.error('Error fetching directly from Gmail API, trying to fallback to cache:', gmailErr);
+        if (is429Error(gmailErr)) {
+          console.warn('[Emails GET API] Gmail API list returned 429. Setting 20-minute cooldown.');
+          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        }
+
         const errStr = gmailErr instanceof Error ? gmailErr.message : String(gmailErr);
         if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
           throw gmailErr;
@@ -309,6 +335,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error in /api/emails:', error);
+    if (is429Error(error)) {
+      console.warn('[Emails GET API] Outer handler caught 429. Setting 20-minute cooldown.');
+      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+    }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
       errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';

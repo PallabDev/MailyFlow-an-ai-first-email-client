@@ -1,8 +1,8 @@
-import { toNextJsHandler, processWebhook } from 'corsair';
+import { toNextJsHandler } from 'corsair';
 import { corsair } from '@/utils/corsair';
 import logger from '@/utils/logger';
-import { liveEmailsEmitter } from '@/utils/emitter';
 import { createClerkClient } from '@clerk/nextjs/server';
+import { inngest } from '@/inngest/client';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',
@@ -10,10 +10,6 @@ const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
 
 export { GET };
 
-// Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
-const seenEmails = new Map<string, Set<string>>();
-
-// Helper to detect 429 rate limit or quota exceeded errors
 const is429Error = (err: any): boolean => {
   if (!err) return false;
   const errMsg = String(err.message || err.error || err).toLowerCase();
@@ -130,89 +126,27 @@ export async function POST(request: Request) {
         });
       }
 
-      logger.info(`[Corsair Webhook] Attempting to process with tenantId: ${activeTenantId}`);
-
-      // Try processing the webhook first
-      let result: any = null;
+      logger.info(`[Webhook POST] Dispatching async sync event to Inngest for tenant: ${activeTenantId}`);
+      
+      // Dispatch sync event to Inngest background queue
       try {
-        result = await processWebhook(corsair, headersObj, body, {
-          tenantId: activeTenantId,
+        await inngest.send({
+          name: 'gmail.webhook.received',
+          data: {
+            headersObj,
+            body,
+            activeTenantId
+          }
         });
-
-        if (result && (result.success === false || result.error)) {
-          if (is429Error(result)) {
-            logger.warn(`[Webhook POST] processWebhook result indicates a 429 Rate Limit error. Setting 20-minute cooldown.`);
-            (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
-          }
-        }
-      } catch (err: any) {
-        if (is429Error(err)) {
-          logger.warn(`[Webhook POST] processWebhook threw 429 Rate Limit error. Setting 20-minute cooldown.`);
-          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
-        }
-        throw err;
+      } catch (inngestErr) {
+        logger.error('[Webhook POST] Failed to dispatch Inngest event:', inngestErr);
       }
 
-      logger.info(`[Webhook POST] processWebhook Result: ${result?.plugin ? `${result.plugin}.${result.action}` : 'skipped'}`);
-
-      // Custom robust fallback check for new emails (bypasses Corsair's history window limits)
-      const isGmailWebhook = !!body.message?.data;
-      if (isGmailWebhook) {
-        try {
-          logger.info(`🔍 [Webhook POST] Custom Gmail sync: Yes, server is searching for messages for tenant: ${activeTenantId}`);
-          const client = corsair.withTenant(activeTenantId);
-          const listRes = await client.gmail.api.messages.list({
-            maxResults: 3,
-            labelIds: ['INBOX'],
-          });
-
-          if (listRes.messages && listRes.messages.length > 0) {
-            const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
-            logger.info(`📋 [Webhook POST] Custom Gmail sync: Yes, messages found in inbox: ${JSON.stringify(ids)}`);
-            
-            if (!seenEmails.has(activeTenantId)) {
-              // First run for this tenant: initialize the set with the current IDs without emitting them to prevent boot spam
-              seenEmails.set(activeTenantId, new Set(ids));
-              logger.info(`[Webhook POST] Custom Gmail sync: Initialized seen emails list for tenant ${activeTenantId}: ${JSON.stringify(ids)}`);
-            } else {
-              const tenantSeen = seenEmails.get(activeTenantId)!;
-              for (const msg of listRes.messages) {
-                if (msg.id && !tenantSeen.has(msg.id)) {
-                  tenantSeen.add(msg.id);
-                  // Evict older entries to keep the set bounded (limit to 50)
-                  if (tenantSeen.size > 50) {
-                    const firstKey = tenantSeen.keys().next().value;
-                    if (firstKey !== undefined) {
-                      tenantSeen.delete(firstKey);
-                    }
-                  }
-                  liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
-                  logger.info(`✉️ [Webhook POST] Custom Gmail sync: Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
-                }
-              }
-            }
-          } else {
-            logger.info(`⚠️ [Webhook POST] Custom Gmail sync: Yes, server searched but found NO messages in inbox.`);
-          }
-        } catch (err) {
-          logger.error('Error in custom Gmail sync:', err);
-          if (is429Error(err)) {
-            logger.warn(`[Webhook POST] Custom Gmail sync returned 429 Rate Limit error. Setting 20-minute cooldown.`);
-            (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
-          }
-        }
-      }
-
-      if (result && result.plugin) {
-        logger.info(`✅ Webhook processed successfully: ${result.plugin}.${result.action}`);
-        return new Response(JSON.stringify(result.response || { success: true }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(result.responseHeaders || {}),
-          },
-        });
-      }
+      // Immediately return 200 OK to stop Google retry storms
+      return new Response(JSON.stringify({ success: true, message: 'Webhook enqueued successfully' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Acknowledge all other processed Gmail Pub/Sub webhook events to prevent Pub/Sub retry storms

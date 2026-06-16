@@ -6,6 +6,8 @@ import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool, OpenAIProvider, setDefaultModelProvider } from '@openai/agents';
+import { processWebhook } from 'corsair';
+import { liveEmailsEmitter } from '@/utils/emitter';
 
 export const processAICall = inngest.createFunction(
   {
@@ -229,3 +231,105 @@ export const trackFailedAICalls = inngest.createFunction(
     }
   }
 );
+
+// Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
+const seenEmails = new Map<string, Set<string>>();
+
+const isGmail429Error = (err: any): boolean => {
+  if (!err) return false;
+  const errMsg = String(err.message || err.error || err).toLowerCase();
+  return (
+    err.status === 429 ||
+    err.statusCode === 429 ||
+    err.body?.error?.code === 429 ||
+    errMsg.includes('too many requests') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit')
+  );
+};
+
+export const syncGmailWebhook = inngest.createFunction(
+  {
+    id: 'sync-gmail-webhook',
+    name: 'Sync Gmail Webhook',
+    concurrency: {
+      limit: 1,
+      key: 'event.data.activeTenantId',
+    },
+    triggers: [{ event: 'gmail.webhook.received' }],
+  },
+  async ({ event, step }) => {
+    const { headersObj, body, activeTenantId } = event.data;
+
+    // Check if there is an active Gmail API 429 rate limit cooldown
+    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    if (cooldownExpiry && Date.now() < cooldownExpiry) {
+      const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
+      console.warn(`⏳ [Inngest Sync] Skipping sync for tenant ${activeTenantId} due to active 429 cooldown. Remaining: ${remainingSeconds}s.`);
+      return { skipped: true, reason: 'active 429 cooldown' };
+    }
+
+    // 1. Run processWebhook
+    let result: any = null;
+    try {
+      result = await step.run('run-process-webhook', async () => {
+        const res = await processWebhook(corsair, headersObj, body, {
+          tenantId: activeTenantId,
+        });
+        return res;
+      });
+    } catch (err: any) {
+      if (isGmail429Error(err)) {
+        console.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
+        (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+      }
+      throw err;
+    }
+
+    // 2. Custom robust fallback sync
+    const isGmailWebhook = !!body.message?.data;
+    if (isGmailWebhook) {
+      try {
+        await step.run('run-custom-sync', async () => {
+          const client = corsair.withTenant(activeTenantId);
+          const listRes = await client.gmail.api.messages.list({
+            maxResults: 3,
+            labelIds: ['INBOX'],
+          });
+
+          if (listRes.messages && listRes.messages.length > 0) {
+            const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
+            
+            if (!seenEmails.has(activeTenantId)) {
+              seenEmails.set(activeTenantId, new Set(ids));
+            } else {
+              const tenantSeen = seenEmails.get(activeTenantId)!;
+              for (const msg of listRes.messages) {
+                if (msg.id && !tenantSeen.has(msg.id)) {
+                  tenantSeen.add(msg.id);
+                  if (tenantSeen.size > 50) {
+                    const firstKey = tenantSeen.keys().next().value;
+                    if (firstKey !== undefined) {
+                      tenantSeen.delete(firstKey);
+                    }
+                  }
+                  liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
+                  console.log(`✉️ [Inngest Sync] Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
+                }
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('Error in custom Gmail sync inside Inngest:', err);
+        if (isGmail429Error(err)) {
+          console.warn(`[Inngest Sync] Custom sync returned 429. Setting 20-minute cooldown.`);
+          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        }
+      }
+    }
+
+    return { success: true, result };
+  }
+);
+

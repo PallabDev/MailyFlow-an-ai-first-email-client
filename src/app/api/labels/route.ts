@@ -5,6 +5,19 @@ import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/sche
 import { eq, and } from 'drizzle-orm';
 import { LabelData } from './_types';
 
+const is429Error = (err: any): boolean => {
+  if (!err) return false;
+  const errMsg = String(err.message || err.error || err).toLowerCase();
+  return (
+    err.status === 429 ||
+    err.statusCode === 429 ||
+    err.body?.error?.code === 429 ||
+    errMsg.includes('too many requests') ||
+    errMsg.includes('resource_exhausted') ||
+    errMsg.includes('rate limit')
+  );
+};
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -35,8 +48,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === 'true';
 
+    // Check if Gmail is currently rate-limited (cooldown)
+    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
+
     // Try to load counts from database cache first
-    if (!forceRefresh && gmailAccount) {
+    if ((!forceRefresh || isCooldownActive) && gmailAccount) {
       try {
         const rows = await db
           .select()
@@ -52,7 +69,7 @@ export async function GET(req: NextRequest) {
         const draftsRow = rows.find(r => r.entityId === 'DRAFT');
         const spamRow = rows.find(r => r.entityId === 'SPAM');
 
-        if (inboxRow || draftsRow || spamRow) {
+        if (inboxRow || draftsRow || spamRow || isCooldownActive) {
           const isGmailConnected = await hasActiveConnection(userId, 'gmail');
           const isCalendarConnected = await hasActiveConnection(userId, 'googlecalendar');
           return NextResponse.json({
@@ -81,6 +98,10 @@ export async function GET(req: NextRequest) {
 
     const handleLabelError = (err: unknown) => {
       const errStr = err instanceof Error ? err.message : String(err);
+      if (is429Error(err)) {
+        console.warn('[Labels GET API] Gmail API returned 429. Setting 20-minute cooldown.');
+        (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+      }
       if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
         throw err;
       }
@@ -114,6 +135,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error in /api/labels:', error);
+    if (is429Error(error)) {
+      console.warn('[Labels GET API] Outer handler caught 429. Setting 20-minute cooldown.');
+      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+    }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
       errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
