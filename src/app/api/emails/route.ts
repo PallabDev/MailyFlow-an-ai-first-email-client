@@ -80,6 +80,11 @@ export async function GET(req: NextRequest) {
     // 1. Try DB cache first if not forceRefresh or if cooldown is active
     if ((!forceRefresh || isCooldownActive) && gmailAccount) {
       try {
+        let offset = 0;
+        if (pageToken && pageToken.startsWith('db_offset:')) {
+          offset = parseInt(pageToken.split(':')[1], 10) || 0;
+        }
+
         const rows = (await db
           .select()
           .from(corsairEntities)
@@ -90,8 +95,9 @@ export async function GET(req: NextRequest) {
               sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
             )
           )
-          .orderBy(desc(corsairEntities.updatedAt))
-          .limit(limit)) as CorsairEntityRow[];
+          .orderBy(desc(sql`coalesce((${corsairEntities.data}->>'internalDate')::bigint, extract(epoch from ${corsairEntities.createdAt})::bigint * 1000)`))
+          .limit(limit)
+          .offset(offset)) as CorsairEntityRow[];
 
         const dbEmails = rows
           .map((r: CorsairEntityRow) => {
@@ -112,6 +118,14 @@ export async function GET(req: NextRequest) {
               }
             }
 
+            let internalDate = msg.internalDate;
+            if (!internalDate && date) {
+              const parsed = Date.parse(date);
+              if (!isNaN(parsed)) {
+                internalDate = String(parsed);
+              }
+            }
+
             return {
               id: msg.id!,
               from,
@@ -120,12 +134,17 @@ export async function GET(req: NextRequest) {
               snippet: msg.snippet ?? '',
               body: '', // Empty body in list view to save network/DB egress
               labelIds: msg.labelIds ?? [],
+              internalDate: internalDate || undefined,
             };
           });
 
         if (dbEmails.length > 0) {
           emails = dbEmails;
-          apiNextPageToken = null;
+          if (rows.length === limit) {
+            apiNextPageToken = `db_offset:${offset + limit}`;
+          } else {
+            apiNextPageToken = null;
+          }
           fetchedFromGmail = true;
         }
       } catch (dbErr) {
@@ -179,6 +198,7 @@ export async function GET(req: NextRequest) {
                   snippet: full.snippet ?? '',
                   body: '', // Empty body in list view, loaded on-demand on click
                   labelIds: full.labelIds ?? [],
+                  internalDate: full.internalDate || undefined,
                 };
               } catch (e: unknown) {
                 console.error(`Error fetching email details for message ID ${msg.id}:`, e);
@@ -211,6 +231,7 @@ export async function GET(req: NextRequest) {
                   from: email.from,
                   date: email.date,
                   labelIds: email.labelIds,
+                  internalDate: email.internalDate || undefined,
                   payload: {
                     headers: [
                       { name: 'Subject', value: email.subject },
@@ -260,6 +281,11 @@ export async function GET(req: NextRequest) {
         // Fallback to cache if Gmail API fails
         if (gmailAccount) {
           try {
+            let offset = 0;
+            if (pageToken && pageToken.startsWith('db_offset:')) {
+              offset = parseInt(pageToken.split(':')[1], 10) || 0;
+            }
+
             const rows = (await db
               .select()
               .from(corsairEntities)
@@ -270,8 +296,9 @@ export async function GET(req: NextRequest) {
                   sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
                 )
               )
-              .orderBy(desc(corsairEntities.updatedAt))
-              .limit(limit)) as CorsairEntityRow[];
+              .orderBy(desc(sql`coalesce((${corsairEntities.data}->>'internalDate')::bigint, extract(epoch from ${corsairEntities.createdAt})::bigint * 1000)`))
+              .limit(limit)
+              .offset(offset)) as CorsairEntityRow[];
 
             const dbEmails = rows
               .map((r: CorsairEntityRow) => {
@@ -292,6 +319,14 @@ export async function GET(req: NextRequest) {
                   }
                 }
 
+                let internalDate = msg.internalDate;
+                if (!internalDate && date) {
+                  const parsed = Date.parse(date);
+                  if (!isNaN(parsed)) {
+                    internalDate = String(parsed);
+                  }
+                }
+
                 return {
                   id: msg.id!,
                   from,
@@ -300,12 +335,17 @@ export async function GET(req: NextRequest) {
                   snippet: msg.snippet ?? '',
                   body: '', // Empty body in list view to save network/DB egress
                   labelIds: msg.labelIds ?? [],
+                  internalDate: internalDate || undefined,
                 };
               });
 
             if (dbEmails.length > 0) {
               emails = dbEmails;
-              apiNextPageToken = null;
+              if (rows.length === limit) {
+                apiNextPageToken = `db_offset:${offset + limit}`;
+              } else {
+                apiNextPageToken = null;
+              }
             }
           } catch (dbErr) {
             console.error('Error fetching emails from local DB cache fallback:', dbErr);

@@ -25,6 +25,7 @@ type Email = {
   snippet: string;
   body: string;
   labelIds?: string[];
+  internalDate?: string;
 };
 
 type FolderPageClientProps = {
@@ -73,7 +74,7 @@ export default function FolderPageClient({
     }
     setEmailErrorState(null);
     try {
-      const res = await fetch(`/api/emails?folder=${folder}&limit=20${(force || isBackground) ? '&refresh=true' : ''}`);
+      const res = await fetch(`/api/emails?folder=${folder}&limit=20${force ? '&refresh=true' : ''}`);
       if (res.ok) {
         const data = await res.json();
         let fetchedEmails = data.emails ?? [];
@@ -122,15 +123,11 @@ export default function FolderPageClient({
       setEmailsState(cached.emails);
       setNextPageToken(cached.nextPageToken);
       setLoading(false);
-      // Run revalidation in the background silently
+      // Run DB revalidation in the background silently to get any updates
       fetchEmails(false, true);
     } else {
-      // Fetch DB cache first, then run revalidation in the background
-      const loadInitial = async () => {
-        await fetchEmails(false, false);
-        fetchEmails(false, true);
-      };
-      loadInitial();
+      // Fetch DB cache (this will fallback to Gmail API fetch if DB cache is empty)
+      fetchEmails(false, false);
     }
   }, [folder]);
 
@@ -279,25 +276,50 @@ export default function FolderPageClient({
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
-          let fetchedEmails = data.emails ?? [];
+          let fetchedEmails: Email[] = data.emails ?? [];
           if (fetchedEmails.length === 0 && data.isDevFallback) {
             return;
           }
 
           setEmailsState((prev) => {
-            // Compare IDs to see if there is any difference
-            const hasChanges = fetchedEmails.length !== prev.length || 
-              fetchedEmails.some((e: any, idx: number) => e.id !== prev[idx]?.id);
+            // Create a Map from the current emails for fast lookup and replacement
+            const emailMap = new Map<string, Email>();
             
+            // Add existing emails to the map
+            prev.forEach(email => emailMap.set(email.id, email));
+            
+            let hasChanges = false;
+            
+            // Update or add fetched emails
+            fetchedEmails.forEach((fetched) => {
+              const existing = emailMap.get(fetched.id);
+              if (!existing) {
+                // New email found (e.g. synced via webhook, not yet in state)
+                emailMap.set(fetched.id, fetched);
+                hasChanges = true;
+              } else {
+                // Check if any fields changed (e.g. read/unread status in labelIds)
+                const labelsChanged = JSON.stringify(existing.labelIds) !== JSON.stringify(fetched.labelIds);
+                const otherFieldsChanged = existing.subject !== fetched.subject || 
+                                           existing.from !== fetched.from || 
+                                           existing.snippet !== fetched.snippet;
+                if (labelsChanged || otherFieldsChanged) {
+                  emailMap.set(fetched.id, { ...existing, ...fetched });
+                  hasChanges = true;
+                }
+              }
+            });
+
             if (hasChanges) {
               console.log('📱 [Cache Poller] 🔄 Cache changed! Updating email list from database cache.');
+              const updated = Array.from(emailMap.values());
               // Update the in-memory cache
               if (emailCache[folder]) {
-                emailCache[folder].emails = fetchedEmails;
+                emailCache[folder].emails = updated;
               }
               // Dispatch counts refresh
               window.dispatchEvent(new CustomEvent('refresh-labels'));
-              return fetchedEmails;
+              return updated;
             }
             return prev;
           });
@@ -436,8 +458,20 @@ export default function FolderPageClient({
     }
   };
 
+  // Sort emails chronologically using internalDate or parsed Date header before filtering/displaying
+  const getEmailTimestamp = (email: Email): number => {
+    if (email.internalDate) {
+      const parsed = parseInt(email.internalDate, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    const dateParsed = Date.parse(email.date);
+    return isNaN(dateParsed) ? 0 : dateParsed;
+  };
+
+  const sortedEmails = [...emailsState].sort((a, b) => getEmailTimestamp(b) - getEmailTimestamp(a));
+
   // Filter based on query and folder
-  const filteredEmails = emailsState.filter((email) => {
+  const filteredEmails = sortedEmails.filter((email) => {
     const labels = email.labelIds || [];
 
     // If the email is trashed, it should only appear in the trash folder

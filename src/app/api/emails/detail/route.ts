@@ -55,25 +55,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Please connect your Gmail account to view email details.' }, { status: 403 });
     }
 
+    // Find the account row to get the account ID for caching
+    const gmailAccount = await db
+      .select({ id: corsairAccounts.id })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, userId),
+          eq(corsairIntegrations.name, 'gmail')
+        )
+      )
+      .limit(1)
+      .then(rows => rows[0]);
+
     // Check if Gmail is currently rate-limited (cooldown)
     const cooldownExpiry = (global as any)._gmailCooldownExpiration;
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
     if (isCooldownActive) {
-      // Find the account row to get the account ID
-      const gmailAccount = await db
-        .select({ id: corsairAccounts.id })
-        .from(corsairAccounts)
-        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-        .where(
-          and(
-            eq(corsairAccounts.tenantId, userId),
-            eq(corsairIntegrations.name, 'gmail')
-          )
-        )
-        .limit(1)
-        .then(rows => rows[0]);
-
       if (gmailAccount) {
         // Look up in database entities cache
         const cacheRow = await db
@@ -99,6 +99,7 @@ export async function GET(req: NextRequest) {
             snippet: cachedData.snippet || '',
             body: cachedData.body || cachedData.snippet || '(Offline/Cooldown: Email body not cached)',
             labelIds: cachedData.labelIds || [],
+            internalDate: cachedData.internalDate || undefined,
             isCached: true,
           });
         }
@@ -173,6 +174,48 @@ export async function GET(req: NextRequest) {
       body = full.snippet ?? '(no body)';
     }
 
+    // Cache the fetched email details in the database
+    if (gmailAccount) {
+      try {
+        const entityRowId = `e_messages_${full.id}_a_${gmailAccount.id}`;
+        const entityData = {
+          id: full.id,
+          snippet: full.snippet || '',
+          subject,
+          from,
+          date,
+          body,
+          labelIds: full.labelIds || [],
+          internalDate: full.internalDate || undefined,
+          payload: {
+            headers: headers
+          }
+        };
+
+        await db
+          .insert(corsairEntities)
+          .values({
+            id: entityRowId,
+            accountId: gmailAccount.id,
+            entityId: full.id,
+            entityType: 'messages',
+            version: '1',
+            data: entityData,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: corsairEntities.id,
+            set: {
+              data: entityData,
+              updatedAt: new Date(),
+            }
+          });
+        console.log(`💾 [Emails Detail API] Successfully cached email details in DB: ${full.id}`);
+      } catch (cacheErr) {
+        console.error('Failed to cache fetched email details in DB:', cacheErr);
+      }
+    }
+
     return NextResponse.json({
       id: full.id,
       from,
@@ -181,6 +224,7 @@ export async function GET(req: NextRequest) {
       snippet: full.snippet ?? '',
       body,
       labelIds: full.labelIds ?? [],
+      internalDate: full.internalDate || undefined,
     });
   } catch (error: unknown) {
     console.error('Error in /api/emails/detail:', error);

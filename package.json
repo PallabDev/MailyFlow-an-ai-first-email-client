@@ -9,8 +9,7 @@
         "lint": "eslint",
         "db:push": "npx drizzle-kit push",
         "db:clear": "tsx src/db/clear.ts",
-        "db:studio": "drizzle-kit studio",
-        "plan:edit": "node scripts/plan-edit.js"
+        "db:studio": "drizzle-kit studio"
     },
     "dependencies": {
         "@clerk/nextjs": "^7.5.1",

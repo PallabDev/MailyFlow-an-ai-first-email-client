@@ -1,5 +1,5 @@
 import { inngest } from './client';
-import { db, corsair } from '@/utils/corsair';
+import { db, corsair, hasActiveConnection } from '@/utils/corsair';
 import { chatMessages, userSubscriptions } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/utils/openai';
@@ -335,6 +335,11 @@ export const syncGmailWebhook = inngest.createFunction(
         return res;
       });
     } catch (err: any) {
+      const errMsg = String(err.message || err).toLowerCase();
+      if (errMsg.includes('account not found') || errMsg.includes('make sure to create the account first')) {
+        console.warn(`⚠️ [Inngest Sync] Account not found for tenant ${activeTenantId}. User may have disconnected Gmail. Skipping.`);
+        return { success: false, skipped: true, reason: 'account_not_found' };
+      }
       if (isGmail429Error(err)) {
         console.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
         (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
@@ -347,6 +352,13 @@ export const syncGmailWebhook = inngest.createFunction(
     if (isGmailWebhook) {
       try {
         await step.run('run-custom-sync', async () => {
+          // Check Gmail connection first to prevent "Account not found" crashes
+          const gmailConnected = await hasActiveConnection(activeTenantId, 'gmail');
+          if (!gmailConnected) {
+            console.warn(`⚠️ [Inngest Sync] No active Gmail connection for tenant ${activeTenantId}. Skipping custom sync.`);
+            return;
+          }
+
           const client = corsair.withTenant(activeTenantId);
           const listRes = await client.gmail.api.messages.list({
             maxResults: 3,

@@ -40,6 +40,7 @@ export interface EmailItem {
   snippet: string;
   body: string;
   labelIds: string[];
+  internalDate?: string;
 }
 
 export interface GmailMessageSummary {
