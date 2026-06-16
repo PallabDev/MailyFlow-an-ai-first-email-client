@@ -186,7 +186,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let elapsedSeconds = 0;
       const intervalId = setInterval(async () => {
         elapsedSeconds += 1;
-        if (elapsedSeconds > 90) {
+        if (elapsedSeconds > 300) {
           get().clearPolling();
           set((state) => ({
             chatLoading: false,

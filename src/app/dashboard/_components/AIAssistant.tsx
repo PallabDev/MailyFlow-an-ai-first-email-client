@@ -62,13 +62,51 @@ const AgentProgressLoader = () => {
 // Helper to convert URLs in plain text into clickable links
 function renderLinksAndText(text: string): React.ReactNode[] {
   if (!text) return [];
+  
+  const parts: React.ReactNode[] = [];
+  let currentIndex = 0;
+  
+  // Match markdown links [Link Text](https://example.com)
+  const mdLinkRegex = /\[(.*?)\]\((https?:\/\/[^\s)]+)\)/g;
+  let match;
+  
+  while ((match = mdLinkRegex.exec(text)) !== null) {
+    if (match.index > currentIndex) {
+      parts.push(...renderRawLinks(text.substring(currentIndex, match.index)));
+    }
+    
+    const [, linkText, linkUrl] = match;
+    parts.push(
+      <a
+        key={`md-${match.index}`}
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#6e9b7e] hover:underline font-semibold"
+      >
+        {linkText}
+      </a>
+    );
+    
+    currentIndex = mdLinkRegex.lastIndex;
+  }
+  
+  if (currentIndex < text.length) {
+    parts.push(...renderRawLinks(text.substring(currentIndex)));
+  }
+  
+  return parts;
+}
+
+// Inner helper to parse raw links in the rest of the text
+function renderRawLinks(text: string): React.ReactNode[] {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = text.split(urlRegex);
   return parts.map((part, index) => {
     if (urlRegex.test(part)) {
       return (
         <a
-          key={index}
+          key={`raw-${index}`}
           href={part}
           target="_blank"
           rel="noopener noreferrer"
@@ -525,7 +563,14 @@ export default function AIAssistant({ user, projectName }: AIAssistantProps) {
                           : 'bg-[#e4e9e5] dark:bg-sidebar-active-bg text-slate-800 dark:text-white border border-border'
                           }`}>
                           {isPending ? (
-                            <AgentProgressLoader />
+                            <div className="space-y-2.5">
+                              <AgentProgressLoader />
+                              {msg.content && (
+                                <p className="text-[11px] text-text-secondary italic pl-1 animate-pulse select-none leading-normal">
+                                  {msg.content}
+                                </p>
+                              )}
+                            </div>
                           ) : isAssistant && isLast && isRecent ? (
                             <Typewriter text={msg.content || (isFailed ? '⚠️ Failed to do that, please try again later.' : '')} />
                           ) : (

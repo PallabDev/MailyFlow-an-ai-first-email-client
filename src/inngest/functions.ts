@@ -1,6 +1,6 @@
 import { inngest } from './client';
 import { db, corsair } from '@/utils/corsair';
-import { chatMessages } from '@/db/schema';
+import { chatMessages, userSubscriptions } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
@@ -75,6 +75,21 @@ export const processAICall = inngest.createFunction(
         }
       }
 
+      // Fetch user subscription plan from DB
+      let userPlan: 'Starter' | 'Professional' | 'Business' = 'Starter';
+      try {
+        const [sub] = await db
+          .select({ planName: userSubscriptions.planName })
+          .from(userSubscriptions)
+          .where(eq(userSubscriptions.userId, userId))
+          .limit(1);
+        if (sub?.planName) {
+          userPlan = sub.planName as 'Starter' | 'Professional' | 'Business';
+        }
+      } catch (dbErr) {
+        console.error('Failed to load user plan, defaulting to Starter:', dbErr);
+      }
+
       // Build system instructions using system promts helper
       const systemInstruction = getSystemInstruction({
         projectName: process.env.ProjectName || 'MailyFlow',
@@ -84,6 +99,7 @@ export const processAICall = inngest.createFunction(
         userEmail: userEmail || 'Unknown',
         hasGmailConnection,
         hasCalendarConnection,
+        userPlan,
       });
 
       const agent = new Agent({
@@ -138,31 +154,71 @@ export const processAICall = inngest.createFunction(
         return '__CANCELLED__';
       }
 
-      const result = await run(agent, formatHistoryMessages(dbHistory));
+      let completed = false;
+      const progressMessages = [
+        '🔍 Analyzing your request and workspace context...',
+        '📬 Accessing Gmail accounts and sync records...',
+        '⚙️ Querying database schedules and tool definitions...',
+        '✍️ Drafting message response or organizing outcomes...',
+        '🧠 Refining response layout and wrapping up...'
+      ];
 
-      if (await checkCancelled()) {
-        return '__CANCELLED__';
-      }
-
-      let outputText = result.finalOutput || '';
-
-      // Strip any leaked function/tool call tags
-      outputText = outputText.replace(/<(function|run_script|tool|tool_call)[^>]*>[\s\S]*?<\/\1>/gi, '');
-      outputText = outputText.replace(/<function\/(run_script|tool_call)[^>]*>[\s\S]*?<\/function\/\1>/gi, '');
-      outputText = outputText.replace(/<[^>]+>[\s\S]*?<\/[^>]+>/gi, (match) => {
-        const lower = match.toLowerCase();
-        if (
-          lower.includes('function') ||
-          lower.includes('script') ||
-          lower.includes('tool') ||
-          lower.includes('code') ||
-          lower.includes('auth')
-        ) {
-          return '';
+      const progressInterval = setInterval(async () => {
+        if (completed) {
+          clearInterval(progressInterval);
+          return;
         }
-        return match;
-      });
-      return outputText.trim();
+        const currentProgress = progressMessages.shift();
+        if (currentProgress) {
+          try {
+            await db
+              .update(chatMessages)
+              .set({
+                content: currentProgress,
+                updatedAt: new Date(),
+              })
+              .where(eq(chatMessages.id, assistantMessageId));
+          } catch (err) {
+            console.error('Failed to update progress status:', err);
+          }
+        } else {
+          clearInterval(progressInterval);
+        }
+      }, 4500);
+
+      try {
+        const result = await run(agent, formatHistoryMessages(dbHistory));
+        completed = true;
+        clearInterval(progressInterval);
+
+        if (await checkCancelled()) {
+          return '__CANCELLED__';
+        }
+
+        let outputText = result.finalOutput || '';
+
+        // Strip any leaked function/tool call tags
+        outputText = outputText.replace(/<(function|run_script|tool|tool_call)[^>]*>[\s\S]*?<\/\1>/gi, '');
+        outputText = outputText.replace(/<function\/(run_script|tool_call)[^>]*>[\s\S]*?<\/function\/\1>/gi, '');
+        outputText = outputText.replace(/<[^>]+>[\s\S]*?<\/[^>]+>/gi, (match) => {
+          const lower = match.toLowerCase();
+          if (
+            lower.includes('function') ||
+            lower.includes('script') ||
+            lower.includes('tool') ||
+            lower.includes('code') ||
+            lower.includes('auth')
+          ) {
+            return '';
+          }
+          return match;
+        });
+        return outputText.trim();
+      } catch (runErr) {
+        completed = true;
+        clearInterval(progressInterval);
+        throw runErr;
+      }
     });
 
     // Save output to the DB if the message has not been cancelled by the user
