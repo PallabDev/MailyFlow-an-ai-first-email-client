@@ -44,6 +44,4 @@ yarn-error.log*
 next-env.d.ts
 
 # dev-only tools
-/src/user_plan.tsx
-/src/user_plan.actions.ts
 /scripts/plan-edit.js
