@@ -65,8 +65,8 @@ export async function grantPaidPlanAccessById(userId: string, planName: 'Starter
   try {
     const priceMap = {
       Starter: '0',
-      Professional: '1499', // matches ₹1499
-      Business: '2999', // matches ₹2999
+      Professional: '599', // matches ₹599
+      Business: '999', // matches ₹999
     };
 
     const endDate = planName === 'Starter' ? null : new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000);

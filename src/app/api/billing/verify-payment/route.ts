@@ -81,8 +81,8 @@ export async function POST(req: NextRequest) {
 
     // Set prices for DB record
     const priceMap: Record<string, string> = {
-      Professional: '₹1,499',
-      Business: '₹2,999',
+      Professional: '₹599',
+      Business: '₹999',
     };
     const priceStr = priceMap[planName] || '0';
 

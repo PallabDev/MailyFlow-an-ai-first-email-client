@@ -37,7 +37,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Professional",
-    price: "₹1,499",
+    price: "₹599",
     priceNote: "/month",
     ops: "30 AI operations / day",
     features: [
@@ -53,7 +53,7 @@ const PLANS: Plan[] = [
   },
   {
     name: "Business",
-    price: "₹2,999",
+    price: "₹999",
     priceNote: "/month",
     ops: "100 AI operations / day",
     features: [

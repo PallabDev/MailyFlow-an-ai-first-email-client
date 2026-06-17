@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     }
 
     const priceMap: Record<string, number> = {
-      Professional: 149900, // INR 1499 in paise
-      Business: 299900, // INR 2999 in paise
+      Professional: 59900, // INR 599 in paise
+      Business: 99900, // INR 999 in paise
     };
     const amount = priceMap[planName];
 
