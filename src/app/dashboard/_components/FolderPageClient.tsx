@@ -81,7 +81,7 @@ export default function FolderPageClient({
   };
 
   const toggleStarEmail = async (emailId: string) => {
-    const email = emailsState.find((e) => e.id === emailId);
+    const email = emailsState.find((e) => e.id === emailId) || (selectedEmail?.id === emailId ? selectedEmail : null);
     if (!email) return;
     const isStarred = email.labelIds?.includes('STARRED') ?? false;
 
@@ -103,12 +103,26 @@ export default function FolderPageClient({
       return updated;
     });
 
+    if (selectedEmail && selectedEmail.id === emailId) {
+      setSelectedEmail((prev) => {
+        if (!prev) return null;
+        const currentLabels = prev.labelIds || [];
+        const nextLabels = isStarred
+          ? currentLabels.filter((l) => l !== 'STARRED')
+          : [...currentLabels, 'STARRED'];
+        return { ...prev, labelIds: nextLabels };
+      });
+    }
+
     try {
       await fetch('/api/star-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: emailId, starred: !isStarred }),
       });
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
+      }, 100);
     } catch (err) {
       console.error('Error toggling star via API:', err);
     }
@@ -617,13 +631,22 @@ export default function FolderPageClient({
                 <span>Back</span>
               </button>
             </div>
-            <button
-              onClick={() => handleTrashEmail(selectedEmail.id)}
-              className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-              title={folder === 'trash' ? "Delete Permanently" : "Move to Trash"}
-            >
-              <Trash2 className="h-4.5 w-4.5" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => toggleStarEmail(selectedEmail.id)}
+                className="p-2 text-text-secondary hover:text-yellow-500 hover:bg-yellow-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                title={selectedEmail.labelIds?.includes('STARRED') ? "Unstar Email" : "Star Email"}
+              >
+                <Star className={`h-4.5 w-4.5 ${selectedEmail.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+              </button>
+              <button
+                onClick={() => handleTrashEmail(selectedEmail.id)}
+                className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                title={folder === 'trash' ? "Delete Permanently" : "Move to Trash"}
+              >
+                <Trash2 className="h-4.5 w-4.5" />
+              </button>
+            </div>
           </div>
         ) : selectedEmails.size > 0 ? (
           <div className="flex items-center justify-between w-full">
@@ -665,12 +688,11 @@ export default function FolderPageClient({
                 <RefreshCw className="h-4 w-4" />
               </button>
 
-              <span className="text-xs text-text-secondary font-medium">
-                {folder === 'inbox'
-                  ? `${uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread`
-                  : `${uniqueEmails.length} messages`
-                }
-              </span>
+              {folder !== 'inbox' && (
+                <span className="text-xs text-text-secondary font-medium">
+                  {`${uniqueEmails.length} messages`}
+                </span>
+              )}
             </div>
 
             {folder !== 'trash' && (
@@ -692,6 +714,7 @@ export default function FolderPageClient({
           email={selectedEmail}
           onBack={() => setSelectedEmail(null)}
           onTrash={handleTrashEmail}
+          onStar={toggleStarEmail}
         />
       ) : (
         <div
@@ -723,8 +746,14 @@ export default function FolderPageClient({
                 {[...Array(6)].map((_, i) => (
                   <div key={`skeleton-${i}`} className="flex items-center px-6 py-4 animate-pulse relative">
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
-                      {/* Avatar Skeleton */}
-                      <div className="h-10 w-10 shrink-0 rounded-full bg-surface-subtle"></div>
+                      {/* Checkbox Skeleton (Desktop only) */}
+                      <div className="hidden md:block h-4 w-4 bg-surface-subtle rounded shrink-0"></div>
+
+                      {/* Star Skeleton (Desktop only) */}
+                      <div className="hidden md:block h-4.5 w-4.5 bg-surface-subtle rounded shrink-0"></div>
+
+                      {/* Avatar Skeleton (Mobile only) */}
+                      <div className="md:hidden block h-10 w-10 shrink-0 rounded-full bg-surface-subtle"></div>
 
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="flex items-baseline justify-between">
@@ -738,8 +767,6 @@ export default function FolderPageClient({
                         <div className="h-3 w-5/6 bg-border rounded mt-2"></div>
                       </div>
                     </div>
-                    {/* Star Skeleton */}
-                    <div className="h-4.5 w-4.5 bg-border rounded shrink-0"></div>
                   </div>
                 ))}
               </div>
@@ -807,19 +834,38 @@ export default function FolderPageClient({
                     isUnread ? 'bg-mail-unread-bg' : 'bg-mail-read-bg'
                   } ${isSelected ? 'bg-success/5 border-l-2 border-success pl-[22px]' : ''}`}
                 >
-                  {/* Unread dot indicator on the left margin */}
-                  {isUnread && !isSelected && (
-                    <div className="absolute left-2.5 h-1.5 w-1.5 rounded-full bg-success"></div>
-                  )}
 
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    {/* Avatar */}
+
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    {/* Checkbox (Desktop only, visible on hover or if selected) */}
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectEmail(email.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 hidden md:block shrink-0 ${
+                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                    />
+
+                    {/* Star Button (Desktop only) */}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStarEmail(email.id);
+                      }}
+                      className="p-1 hover:bg-hover-row rounded transition-colors text-text-muted hover:text-yellow-500 cursor-pointer hidden md:block shrink-0"
+                    >
+                      <Star className={`h-4.5 w-4.5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+                    </button>
+
+                    {/* Avatar (Mobile only, hidden on desktop) */}
                     <div 
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleSelectEmail(email.id);
                       }}
-                      className="relative shrink-0 cursor-pointer"
+                      className="relative shrink-0 cursor-pointer md:hidden block"
                     >
                       {isSelected ? (
                         <motion.div
@@ -854,30 +900,6 @@ export default function FolderPageClient({
                         <span className="text-text-muted font-normal">— {email.snippet}</span>
                       </p>
                     </div>
-                  </div>
-
-                  {/* Select option (Checkbox and Star on the far right, hidden on mobile) */}
-                  <div 
-                    className="shrink-0 ml-4 flex items-center space-x-3 select-none"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Star Button */}
-                    <button 
-                      onClick={() => toggleStarEmail(email.id)}
-                      className="p-1 hover:bg-hover-row rounded transition-colors text-text-muted hover:text-yellow-500 cursor-pointer"
-                    >
-                      <Star className={`h-4.5 w-4.5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
-                    </button>
-
-                    {/* Checkbox (Hidden on mobile) */}
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelectEmail(email.id)}
-                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 hidden md:block ${
-                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}
-                    />
                   </div>
                 </div>
               );

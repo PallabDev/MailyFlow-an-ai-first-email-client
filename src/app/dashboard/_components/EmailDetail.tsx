@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
+import { ChevronLeft, RefreshCw, AlertCircle, CornerUpLeft, Send, Star } from 'lucide-react';
 import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 
@@ -19,12 +19,14 @@ type EmailDetailProps = {
   email: Email;
   onBack: () => void;
   onTrash: (id: string) => void;
+  onStar?: (id: string) => void;
 };
 
 export default function EmailDetail({
   email,
   onBack,
   onTrash,
+  onStar,
 }: EmailDetailProps) {
   const [detailEmail, setDetailEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(false);
@@ -125,13 +127,24 @@ export default function EmailDetail({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary">
-      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex-1 overflow-y-auto px-[2.5%] py-3 md:p-6 space-y-4 md:space-y-6">
         <div className="space-y-4 shrink-0">
-          <h2 className="text-xl font-extrabold text-text-primary leading-snug">
-            {email.subject}
-          </h2>
+          <div className="flex items-start justify-between gap-4">
+            <h2 className="text-xl font-extrabold text-text-primary leading-snug">
+              {email.subject}
+            </h2>
+            {onStar && (
+              <button
+                onClick={() => onStar(email.id)}
+                className="p-2 hover:bg-hover-row rounded-xl transition-colors text-text-muted hover:text-yellow-500 cursor-pointer shrink-0"
+                title={email.labelIds?.includes('STARRED') ? "Unstar Email" : "Star Email"}
+              >
+                <Star className={`h-5 w-5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+              </button>
+            )}
+          </div>
 
-          <div className="flex items-center space-x-3 bg-surface-subtle p-3 md:p-4 rounded-xl border border-border">
+          <div className="flex items-center space-x-3 bg-surface-subtle p-2 md:p-4 rounded-xl border border-border">
             <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(email.from)}`}>
               {getInitials(email.from)}
             </div>
@@ -175,7 +188,7 @@ export default function EmailDetail({
 
           {!loading && !error && detailEmail && (
             <>
-              <div className="bg-surface-subtle rounded-xl border border-border p-2 md:p-4">
+              <div className="bg-surface-subtle rounded-xl border border-border p-1 md:p-4">
                 <iframe
                   ref={iframeRef}
                   srcDoc={getEmailHtml(detailEmail, true, isDark)}
@@ -193,7 +206,7 @@ export default function EmailDetail({
                   <CornerUpLeft className="h-3.5 w-3.5 text-text-muted" />
                   <span>Reply</span>
                 </h4>
-                <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-4">
                   <div className="flex items-center justify-between text-xs text-text-secondary">
                     <span>Replying to: <strong>{sender.email || email.from}</strong></span>
                   </div>

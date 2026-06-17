@@ -177,7 +177,7 @@ export default function Sidebar({
                     : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
                 }`}
               >
-                <Star className="h-4.5 w-4.5 shrink-0 text-yellow-500 fill-yellow-500" />
+                <Star className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && (
                   <span className="ml-3 flex-1 text-left">Starred</span>
                 )}
