@@ -1,13 +1,13 @@
 import { inngest } from './client';
 import { db, corsair, hasActiveConnection } from '@/utils/corsair';
-import { chatMessages, userSubscriptions } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { chatMessages, userSubscriptions, corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { eq, and, desc, sql, gte } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool, OpenAIProvider, setDefaultModelProvider } from '@openai/agents';
 import { processWebhook } from 'corsair';
-import { liveEmailsEmitter } from '@/utils/emitter';
+import { publishNewEmailEvent } from '@/utils/publish-new-email';
 
 export const processAICall = inngest.createFunction(
   {
@@ -296,8 +296,6 @@ export const trackFailedAICalls = inngest.createFunction(
 );
 
 // Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
-const seenEmails = new Map<string, Set<string>>();
-
 const isGmail429Error = (err: unknown): boolean => {
   if (!err) return false;
   const errObj = err as Record<string, unknown>;
@@ -340,6 +338,8 @@ export const syncGmailWebhook = inngest.createFunction(
 
     // 1. Run processWebhook
     let result: unknown = null;
+    const syncStartedAtStr = await step.run('get-sync-start-time', () => new Date().toISOString());
+    const syncStartedAt = new Date(syncStartedAtStr);
     try {
       result = await step.run('run-process-webhook', async () => {
         const res = await processWebhook(corsair, headersObj, body, {
@@ -361,54 +361,101 @@ export const syncGmailWebhook = inngest.createFunction(
       throw err;
     }
 
-    // 2. Custom robust fallback sync
+    // 2. Publish Socket.IO events for messages synced during processWebhook
+    await step.run('publish-realtime-events', async () => {
+      const gmailAccount = await db
+        .select({ id: corsairAccounts.id })
+        .from(corsairAccounts)
+        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+        .where(
+          and(
+            eq(corsairAccounts.tenantId, activeTenantId),
+            eq(corsairIntegrations.name, 'gmail')
+          )
+        )
+        .limit(1)
+        .then((rows) => rows[0]);
+
+      if (!gmailAccount) {
+        console.warn(`⚠️ [Inngest Sync] No Gmail account for tenant ${activeTenantId}. Skipping realtime publish.`);
+        return;
+      }
+
+      const syncedEntities = await db
+        .select({ data: corsairEntities.data })
+        .from(corsairEntities)
+        .where(
+          and(
+            eq(corsairEntities.accountId, gmailAccount.id),
+            eq(corsairEntities.entityType, 'messages'),
+            gte(corsairEntities.updatedAt, syncStartedAt)
+          )
+        );
+
+      const publishedIds = new Set<string>();
+      for (const row of syncedEntities) {
+        const msg = row.data as { id?: string; labelIds?: string[] };
+        if (!msg.id || publishedIds.has(msg.id)) continue;
+
+        const labels = msg.labelIds ?? [];
+        if (labels.length > 0 && !labels.includes('INBOX')) continue;
+
+        publishedIds.add(msg.id);
+        await publishNewEmailEvent(msg.id, activeTenantId);
+        console.log(`✉️ [Inngest Sync] Published realtime event for email ${msg.id}, tenant ${activeTenantId}`);
+      }
+    });
+
+    // 3. Fallback: list inbox and notify for messages not yet in DB cache
     const isGmailWebhook = !!body.message?.data;
     if (isGmailWebhook) {
       try {
         await step.run('run-custom-sync', async () => {
-          // Check Gmail connection first to prevent "Account not found" crashes
           const gmailConnected = await hasActiveConnection(activeTenantId, 'gmail');
           if (!gmailConnected) {
             console.warn(`⚠️ [Inngest Sync] No active Gmail connection for tenant ${activeTenantId}. Skipping custom sync.`);
             return;
           }
 
+          const gmailAccount = await db
+            .select({ id: corsairAccounts.id })
+            .from(corsairAccounts)
+            .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+            .where(
+              and(
+                eq(corsairAccounts.tenantId, activeTenantId),
+                eq(corsairIntegrations.name, 'gmail')
+              )
+            )
+            .limit(1)
+            .then((rows) => rows[0]);
+
+          if (!gmailAccount) return;
+
+          const cachedRows = await db
+            .select({ entityId: corsairEntities.entityId })
+            .from(corsairEntities)
+            .where(
+              and(
+                eq(corsairEntities.accountId, gmailAccount.id),
+                eq(corsairEntities.entityType, 'messages')
+              )
+            );
+
+          const cachedIds = new Set(cachedRows.map((r) => r.entityId));
+
           const client = corsair.withTenant(activeTenantId);
           const listRes = await client.gmail.api.messages.list({
-            maxResults: 3,
+            maxResults: 5,
             labelIds: ['INBOX'],
           });
 
-          if (listRes.messages && listRes.messages.length > 0) {
-            const ids = listRes.messages.map(m => m.id).filter(Boolean) as string[];
-            
-            if (!seenEmails.has(activeTenantId)) {
-              seenEmails.set(activeTenantId, new Set(ids));
-            } else {
-              const tenantSeen = seenEmails.get(activeTenantId)!;
-              for (const msg of listRes.messages) {
-                if (msg.id && !tenantSeen.has(msg.id)) {
-                  tenantSeen.add(msg.id);
-                  if (tenantSeen.size > 50) {
-                    const firstKey = tenantSeen.keys().next().value;
-                    if (firstKey !== undefined) {
-                      tenantSeen.delete(firstKey);
-                    }
-                  }
-                  // 1. Emit locally for immediate response
-                  liveEmailsEmitter.emit('new-email', { emailId: msg.id, tenantId: activeTenantId });
-                  console.log(`✉️ [Inngest Sync] Emitted new email ID ${msg.id} event for tenant ${activeTenantId}`);
+          if (!listRes.messages?.length) return;
 
-                  // 2. Publish to Postgres NOTIFY to sync across instances
-                  try {
-                    const payload = JSON.stringify({ emailId: msg.id, tenantId: activeTenantId });
-                    await db.execute(sql`SELECT pg_notify('new_email', ${payload})`);
-                    console.log(`🔊 [Inngest Sync] Published pg_notify for new email event`);
-                  } catch (pgErr) {
-                    console.error('[Inngest Sync] Failed to publish pg_notify:', pgErr);
-                  }
-                }
-              }
+          for (const msg of listRes.messages) {
+            if (msg.id && !cachedIds.has(msg.id)) {
+              await publishNewEmailEvent(msg.id, activeTenantId);
+              console.log(`✉️ [Inngest Sync] Fallback published realtime event for email ${msg.id}`);
             }
           }
         });

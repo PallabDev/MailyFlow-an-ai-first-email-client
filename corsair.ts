@@ -9,6 +9,7 @@ import crypto from 'crypto';
 
 import { liveEmailsEmitter } from './src/utils/emitter';
 import logger from './src/utils/logger';
+import { publishNewEmailEvent } from './src/utils/publish-new-email';
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
@@ -69,20 +70,9 @@ export const corsair = createCorsair({
                             const eventType = response.data.type;
                             if (eventType === 'messageReceived' || eventType === 'messageLabelChanged') {
                                 const newEmail = response.data.message;
-                                if (newEmail && newEmail.id) {
+                                if (newEmail && newEmail.id && ctx.tenantId) {
                                     logger.info(`📩 [Gmail Hook] Received and processing email event [${eventType}]`);
-                                    
-                                    // 1. Emit locally for immediate response
-                                    liveEmailsEmitter.emit('new-email', { emailId: newEmail.id, tenantId: ctx.tenantId });
-                                    
-                                    // 2. Publish to Postgres NOTIFY to sync across instances
-                                    try {
-                                        const payload = JSON.stringify({ emailId: newEmail.id, tenantId: ctx.tenantId });
-                                        await pool.query('SELECT pg_notify($1, $2)', ['new_email', payload]);
-                                        logger.info(`🔊 [Gmail Hook] Published pg_notify for new email event`);
-                                    } catch (pgErr) {
-                                        logger.error(`[Gmail Hook] Failed to send pg_notify:`, pgErr);
-                                    }
+                                    await publishNewEmailEvent(newEmail.id, ctx.tenantId);
                                 }
                             }
                         }
