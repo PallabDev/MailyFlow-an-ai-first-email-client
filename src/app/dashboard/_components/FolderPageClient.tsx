@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { motion } from 'motion/react';
 import {
   Inbox as InboxIcon,
   FileText,
@@ -11,7 +12,8 @@ import {
   RefreshCw,
   PenSquare,
   ChevronLeft,
-  Trash2
+  Trash2,
+  Check
 } from 'lucide-react';
 import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
@@ -55,6 +57,27 @@ export default function FolderPageClient({
 }: FolderPageClientProps) {
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
+
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressRef = useRef(false);
+
+  const startLongPress = (emailId: string) => {
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      toggleSelectEmail(emailId);
+      isLongPressRef.current = true;
+      if (typeof window !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 600);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   const [emailsState, setEmailsState] = useState<Email[]>(initialEmails);
   const [nextPageToken, setNextPageToken] = useState<string | null>(initialNextPageToken);
@@ -535,78 +558,82 @@ export default function FolderPageClient({
       {/* Tab Content Header */}
       <div className="h-16 px-6 border-b border-border flex items-center justify-between shrink-0 bg-card">
         {selectedEmail ? (
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setSelectedEmail(null)}
+                className="inline-flex items-center space-x-1 py-1.5 px-3 rounded-lg text-sm font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Back</span>
+              </button>
+            </div>
             <button
-              onClick={() => setSelectedEmail(null)}
-              className="inline-flex items-center space-x-1 py-1.5 px-3 rounded-lg text-sm font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
+              onClick={() => handleTrashEmail(selectedEmail.id)}
+              className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+              title={folder === 'trash' ? "Delete Permanently" : "Move to Trash"}
             >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Back</span>
+              <Trash2 className="h-4.5 w-4.5" />
             </button>
           </div>
-        ) : (
-          <div className="flex items-center space-x-3">
-            {getFolderIcon()}
-            <h1 className="text-lg font-bold text-text-primary">{title}</h1>
-
-            {/* Refresh Button */}
-            <button
-              onClick={() => fetchEmails(true)}
-              disabled={loading || refreshing}
-              className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
-                (loading || refreshing) ? 'animate-spin opacity-50' : ''
-              }`}
-              title="Refresh messages"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-
-            <span className="text-xs text-text-secondary font-medium">
-              {folder === 'inbox'
-                ? `${uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread`
-                : `${uniqueEmails.length} messages`
-              }
-            </span>
-          </div>
-        )}
-
-        {selectedEmail ? (
-          <button
-            onClick={() => handleTrashEmail(selectedEmail.id)}
-            className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-            title={folder === 'trash' ? "Delete Permanently" : "Move to Trash"}
-          >
-            <Trash2 className="h-4.5 w-4.5" />
-          </button>
         ) : selectedEmails.size > 0 ? (
-          <div className="flex items-center space-x-3">
-            <span className="text-xs text-text-secondary font-medium">
-              {selectedEmails.size} selected
-            </span>
-            <button
-              onClick={() => setSelectedEmails(new Set())}
-              className="py-1.5 px-3 rounded-lg text-xs font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer bg-transparent border border-border"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setSelectedEmails(new Set())}
+                className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                title="Cancel selection"
+              >
+                <ChevronLeft className="h-4.5 w-4.5" />
+              </button>
+              <span className="text-sm font-bold text-text-primary">
+                {selectedEmails.size} selected
+              </span>
+            </div>
             <button
               onClick={handleBulkDelete}
-              className="inline-flex items-center space-x-1.5 rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer"
+              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-500/10 rounded-xl transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+              title="Delete selected"
             >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete</span>
+              <Trash2 className="h-4.5 w-4.5" />
             </button>
           </div>
         ) : (
-          folder !== 'trash' && (
-            <button
-              onClick={() => setIsComposeOpen(true)}
-              className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-            >
-              <PenSquare className="h-4 w-4" />
-              <span>Compose</span>
-            </button>
-          )
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-3">
+              {getFolderIcon()}
+              <h1 className="text-lg font-bold text-text-primary">{title}</h1>
+
+              {/* Refresh Button */}
+              <button
+                onClick={() => fetchEmails(true)}
+                disabled={loading || refreshing}
+                className={`p-1.5 text-text-secondary hover:text-text-primary hover:bg-sidebar-hover rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+                  (loading || refreshing) ? 'animate-spin opacity-50' : ''
+                }`}
+                title="Refresh messages"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+
+              <span className="text-xs text-text-secondary font-medium">
+                {folder === 'inbox'
+                  ? `${uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length} unread`
+                  : `${uniqueEmails.length} messages`
+                }
+              </span>
+            </div>
+
+            {folder !== 'trash' && (
+              <button
+                onClick={() => setIsComposeOpen(true)}
+                className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                <PenSquare className="h-4 w-4" />
+                <span>Compose</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -689,43 +716,76 @@ export default function FolderPageClient({
               return (
                 <div
                   key={`${email.id}-${idx}`}
-                  onClick={() => {
-                    setSelectedEmail(email);
-                    if (isUnread) {
-                      setEmailsState((prev) => {
-                        const updated = prev.map((e) => {
-                          if (e.id === email.id) {
-                            const currentLabels = e.labelIds || [];
-                            return {
-                              ...e,
-                              labelIds: currentLabels.filter((l) => l !== 'UNREAD'),
-                            };
+                  onMouseDown={() => startLongPress(email.id)}
+                  onMouseUp={cancelLongPress}
+                  onTouchStart={() => startLongPress(email.id)}
+                  onTouchEnd={cancelLongPress}
+                  onTouchMove={cancelLongPress}
+                  onClick={(e) => {
+                    if (isLongPressRef.current) {
+                      isLongPressRef.current = false;
+                      return;
+                    }
+
+                    if (selectedEmails.size > 0) {
+                      toggleSelectEmail(email.id);
+                    } else {
+                      setSelectedEmail(email);
+                      if (isUnread) {
+                        setEmailsState((prev) => {
+                          const updated = prev.map((e) => {
+                            if (e.id === email.id) {
+                              const currentLabels = e.labelIds || [];
+                              return {
+                                ...e,
+                                labelIds: currentLabels.filter((l) => l !== 'UNREAD'),
+                              };
+                            }
+                            return e;
+                          });
+                          if (emailCache[folder]) {
+                            emailCache[folder].emails = updated;
                           }
-                          return e;
+                          return updated;
                         });
-                        if (emailCache[folder]) {
-                          emailCache[folder].emails = updated;
-                        }
-                        return updated;
-                      });
-                      setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('refresh-labels'));
-                      }, 100);
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('refresh-labels'));
+                        }, 100);
+                      }
                     }
                   }}
                   className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
                     isUnread ? 'bg-mail-unread-bg' : 'bg-mail-read-bg'
-                  }`}
+                  } ${isSelected ? 'bg-success/5 border-l-2 border-success pl-[22px]' : ''}`}
                 >
                   {/* Unread dot indicator on the left margin */}
-                  {isUnread && (
+                  {isUnread && !isSelected && (
                     <div className="absolute left-2.5 h-1.5 w-1.5 rounded-full bg-success"></div>
                   )}
 
                   <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    {/* Avatar (Always visible on left) */}
-                    <div className={`h-10 w-10 shrink-0 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)}`}>
-                      {getInitials(email.from)}
+                    {/* Avatar */}
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectEmail(email.id);
+                      }}
+                      className="relative shrink-0 cursor-pointer"
+                    >
+                      {isSelected ? (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -90 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                          className="h-10 w-10 rounded-full bg-success flex items-center justify-center text-white"
+                        >
+                          <Check className="h-5.5 w-5.5" />
+                        </motion.div>
+                      ) : (
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(sender.name)}`}>
+                          {getInitials(email.from)}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0 pr-8">
@@ -747,10 +807,10 @@ export default function FolderPageClient({
                     </div>
                   </div>
 
-                  {/* Select option (Checkbox on the far right, matching star placeholder in skeleton) */}
+                  {/* Select option (Checkbox on the far right, hidden on mobile) */}
                   <div 
-                    className="shrink-0 ml-4 select-none"
-                    onClick={(e) => e.stopPropagation()} // Prevent details from opening on click
+                    className="shrink-0 ml-4 select-none hidden md:block"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <input
                       type="checkbox"
