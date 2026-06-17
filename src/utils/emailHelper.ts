@@ -68,7 +68,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         // 2. Resolve parent origin dynamically to enforce strict postMessage destination
         const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
         const isHtmlEmail = isHtml(email.body);
-        const bodyBg = isHtmlEmail ? '#1A1A1A/60' : '#1A1A1A/60';
+        const bodyBg = isHtmlEmail ? '#ede8e8' : '#dddadaff';
         const linkColor = '#2563eb';
 
         // 3. Inject our style overrides at the top of doc.head so email stylesheet rules cascade over them
