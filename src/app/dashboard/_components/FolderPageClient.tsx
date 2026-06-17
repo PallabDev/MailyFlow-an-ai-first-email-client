@@ -755,16 +755,26 @@ export default function FolderPageClient({
                       {/* Avatar Skeleton (Mobile only) */}
                       <div className="md:hidden block h-10 w-10 shrink-0 rounded-full bg-surface-subtle"></div>
 
-                      <div className="flex-1 min-w-0 pr-8">
+                      {/* Mobile skeleton: two lines */}
+                      <div className="flex-1 min-w-0 md:hidden block">
                         <div className="flex items-baseline justify-between">
                           {/* Name Skeleton */}
                           <div className="h-4 w-28 bg-surface-subtle rounded"></div>
                           {/* Date Skeleton */}
                           <div className="h-3 w-14 bg-border rounded"></div>
                         </div>
-
                         {/* Subject & Snippet Skeleton */}
                         <div className="h-3 w-5/6 bg-border rounded mt-2"></div>
+                      </div>
+
+                      {/* Desktop skeleton: single line */}
+                      <div className="hidden md:flex items-center flex-1 min-w-0 space-x-4">
+                        {/* Name Skeleton */}
+                        <div className="h-4 w-48 bg-surface-subtle rounded shrink-0"></div>
+                        {/* Subject & Snippet Skeleton */}
+                        <div className="h-3 bg-border rounded flex-1 min-w-0"></div>
+                        {/* Date Skeleton */}
+                        <div className="h-3 w-14 bg-border rounded shrink-0"></div>
                       </div>
                     </div>
                   </div>
@@ -883,7 +893,8 @@ export default function FolderPageClient({
                       )}
                     </div>
 
-                    <div className="flex-1 min-w-0 pr-8">
+                    {/* Mobile layout: two lines */}
+                    <div className="flex-1 min-w-0 md:hidden block">
                       <div className="flex items-baseline justify-between">
                         <span className={`text-sm leading-tight ${isUnread ? 'font-bold text-text-primary' : 'font-normal text-text-secondary'}`}>
                           {sender.name}
@@ -892,13 +903,33 @@ export default function FolderPageClient({
                           {formatEmailDate(email.date)}
                         </span>
                       </div>
-
                       <p className="text-sm text-text-secondary truncate leading-relaxed mt-1">
                         <span className={`pr-1 ${isUnread ? 'font-semibold text-text-primary' : 'font-normal text-text-secondary'}`}>
                           {email.subject}
                         </span>
                         <span className="text-text-muted font-normal">— {email.snippet}</span>
                       </p>
+                    </div>
+
+                    {/* Desktop layout: single line */}
+                    <div className="hidden md:flex items-center flex-1 min-w-0 space-x-4">
+                      {/* Sender */}
+                      <span className={`text-sm truncate w-48 shrink-0 ${isUnread ? 'font-bold text-text-primary' : 'font-normal text-text-secondary'}`}>
+                        {sender.name}
+                      </span>
+                      
+                      {/* Subject & Snippet */}
+                      <p className="text-sm text-text-secondary truncate flex-1 min-w-0">
+                        <span className={`pr-1 ${isUnread ? 'font-semibold text-text-primary' : 'font-normal text-text-secondary'}`}>
+                          {email.subject}
+                        </span>
+                        <span className="text-text-muted font-normal">— {email.snippet}</span>
+                      </p>
+                      
+                      {/* Time */}
+                      <span className={`text-xs shrink-0 pl-4 ${isUnread ? 'font-semibold text-text-primary' : 'font-medium text-text-muted'}`}>
+                        {formatEmailDate(email.date)}
+                      </span>
                     </div>
                   </div>
                 </div>
