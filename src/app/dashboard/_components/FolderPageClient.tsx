@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
@@ -19,6 +19,7 @@ import {
 import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
 import ComposeModal from './ComposeModal';
+import { useEmailSocket } from '@/hooks/useEmailSocket';
 
 type Email = {
   id: string;
@@ -48,6 +49,62 @@ const emailCache: Record<string, {
   nextPageToken: string | null;
   fetchedAt: number;
 }> = {};
+
+function getEmailSortKey(email: Email): number {
+  if (email.internalDate) {
+    const parsed = parseInt(email.internalDate, 10);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const parsedDate = Date.parse(email.date);
+  return Number.isNaN(parsedDate) ? 0 : parsedDate;
+}
+
+function sortEmailsByDate(emails: Email[]): Email[] {
+  return [...emails].sort((a, b) => getEmailSortKey(b) - getEmailSortKey(a));
+}
+
+function emailMatchesFolder(email: Email, folder: FolderPageClientProps['folder']): boolean {
+  const labels = email.labelIds;
+  if (!labels || labels.length === 0) {
+    return folder === 'inbox';
+  }
+
+  switch (folder) {
+    case 'inbox':
+      return labels.includes('INBOX');
+    case 'spam':
+      return labels.includes('SPAM');
+    case 'trash':
+      return labels.includes('TRASH');
+    case 'starred':
+      return labels.includes('STARRED');
+    case 'drafts':
+      return labels.includes('DRAFT');
+    case 'sent':
+      return labels.includes('SENT');
+    default:
+      return true;
+  }
+}
+
+/** Merge fetched emails with live SSE prepends that may not be in DB cache yet. */
+function mergeEmailLists(
+  prev: Email[],
+  incoming: Email[],
+  folder: FolderPageClientProps['folder'],
+): Email[] {
+  const merged = new Map<string, Email>();
+
+  incoming.forEach((email) => merged.set(email.id, email));
+
+  prev.forEach((email) => {
+    if (!merged.has(email.id) && emailMatchesFolder(email, folder)) {
+      merged.set(email.id, email);
+    }
+  });
+
+  return sortEmailsByDate(Array.from(merged.values()));
+}
 
 export default function FolderPageClient({
   initialEmails,
@@ -166,6 +223,7 @@ export default function FolderPageClient({
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
+  const pendingEmailFetchesRef = useRef(new Set<string>());
 
   const fetchEmails = async (force: boolean = false, isBackground: boolean = false) => {
     if (force) {
@@ -184,14 +242,25 @@ export default function FolderPageClient({
           fetchedEmails = mockEmails;
         }
         
-        // Cache the fetched emails
-        emailCache[folder] = {
-          emails: fetchedEmails,
-          nextPageToken: data.nextPageToken || null,
-          fetchedAt: Date.now()
-        };
-
-        setEmailsState(fetchedEmails);
+        // Cache the fetched emails — merge on background/initial fetch so SSE prepends aren't wiped
+        if (force) {
+          emailCache[folder] = {
+            emails: fetchedEmails,
+            nextPageToken: data.nextPageToken || null,
+            fetchedAt: Date.now(),
+          };
+          setEmailsState(fetchedEmails);
+        } else {
+          setEmailsState((prev) => {
+            const merged = mergeEmailLists(prev, fetchedEmails, folder);
+            emailCache[folder] = {
+              emails: merged,
+              nextPageToken: data.nextPageToken || null,
+              fetchedAt: Date.now(),
+            };
+            return merged;
+          });
+        }
         setNextPageToken(data.nextPageToken || null);
         window.dispatchEvent(new CustomEvent('refresh-labels'));
       } else {
@@ -240,212 +309,63 @@ export default function FolderPageClient({
     }
   }, [folder, debouncedSearch]);
 
-  // Connect to real-time new email events pushed from Corsair webhooks
-  useEffect(() => {
-    const eventSource = new EventSource('/api/emails/live', { withCredentials: true });
+  const handleNewEmailEvent = useCallback(async (emailId: string) => {
+    if (pendingEmailFetchesRef.current.has(emailId)) {
+      console.log('📱 [Socket] Prepend skipped: fetch already in progress for ID:', emailId);
+      return;
+    }
 
-    eventSource.onopen = () => {
-      console.log('📱 [SSE Client] Connection opened successfully');
-    };
+    let alreadyExists = false;
+    setEmailsState((prev) => {
+      alreadyExists = prev.some((e) => e.id === emailId);
+      return prev;
+    });
+    if (alreadyExists) {
+      console.log('📱 [Socket] Prepend skipped: Email ID already in list:', emailId);
+      return;
+    }
 
-    eventSource.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('📱 [SSE Client] Message received on SSE stream:', data);
-        
-        if (data && data.type === 'init') {
-          console.log('📱 [SSE Client] Initial SSE handshake verified:', data.message);
-          fetch('/api/debug/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `📱 [Client] SSE handshake received: "${data.message}"` })
-          }).catch(() => {});
-          return;
-        }
+    pendingEmailFetchesRef.current.add(emailId);
+    console.log('📱 [Socket] Fetching email details from backend for ID:', emailId);
+    try {
+      const res = await fetch(`/api/emails/detail?id=${emailId}`);
+      console.log('📱 [Socket] Fetch email details response status:', res.status);
 
-        if (data && data.emailId) {
-          const emailId = data.emailId;
-          console.log('📱 [SSE Client] Received new-email event notification for ID:', emailId);
-          
-          fetch('/api/debug/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `📱 [Client] Received new-email event for ID: ${emailId}` })
-          }).catch(() => {});
-          
-          let alreadyExists = false;
-          setEmailsState((prev) => {
-            alreadyExists = prev.some((e) => e.id === emailId);
+      if (res.ok) {
+        const newEmail = await res.json();
+        console.log('📱 [Socket] Successfully fetched details for new email:', newEmail);
+
+        setEmailsState((prev) => {
+          if (prev.some((e) => e.id === newEmail.id)) {
+            console.log('📱 [Socket] Prepend skipped (race condition: already exists in state):', newEmail.id);
             return prev;
-          });
-          if (alreadyExists) {
-            console.log('📱 [SSE Client] Prepend skipped: Email ID already in list:', emailId);
-            fetch('/api/debug/log', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `📱 [Client] Email ID ${emailId} is already in the list. Skipping.` })
-            }).catch(() => {});
-            return;
           }
 
-          console.log('📱 [SSE Client] Fetching email details from backend for ID:', emailId);
-          // Load details of the newly arrived email
-          const res = await fetch(`/api/emails/detail?id=${emailId}`);
-          console.log('📱 [SSE Client] Fetch email details response status:', res.status);
-          
-          if (res.ok) {
-            const newEmail = await res.json();
-            console.log('📱 [SSE Client] Successfully fetched details for new email:', newEmail);
-            
-            // Only prepend if matching the current folder (e.g. inbox) and doesn't exist
-            setEmailsState((prev) => {
-              if (prev.some((e) => e.id === newEmail.id)) {
-                console.log('📱 [SSE Client] Prepend skipped (race condition: already exists in state):', newEmail.id);
-                return prev;
-              }
-              
-              // Verify labelIds match the current folder filters
-              if (folder === 'inbox' && newEmail.labelIds && !newEmail.labelIds.includes('INBOX')) {
-                console.log('📱 [SSE Client] Prepend skipped: Email does not contain INBOX label. Labels:', newEmail.labelIds);
-                fetch('/api/debug/log', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ message: `📱 [Client] New email ${newEmail.id} not in INBOX. Skipping prepend.` })
-                }).catch(() => {});
-                return prev;
-              }
-              if (folder === 'spam' && newEmail.labelIds && !newEmail.labelIds.includes('SPAM')) {
-                console.log('📱 [SSE Client] Prepend skipped: Email does not contain SPAM label. Labels:', newEmail.labelIds);
-                return prev;
-              }
-              if (folder === 'trash' && newEmail.labelIds && !newEmail.labelIds.includes('TRASH')) {
-                console.log('📱 [SSE Client] Prepend skipped: Email does not contain TRASH label. Labels:', newEmail.labelIds);
-                return prev;
-              }
-              
-              console.log('📱 [SSE Client] Prepended new email successfully:', newEmail.id, `Subject: "${newEmail.subject}"`);
-              fetch('/api/debug/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `📱 [Client] Prepended new email ID: ${newEmail.id} ("${newEmail.subject || '(no subject)'}") to folder: ${folder}` })
-              }).catch(() => {});
-              
-              const updated = [newEmail, ...prev];
-              // Update cache
-              if (emailCache[folder]) {
-                emailCache[folder].emails = updated;
-              }
-              return updated;
-            });
-
-            // Refresh sidebar counts dynamically
-            window.dispatchEvent(new CustomEvent('refresh-labels'));
-          } else {
-            console.error('📱 [SSE Client] ❌ Failed to fetch details for email ID:', emailId);
-            fetch('/api/debug/log', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `📱 [Client] ❌ Failed to fetch details for email ID: ${emailId}. Status: ${res.status}` })
-            }).catch(() => {});
+          if (!emailMatchesFolder(newEmail, folder)) {
+            console.log('📱 [Socket] Prepend skipped: Email does not match folder. Labels:', newEmail.labelIds, 'folder:', folder);
+            return prev;
           }
-        }
-      } catch (err) {
-        console.error('📱 [SSE Client] ❌ Error handling notification:', err);
-        fetch('/api/debug/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `📱 [Client] ❌ Error handling notification: ${err instanceof Error ? err.message : String(err)}` })
-        }).catch(() => {});
+
+          console.log('📱 [Socket] Prepended new email successfully:', newEmail.id, `Subject: "${newEmail.subject}"`);
+          const updated = sortEmailsByDate([newEmail, ...prev]);
+          if (emailCache[folder]) {
+            emailCache[folder].emails = updated;
+          }
+          return updated;
+        });
+
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
+      } else {
+        console.error('📱 [Socket] ❌ Failed to fetch details for email ID:', emailId);
       }
-    };
-
-    eventSource.onerror = (err) => {
-      console.warn('📱 [SSE Client] ⚠️ SSE connection encountered an error:', err);
-    };
-
-    return () => {
-      console.log('📱 [SSE Client] Closing SSE connection');
-      eventSource.close();
-    };
+    } catch (err) {
+      console.error('📱 [Socket] ❌ Error handling new-email event:', err);
+    } finally {
+      pendingEmailFetchesRef.current.delete(emailId);
+    }
   }, [folder]);
 
-  // Poll the database cache in the background every 30 seconds to ensure changes reflect even if SSE drops.
-  // Visibility check is added to pause polling completely when the browser tab is hidden or minimized, saving DB egress.
-  useEffect(() => {
-    let active = true;
-
-    const pollCache = async () => {
-      if (document.hidden) {
-        console.log('📱 [Cache Poller] Tab is in background, skipping background poll to save bandwidth.');
-        return;
-      }
-
-      try {
-        const qParam = debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : '';
-        const res = await fetch(`/api/emails?folder=${folder}&limit=35${qParam}`);
-        if (!active) return;
-        if (res.ok) {
-          const data = await res.json();
-          const fetchedEmails: Email[] = data.emails ?? [];
-          if (fetchedEmails.length === 0 && data.isDevFallback) {
-            return;
-          }
-
-          setEmailsState((prev) => {
-            // Create a Map from the current emails for fast lookup and replacement
-            const emailMap = new Map<string, Email>();
-            
-            // Add existing emails to the map
-            prev.forEach(email => emailMap.set(email.id, email));
-            
-            let hasChanges = false;
-            
-            // Update or add fetched emails
-            fetchedEmails.forEach((fetched) => {
-              const existing = emailMap.get(fetched.id);
-              if (!existing) {
-                // New email found (e.g. synced via webhook, not yet in state)
-                emailMap.set(fetched.id, fetched);
-                hasChanges = true;
-              } else {
-                // Check if any fields changed (e.g. read/unread status in labelIds)
-                const labelsChanged = JSON.stringify(existing.labelIds) !== JSON.stringify(fetched.labelIds);
-                const otherFieldsChanged = existing.subject !== fetched.subject || 
-                                           existing.from !== fetched.from || 
-                                           existing.snippet !== fetched.snippet;
-                if (labelsChanged || otherFieldsChanged) {
-                  emailMap.set(fetched.id, { ...existing, ...fetched });
-                  hasChanges = true;
-                }
-              }
-            });
-
-            if (hasChanges) {
-              console.log('📱 [Cache Poller] 🔄 Cache changed! Updating email list from database cache.');
-              const updated = Array.from(emailMap.values());
-              // Update the in-memory cache
-              if (emailCache[folder]) {
-                emailCache[folder].emails = updated;
-              }
-              // Dispatch counts refresh
-              window.dispatchEvent(new CustomEvent('refresh-labels'));
-              return updated;
-            }
-            return prev;
-          });
-        }
-      } catch (err) {
-        console.error('📱 [Cache Poller] ❌ Error in background database cache poll:', err);
-      }
-    };
-
-    const interval = setInterval(pollCache, 30000);
-
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, [folder, debouncedSearch]);
+  useEmailSocket({ onNewEmail: handleNewEmailEvent });
 
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;

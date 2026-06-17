@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-// Global emitter to handle Server-Sent Events (SSE) notification between webhooks and frontend clients
+// Global emitter bridging webhooks/Inngest → Socket.IO clients
 declare global {
   var globalEmitter: EventEmitter | undefined;
 }

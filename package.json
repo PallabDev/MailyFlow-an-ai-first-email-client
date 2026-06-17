@@ -3,9 +3,9 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev",
+        "dev": "tsx watch server.ts",
         "build": "next build",
-        "start": "next start",
+        "start": "tsx server.ts",
         "lint": "eslint",
         "db:push": "npx drizzle-kit push",
         "db:clear": "tsx src/db/clear.ts",
@@ -13,6 +13,7 @@
         "pay-access": "cd pay-access && npm install && npm start"
     },
     "dependencies": {
+        "@clerk/backend": "^3.7.1",
         "@clerk/nextjs": "^7.5.1",
         "@clerk/themes": "^2.4.57",
         "@corsair-dev/cli": "^0.1.19",
@@ -32,6 +33,9 @@
         "react": "19.2.4",
         "react-dom": "19.2.4",
         "react-hot-toast": "^2.6.0",
+        "socket.io": "^4.8.3",
+        "socket.io-client": "^4.8.3",
+        "tsx": "^4.22.4",
         "winston": "^3.19.0",
         "zod": "^4.4.3",
         "zustand": "^5.0.14"
@@ -46,7 +50,6 @@
         "eslint": "^9",
         "eslint-config-next": "16.2.9",
         "tailwindcss": "^4",
-        "tsx": "^4.22.4",
         "typescript": "^5"
     }
 }
