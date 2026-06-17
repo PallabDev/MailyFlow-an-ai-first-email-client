@@ -89,7 +89,7 @@ export default function CalendarClient({
         const data = await res.json();
         setCalendarErrorState(data.error || 'Failed to fetch calendar events.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching calendar events:', err);
       setCalendarErrorState('Failed to fetch calendar events.');
     } finally {

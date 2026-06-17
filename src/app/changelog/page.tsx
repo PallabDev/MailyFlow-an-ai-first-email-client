@@ -5,7 +5,7 @@ import Footer from "../../components/sections/Footer";
 import Container from "../../components/ui/Container";
 import GlassCard from "../../components/ui/GlassCard";
 import { ThemeProvider } from "../../theme";
-import { Sparkles, Calendar, Mail, Search, Clock, Bot, ShieldCheck, Play } from "lucide-react";
+import { Sparkles, Calendar, Mail, Search, Clock, Bot, ShieldCheck } from "lucide-react";
 
 interface ReleaseItem {
   version: string;
@@ -13,7 +13,7 @@ interface ReleaseItem {
   title: string;
   badge: string;
   changes: {
-    icon: any;
+    icon: React.ElementType;
     title: string;
     description: string;
   }[];

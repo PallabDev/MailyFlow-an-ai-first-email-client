@@ -272,7 +272,7 @@ function getSessionTimeLabel(date: Date) {
   }
 }
 
-export default function AIAssistant({ user, projectName }: AIAssistantProps) {
+export default function AIAssistant({ user, projectName: _projectName }: AIAssistantProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'history'>('chat');

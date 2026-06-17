@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Mail,
   Calendar as CalendarIcon,
-  Inbox as InboxIcon,
   AlertCircle,
   FileText,
   ChevronRight,
@@ -15,7 +14,8 @@ import {
   Link2,
   CreditCard,
   X,
-  Star
+  Star,
+  Keyboard
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -44,12 +44,10 @@ export default function Sidebar({
   const lastSegment = pathname.split('/').pop() || 'inbox';
   const activeTab = (lastSegment === 'draft' || lastSegment === 'drafts') ? 'drafts' : lastSegment;
 
-  const [inboxUnread, setInboxUnread] = useState(0);
-  const [draftsTotal, setDraftsTotal] = useState(0);
-  const [spamTotal, setSpamTotal] = useState(0);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -67,9 +65,6 @@ export default function Sidebar({
         const res = await fetch(`/api/labels${force ? '?refresh=true' : ''}`);
         if (res.ok) {
           const data = await res.json();
-          setInboxUnread(data.inbox?.unread ?? 0);
-          setDraftsTotal(data.drafts?.total ?? 0);
-          setSpamTotal(data.spam?.total ?? 0);
           setGmailConnected(data.connections?.gmail ?? false);
           setCalendarConnected(data.connections?.calendar ?? false);
         }
@@ -276,6 +271,14 @@ export default function Sidebar({
                 <CreditCard className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Billing</span>}
               </button>
+
+              <button
+                onClick={() => setIsShortcutsModalOpen(true)}
+                className="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text"
+              >
+                <Keyboard className="h-4.5 w-4.5 shrink-0" />
+                {!isLeftSidebarCollapsed && <span className="ml-3 flex-1 text-left">Shortcuts</span>}
+              </button>
             </nav>
           </div>
         </div>
@@ -340,6 +343,145 @@ export default function Sidebar({
           </div>
         )}
       </div>
+
+      {isShortcutsModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-card text-foreground border border-border rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="h-14 px-6 border-b border-border flex items-center justify-between bg-surface-elevated shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <Keyboard className="h-5 w-5 text-success" />
+                <span className="font-bold text-card-foreground">Keyboard Shortcuts</span>
+              </div>
+              <button
+                onClick={() => setIsShortcutsModalOpen(false)}
+                className="p-1.5 hover:bg-hover-row rounded-lg transition-colors cursor-pointer text-slate-500 hover:text-foreground flex items-center justify-center shrink-0"
+              >
+                <X className="h-4.5 w-4.5" />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-sm">
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Navigation</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Next message / row</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">J</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Previous message / row</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">K</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Open focused message</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Enter / O</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Back to list view</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Esc / U</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Actions</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Compose new message</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">C</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Focus reply editor</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">R</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Star / Unstar email</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">S</kbd>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Move to Trash</span>
+                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">E / D / #</kbd>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tab Navigation (Press g then key)</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Inbox</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">I</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Starred</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">S</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Drafts</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">D</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Sent</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">T</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Spam</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">P</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                    <span className="text-text-secondary text-xs">Go to Trash</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">X</kbd>
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl col-span-2">
+                    <span className="text-text-secondary text-xs">Go to Calendar</span>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">C</kbd>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="h-14 px-6 border-t border-border flex items-center justify-end bg-surface-elevated shrink-0">
+              <button
+                onClick={() => setIsShortcutsModalOpen(false)}
+                className="rounded-xl bg-success px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </aside>
   );

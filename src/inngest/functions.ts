@@ -69,7 +69,7 @@ export const processAICall = inngest.createFunction(
 
       // Clean up $schema from parameters to prevent validation/compatibility issues
       for (const t of tools) {
-        const toolObj = t as any;
+        const toolObj = t as { parameters?: Record<string, unknown> };
         if (toolObj.parameters && typeof toolObj.parameters === 'object' && '$schema' in toolObj.parameters) {
           delete toolObj.parameters.$schema;
         }
@@ -110,7 +110,7 @@ export const processAICall = inngest.createFunction(
       });
 
       // Load last 20 completed chat messages from the database for persistent AI memory context
-      let dbHistory: any[] = [];
+      let dbHistory: { role: string; content: string }[] = [];
       try {
         const dbHistoryDesc = await db
           .select({
@@ -131,20 +131,27 @@ export const processAICall = inngest.createFunction(
       } catch (dbErr) {
         console.error('Failed to load chat history from DB, running with single prompt context:', dbErr);
         // Fallback to the latest user message in history
-        const latestUserMsg = messages && messages.length > 0 ? messages[messages.length - 1] : { role: 'user', content: 'Hello' };
+        const latestUserMsg = messages && messages.length > 0 ? (messages[messages.length - 1] as { role: string; content: string }) : { role: 'user', content: 'Hello' };
         dbHistory = [latestUserMsg];
       }
 
-      const formatHistoryMessages = (msgs: any[]) => {
-        return msgs.map((m: any) => {
-          if (m.role === 'assistant' && typeof m.content === 'string') {
+      const formatHistoryMessages = (msgs: { role: string; content: string }[]) => {
+        return msgs.map((m: { role: string; content: string }) => {
+          if (m.role === 'assistant') {
             return {
-              role: 'assistant',
-              content: [{ type: 'output_text', text: m.content }],
+              role: 'assistant' as const,
+              status: 'completed' as const,
+              content: [{ type: 'output_text' as const, text: m.content || '' }],
+            };
+          }
+          if (m.role === 'system') {
+            return {
+              role: 'system' as const,
+              content: m.content,
             };
           }
           return {
-            role: m.role,
+            role: 'user' as const,
             content: m.content,
           };
         });
@@ -291,13 +298,19 @@ export const trackFailedAICalls = inngest.createFunction(
 // Map to track recently seen email IDs per tenant to avoid duplicate SSE broadcasts
 const seenEmails = new Map<string, Set<string>>();
 
-const isGmail429Error = (err: any): boolean => {
+const isGmail429Error = (err: unknown): boolean => {
   if (!err) return false;
-  const errMsg = String(err.message || err.error || err).toLowerCase();
+  const errObj = err as Record<string, unknown>;
+  const errMsg = String(errObj.message || errObj.error || err).toLowerCase();
+  
+  const bodyError = errObj.body && typeof errObj.body === 'object' && 'error' in errObj.body && errObj.body.error && typeof errObj.body.error === 'object' && 'code' in errObj.body.error
+    ? (errObj.body.error as Record<string, unknown>).code
+    : null;
+
   return (
-    err.status === 429 ||
-    err.statusCode === 429 ||
-    err.body?.error?.code === 429 ||
+    errObj.status === 429 ||
+    errObj.statusCode === 429 ||
+    bodyError === 429 ||
     errMsg.includes('too many requests') ||
     errMsg.includes('resource_exhausted') ||
     errMsg.includes('rate limit')
@@ -318,7 +331,7 @@ export const syncGmailWebhook = inngest.createFunction(
     const { headersObj, body, activeTenantId } = event.data;
 
     // Check if there is an active Gmail API 429 rate limit cooldown
-    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const cooldownExpiry = (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration;
     if (cooldownExpiry && Date.now() < cooldownExpiry) {
       const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
       console.warn(`⏳ [Inngest Sync] Skipping sync for tenant ${activeTenantId} due to active 429 cooldown. Remaining: ${remainingSeconds}s.`);
@@ -326,7 +339,7 @@ export const syncGmailWebhook = inngest.createFunction(
     }
 
     // 1. Run processWebhook
-    let result: any = null;
+    let result: unknown = null;
     try {
       result = await step.run('run-process-webhook', async () => {
         const res = await processWebhook(corsair, headersObj, body, {
@@ -334,15 +347,16 @@ export const syncGmailWebhook = inngest.createFunction(
         });
         return res;
       });
-    } catch (err: any) {
-      const errMsg = String(err.message || err).toLowerCase();
+    } catch (err) {
+      const errObj = err as Record<string, unknown>;
+      const errMsg = String(errObj?.message || err).toLowerCase();
       if (errMsg.includes('account not found') || errMsg.includes('make sure to create the account first')) {
         console.warn(`⚠️ [Inngest Sync] Account not found for tenant ${activeTenantId}. User may have disconnected Gmail. Skipping.`);
         return { success: false, skipped: true, reason: 'account_not_found' };
       }
       if (isGmail429Error(err)) {
         console.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
-        (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
       }
       throw err;
     }
@@ -402,7 +416,7 @@ export const syncGmailWebhook = inngest.createFunction(
         console.error('Error in custom Gmail sync inside Inngest:', err);
         if (isGmail429Error(err)) {
           console.warn(`[Inngest Sync] Custom sync returned 429. Setting 20-minute cooldown.`);
-          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+          (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
         }
       }
     }

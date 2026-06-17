@@ -27,7 +27,7 @@ export default async function DashboardLayout({
   });
 
   // Check if both integrations are connected
-  let connectedAccounts: any[] = [];
+  let connectedAccounts: { name: string; config: unknown }[] = [];
   try {
     connectedAccounts = await db
       .select({
@@ -41,8 +41,8 @@ export default async function DashboardLayout({
     console.error('Error querying connected accounts in dashboard layout:', error);
   }
 
-  const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
-  const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
+  const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as { access_token?: string })?.access_token);
+  const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as { access_token?: string })?.access_token);
 
   // If either integration is disconnected, redirect to onboarding page
   if (!isGmailConnected || !isCalendarConnected) {

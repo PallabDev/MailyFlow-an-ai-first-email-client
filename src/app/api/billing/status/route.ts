@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/utils/corsair';
 import { userSubscriptions, userUsage } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { PLAN_LIMITS } from '@/utils/rate-limit';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {

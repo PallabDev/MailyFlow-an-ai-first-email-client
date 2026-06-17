@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { db } from '@/utils/corsair';
 import { healthLogs } from '@/db/schema';
 import crypto from 'crypto';
@@ -6,7 +6,7 @@ import { HealthCheckResponse } from './_types';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest): Promise<NextResponse<HealthCheckResponse>> {
+export async function GET(): Promise<NextResponse<HealthCheckResponse>> {
   try {
     // Perform a database ping/query to verify connection health
     // Drizzleexecute is used for raw sql execution

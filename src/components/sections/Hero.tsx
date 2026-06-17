@@ -1,10 +1,8 @@
-import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
   Play,
   Sparkles,
-  Inbox,
   Calendar,
   Check,
   CornerUpLeft,

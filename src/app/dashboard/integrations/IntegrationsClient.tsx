@@ -26,7 +26,7 @@ export default function IntegrationsClient({
   dbError,
 }: IntegrationsClientProps) {
   const [gmailLoading, setGmailLoading] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [_calendarLoading, _setCalendarLoading] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function IntegrationsClient({
 
   const handleDisconnect = async (plugin: 'gmail' | 'googlecalendar') => {
     if (plugin === 'gmail') setGmailLoading(true);
-    if (plugin === 'googlecalendar') setCalendarLoading(true);
+    if (plugin === 'googlecalendar') _setCalendarLoading(true);
 
     try {
       await disconnectPlugin(plugin);
@@ -73,7 +73,7 @@ export default function IntegrationsClient({
       console.error(`Failed to disconnect ${plugin}:`, err);
     } finally {
       if (plugin === 'gmail') setGmailLoading(false);
-      if (plugin === 'googlecalendar') setCalendarLoading(false);
+      if (plugin === 'googlecalendar') _setCalendarLoading(false);
     }
   };
 

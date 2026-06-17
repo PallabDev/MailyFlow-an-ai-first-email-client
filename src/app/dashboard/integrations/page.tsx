@@ -11,7 +11,7 @@ export default async function IntegrationsPage() {
     redirect('/sign-in');
   }
 
-  let connectedAccounts: any[] = [];
+  let connectedAccounts: { name: string; config: unknown }[] = [];
   let dbError = false;
   try {
     connectedAccounts = await db
@@ -28,10 +28,10 @@ export default async function IntegrationsPage() {
   }
 
   const isGmailConnected = connectedAccounts.some(
-    (acc) => acc.name === 'gmail' && (acc.config as any)?.access_token
+    (acc) => acc.name === 'gmail' && (acc.config as { access_token?: string })?.access_token
   );
   const isCalendarConnected = connectedAccounts.some(
-    (acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token
+    (acc) => acc.name === 'googlecalendar' && (acc.config as { access_token?: string })?.access_token
   );
 
   return (

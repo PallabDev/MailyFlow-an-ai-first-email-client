@@ -20,8 +20,8 @@ type HeaderProps = {
 };
 
 export default function Header({
-  user,
-  projectName,
+  user: _user,
+  projectName: _projectName,
   isLeftSidebarCollapsed,
   setIsLeftSidebarCollapsed
 }: HeaderProps) {
@@ -125,6 +125,7 @@ export default function Header({
           {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
         </button>
         <div className="flex items-center justify-center h-8 w-8">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <UserButton appearance={theme === 'dark' ? ({ baseTheme: dark } as any) : undefined} />
         </div>
       </div>

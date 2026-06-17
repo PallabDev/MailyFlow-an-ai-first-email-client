@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, RefreshCw, AlertCircle, CornerUpLeft, Send, Star } from 'lucide-react';
+import { RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
 import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 
@@ -24,9 +24,9 @@ type EmailDetailProps = {
 
 export default function EmailDetail({
   email,
-  onBack,
-  onTrash,
-  onStar,
+  onBack: _onBack,
+  onTrash: _onTrash,
+  onStar: _onStar,
 }: EmailDetailProps) {
   const [detailEmail, setDetailEmail] = useState<Email | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,7 +68,7 @@ export default function EmailDetail({
         const data = await res.json().catch(() => ({}));
         setReplyError(data.error || 'Failed to send reply.');
       }
-    } catch (err) {
+    } catch {
       setReplyError('Failed to send reply due to network error.');
     } finally {
       setSendingReply(false);
@@ -97,7 +97,7 @@ export default function EmailDetail({
           const data = await res.json();
           setError(data.error || 'Failed to load email body.');
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('Error fetching email details:', err);
         setError('Connection error loading email.');
       } finally {

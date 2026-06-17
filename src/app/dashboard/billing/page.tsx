@@ -173,6 +173,7 @@ export default function BillingPage() {
         description: `${planName} Plan Subscription`,
         image: "/icon.png",
         order_id: orderData.orderId,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         handler: async function (response: any) {
           setUpgradingPlan("Verifying...");
           try {
@@ -215,6 +216,7 @@ export default function BillingPage() {
         },
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (checkoutErr) {

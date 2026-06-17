@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ShieldCheck, Mail, Calendar, Key, Layout, Bot } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";

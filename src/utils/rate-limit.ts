@@ -1,6 +1,6 @@
 import { db } from './corsair';
 import { userSubscriptions, userUsage } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export interface PlanLimits {
   aiLimit: number;

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { createCorsair } from 'corsair';
 import { gmail } from '@corsair-dev/gmail';
@@ -14,7 +14,7 @@ export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
 
 // Shared PG notification listener to bridge webhooks across instances in real-time
-let pgListenerClient: any = null;
+let pgListenerClient: PoolClient | null = null;
 
 async function startPgListener() {
     if (pgListenerClient) return;
@@ -106,6 +106,7 @@ export async function syncGoogleCredentialsFromEnv() {
     const clientId = process.env.GOOGLE_CLIENT_ID.trim();
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET.trim();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const database = (corsair as any)[Symbol.for("corsair:internal")]?.database || pool;
     const kek = process.env.CORSAIR_KEK!;
 
@@ -156,7 +157,7 @@ export async function syncGoogleCredentialsFromEnv() {
         console.log(`[Corsair Init] Synced OAuth credentials for ${pluginType} from environment.`);
 
         if (pluginType === 'gmail' && process.env.TOPIC_ID) {
-            await (integrationKm as any).set_topic_id(process.env.TOPIC_ID.trim());
+            await (integrationKm as unknown as { set_topic_id: (id: string) => Promise<void> }).set_topic_id(process.env.TOPIC_ID.trim());
             console.log(`[Corsair Init] Synced topic_id for gmail from environment.`);
         }
     }

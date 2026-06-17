@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, Shield, CheckCircle2, AlertCircle, RefreshCw, Key, Users, User, ChevronDown, Search, X, ChevronLeft, ChevronRight, Edit3 } from 'lucide-react';
+import { Shield, CheckCircle2, AlertCircle, RefreshCw, Key, ChevronDown, Search, X, ChevronLeft, ChevronRight, Edit3 } from 'lucide-react';
 import { listAllUsersAndPlans, grantPaidPlanAccessById } from './user_plan.actions';
 
 type DevUser = {
@@ -41,8 +41,9 @@ export default function UserPlanEditor() {
       } else {
         setErrorMsg(res.error || 'Failed to fetch Clerk users.');
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'An error occurred while loading users.');
+    } catch (err) {
+      const errObj = err as Record<string, unknown>;
+      setErrorMsg(String(errObj?.message || 'An error occurred while loading users.'));
     } finally {
       setLoading(false);
     }
@@ -78,8 +79,9 @@ export default function UserPlanEditor() {
       } else {
         setErrorMsg(res.error || 'Failed to update plan.');
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'An error occurred while updating the plan.');
+    } catch (err) {
+      const errObj = err as Record<string, unknown>;
+      setErrorMsg(String(errObj?.message || 'An error occurred while updating the plan.'));
     } finally {
       setUpdating(false);
     }
@@ -345,7 +347,7 @@ export default function UserPlanEditor() {
                 <div className="relative">
                   <select
                     value={selectedPlan}
-                    onChange={(e) => setSelectedPlan(e.target.value as any)}
+                    onChange={(e) => setSelectedPlan(e.target.value as 'Starter' | 'Professional' | 'Business')}
                     className="w-full bg-background border border-border focus:border-accent text-text-primary rounded-xl py-2.5 pl-4 pr-10 text-sm outline-none transition-colors appearance-none cursor-pointer"
                   >
                     <option value="Starter">Starter (Free plan limits)</option>

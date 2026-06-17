@@ -10,6 +10,7 @@ const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
 
 export { GET };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
   if (!err) return false;
   const errMsg = String(err.message || err.error || err).toLowerCase();
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
   // Clone request to avoid consuming body stream if we need to fallback
   const clonedRequest = request.clone();
   let isGmailPubSub = false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any = null;
 
   try {
@@ -115,6 +117,7 @@ export async function POST(request: Request) {
 
     if (activeTenantId) {
       // Check if there is an active Gmail API 429 rate limit cooldown
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cooldownExpiry = (global as any)._gmailCooldownExpiration;
       if (cooldownExpiry && Date.now() < cooldownExpiry) {
         const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
@@ -161,6 +164,7 @@ export async function POST(request: Request) {
     logger.error('Error parsing or processing webhook payload:', error);
     if (is429Error(error)) {
       logger.warn(`[Webhook POST] Outer handler caught 429 Rate Limit error. Setting 20-minute cooldown.`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
     }
     if (isGmailPubSub) {

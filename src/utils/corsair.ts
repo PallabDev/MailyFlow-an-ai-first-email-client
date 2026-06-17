@@ -3,7 +3,7 @@ import { createCorsairDatabase } from 'corsair/db';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import crypto from 'crypto';
-import { pool, db, corsair } from './../../corsair';
+import { pool, db } from './../../corsair';
 
 export * from './../../corsair';
 
@@ -24,7 +24,7 @@ export async function hasActiveConnection(userId: string, plugin: 'gmail' | 'goo
       .limit(1);
 
     if (rows.length === 0) return false;
-    const config = rows[0].config as any;
+    const config = rows[0].config as Record<string, unknown> | null;
     return !!(config?.refresh_token || config?.access_token);
   } catch (error) {
     console.error(`Error checking connection for ${plugin}:`, error);
@@ -51,7 +51,7 @@ export async function renewWatchesIfNeeded(tenantId: string) {
         extraAccountFields: ['gmail_watch_expiration']
       });
 
-      const expiration = await (accountKm as any).get_gmail_watch_expiration();
+      const expiration = await (accountKm as unknown as { get_gmail_watch_expiration: () => Promise<string | number | null> }).get_gmail_watch_expiration();
       const now = Date.now();
       // Renew if expiration is missing, or expires in less than 2 days
       const shouldRenew = !expiration || (Number(expiration) - now) < 2 * 24 * 60 * 60 * 1000;
@@ -69,7 +69,7 @@ export async function renewWatchesIfNeeded(tenantId: string) {
         const clientId = await integrationKm.get_client_id();
         const clientSecret = await integrationKm.get_client_secret();
         const refreshToken = await accountKm.get_refresh_token();
-        const topicId = (await (integrationKm as any).get_topic_id()) || process.env.TOPIC_ID;
+        const topicId = (await (integrationKm as unknown as { get_topic_id: () => Promise<string | null> }).get_topic_id()) || process.env.TOPIC_ID;
 
         if (clientId && clientSecret && refreshToken && topicId) {
           const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -84,7 +84,7 @@ export async function renewWatchesIfNeeded(tenantId: string) {
           });
 
           if (tokenRes.ok) {
-            const tokenData = await tokenRes.json() as any;
+            const tokenData = await tokenRes.json() as { access_token: string };
             const accessToken = tokenData.access_token;
 
             const watchRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
@@ -100,9 +100,9 @@ export async function renewWatchesIfNeeded(tenantId: string) {
             });
 
             if (watchRes.ok) {
-              const watchData = await watchRes.json() as any;
+              const watchData = await watchRes.json() as { expiration: string | number };
               const newExpiration = watchData.expiration;
-              await (accountKm as any).set_gmail_watch_expiration(String(newExpiration));
+              await (accountKm as unknown as { set_gmail_watch_expiration: (val: string) => Promise<void> }).set_gmail_watch_expiration(String(newExpiration));
               console.log(`[Watch Renewal] Gmail watch successfully renewed for tenant: ${tenantId}`);
             }
           }
@@ -122,7 +122,7 @@ export async function renewWatchesIfNeeded(tenantId: string) {
         extraAccountFields: ['calendar_watch_expiration']
       });
 
-      const expiration = await (accountKm as any).get_calendar_watch_expiration();
+      const expiration = await (accountKm as unknown as { get_calendar_watch_expiration: () => Promise<string | number | null> }).get_calendar_watch_expiration();
       const now = Date.now();
       const shouldRenew = !expiration || (Number(expiration) - now) < 2 * 24 * 60 * 60 * 1000;
 
@@ -152,7 +152,7 @@ export async function renewWatchesIfNeeded(tenantId: string) {
           });
 
           if (tokenRes.ok) {
-            const tokenData = await tokenRes.json() as any;
+            const tokenData = await tokenRes.json() as { access_token: string };
             const accessToken = tokenData.access_token;
             const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
             const webhookUrl = `${origin}/api/corsair?tenantId=${tenantId}`;
@@ -172,14 +172,14 @@ export async function renewWatchesIfNeeded(tenantId: string) {
             });
 
             if (watchRes.ok) {
-              const watchData = await watchRes.json() as any;
+              const watchData = await watchRes.json() as { expiration: string | number; resourceId?: string };
               const newExpiration = watchData.expiration;
-              await (accountKm as any).set_calendar_watch_expiration(String(newExpiration));
+              await (accountKm as unknown as { set_calendar_watch_expiration: (val: string) => Promise<void> }).set_calendar_watch_expiration(String(newExpiration));
               
               // Save channel ID and resource ID for cancellation
-              await (accountKm as any).set_calendar_watch_channel_id(channelId);
+              await (accountKm as unknown as { set_calendar_watch_channel_id: (val: string) => Promise<void> }).set_calendar_watch_channel_id(channelId);
               if (watchData.resourceId) {
-                await (accountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+                await (accountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
               }
               
               console.log(`[Watch Renewal] Calendar watch successfully renewed for tenant: ${tenantId}`);
@@ -236,7 +236,7 @@ export async function stopWatchesForTenant(tenantId: string) {
         });
 
         if (tokenRes.ok) {
-          const tokenData = await tokenRes.json() as any;
+          const tokenData = await tokenRes.json() as { access_token: string };
           const accessToken = tokenData.access_token;
 
           const stopRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/stop", {
@@ -269,8 +269,8 @@ export async function stopWatchesForTenant(tenantId: string) {
         extraAccountFields: ['calendar_watch_channel_id', 'calendar_watch_resource_id']
       });
 
-      const channelId = await (accountKm as any).get_calendar_watch_channel_id();
-      const resourceId = await (accountKm as any).get_calendar_watch_resource_id();
+      const channelId = await (accountKm as unknown as { get_calendar_watch_channel_id: () => Promise<string | null> }).get_calendar_watch_channel_id();
+      const resourceId = await (accountKm as unknown as { get_calendar_watch_resource_id: () => Promise<string | null> }).get_calendar_watch_resource_id();
 
       if (channelId && resourceId) {
         const integrationKm = createIntegrationKeyManager({
@@ -298,7 +298,7 @@ export async function stopWatchesForTenant(tenantId: string) {
           });
 
           if (tokenRes.ok) {
-            const tokenData = await tokenRes.json() as any;
+            const tokenData = await tokenRes.json() as { access_token: string };
             const accessToken = tokenData.access_token;
 
             const stopRes = await fetch("https://www.googleapis.com/calendar/v3/channels/stop", {

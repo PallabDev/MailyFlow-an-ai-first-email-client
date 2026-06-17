@@ -201,9 +201,10 @@ export default function EventModal({
         const data = await res.json();
         setError(data.error || 'Failed to save event.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving event:', err);
-      setError(err.message || 'Failed to save event.');
+      const errObj = err as Record<string, unknown>;
+      setError(String(errObj?.message || 'Failed to save event.'));
     } finally {
       setLoading(false);
     }
@@ -228,9 +229,10 @@ export default function EventModal({
         const data = await res.json();
         setError(data.error || 'Failed to delete event.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error deleting event:', err);
-      setError(err.message || 'Failed to delete event.');
+      const errObj = err as Record<string, unknown>;
+      setError(String(errObj?.message || 'Failed to delete event.'));
     } finally {
       setLoading(false);
     }

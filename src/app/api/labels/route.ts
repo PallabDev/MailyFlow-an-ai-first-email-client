@@ -5,6 +5,7 @@ import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/sche
 import { eq, and } from 'drizzle-orm';
 import { LabelData } from './_types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
   if (!err) return false;
   const errMsg = String(err.message || err.error || err).toLowerCase();
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === 'true';
 
     // Check if Gmail is currently rate-limited (cooldown)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cooldownExpiry = (global as any)._gmailCooldownExpiration;
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
@@ -100,6 +102,7 @@ export async function GET(req: NextRequest) {
       const errStr = err instanceof Error ? err.message : String(err);
       if (is429Error(err)) {
         console.warn('[Labels GET API] Gmail API returned 429. Setting 20-minute cooldown.');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
       }
       if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
@@ -137,6 +140,7 @@ export async function GET(req: NextRequest) {
     console.error('Error in /api/labels:', error);
     if (is429Error(error)) {
       console.warn('[Labels GET API] Outer handler caught 429. Setting 20-minute cooldown.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
     }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';

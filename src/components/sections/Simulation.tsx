@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Sparkles, Send, ArrowRight, Moon, Sun } from "lucide-react";
+import { Check, Sparkles, Send } from "lucide-react";
 import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";
 import Reveal from "../ui/Reveal";
@@ -43,7 +43,7 @@ export default function Simulation() {
         <div className="grid gap-6 md:grid-cols-3">
           {SIMS.map((sim, i) => (
             <Reveal key={i} delay={i * 120}>
-              <SimWindow def={sim} index={i} />
+              <SimWindow def={sim} />
             </Reveal>
           ))}
         </div>
@@ -60,7 +60,7 @@ const PremiumPulsingLoader = () => (
   </div>
 );
 
-function SimWindow({ def, index }: { def: SimDef; index: number }) {
+function SimWindow({ def }: { def: SimDef }) {
   const [status, setStatus] = useState<Phase>("waiting");
   const [displayedText, setDisplayedText] = useState("");
   const chatContainerRef = useRef<HTMLDivElement>(null);

@@ -6,6 +6,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
   if (!err) return false;
   const errMsg = String(err.message || err.error || err).toLowerCase();
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if Gmail is currently rate-limited (cooldown)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cooldownExpiry = (global as any)._gmailCooldownExpiration;
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
@@ -220,6 +222,7 @@ export async function GET(req: NextRequest) {
                 console.error(`Error fetching email details for message ID ${msg.id}:`, e);
                 if (is429Error(e)) {
                   console.warn('[Emails GET API] Gmail message get returned 429. Setting 20-minute cooldown.');
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
                 }
                 return {
@@ -286,6 +289,7 @@ export async function GET(req: NextRequest) {
         console.error('Error fetching directly from Gmail API, trying to fallback to cache:', gmailErr);
         if (is429Error(gmailErr)) {
           console.warn('[Emails GET API] Gmail API list returned 429. Setting 20-minute cooldown.');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
         }
 
@@ -387,6 +391,7 @@ export async function GET(req: NextRequest) {
     console.error('Error in /api/emails:', error);
     if (is429Error(error)) {
       console.warn('[Emails GET API] Outer handler caught 429. Setting 20-minute cooldown.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
     }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';

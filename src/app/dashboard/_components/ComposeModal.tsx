@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, RefreshCw, Send, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
+import { X, Send, CheckCircle2, AlertCircle, Info as InfoIcon } from 'lucide-react';
 
 type ComposeModalProps = {
   isOpen: boolean;

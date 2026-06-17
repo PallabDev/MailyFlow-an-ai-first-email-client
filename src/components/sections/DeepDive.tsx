@@ -1,17 +1,13 @@
 import {
   Check,
-  Inbox,
   Sparkles,
   Calendar,
   GitBranch,
-  Star,
-  Tag,
   Clock,
   CornerUpLeft,
   Zap,
   Filter,
   MessageSquare,
-  CalendarDays,
   ChevronRight,
   Circle,
   RefreshCw,
@@ -20,7 +16,6 @@ import {
   MapPin,
   X,
   Trash2,
-  Users,
   AlignLeft,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";

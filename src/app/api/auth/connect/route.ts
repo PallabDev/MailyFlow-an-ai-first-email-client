@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { corsair, syncGoogleCredentialsFromEnv } from '@/utils/corsair';
 import { generateOAuthUrl } from 'corsair/oauth';
-import { ConnectPlaceholder } from './_types';
 
 export async function GET(req: NextRequest) {
   try {

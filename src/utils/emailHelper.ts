@@ -17,7 +17,7 @@ export const formatPlainTextInput = (text: string) => {
 
     // Replace remaining standalone URLs with links
     html = html.replace(/(?<!href=")(?<!">)(https?:\/\/[^\s<]+)/g, (match, url) => {
-        let cleanedUrl = url.trim().replace(/[.,;)]$/, '');
+        const cleanedUrl = url.trim().replace(/[.,;)]$/, '');
         let displayUrl = cleanedUrl;
         if (displayUrl.length > 50) {
             displayUrl = displayUrl.substring(0, 47) + '...';

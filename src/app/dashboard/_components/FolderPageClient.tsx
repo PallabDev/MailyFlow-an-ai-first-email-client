@@ -201,7 +201,7 @@ export default function FolderPageClient({
           setEmailsState(mockEmails);
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching emails client-side:', err);
       setEmailErrorState('Failed to fetch emails.');
       if (!force && !isBackground) {
@@ -386,7 +386,7 @@ export default function FolderPageClient({
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
-          let fetchedEmails: Email[] = data.emails ?? [];
+          const fetchedEmails: Email[] = data.emails ?? [];
           if (fetchedEmails.length === 0 && data.isDevFallback) {
             return;
           }
@@ -458,7 +458,7 @@ export default function FolderPageClient({
         if (data.emails && data.emails.length > 0) {
           setEmailsState((prev) => {
             const existingIds = new Set(prev.map((e) => e.id));
-            const newEmails = data.emails.filter((e: any) => !existingIds.has(e.id));
+            const newEmails = data.emails.filter((e: Email) => !existingIds.has(e.id));
             const updated = [...prev, ...newEmails];
             if (emailCache[folder]) {
               emailCache[folder].emails = updated;
@@ -627,6 +627,9 @@ export default function FolderPageClient({
   // Keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Only works on desktop mode, not mobile
+      if (window.innerWidth < 768) return;
+
       // Check if user is typing in any input/textarea
       const activeEl = document.activeElement;
       const isTyping = activeEl && (
@@ -967,7 +970,7 @@ export default function FolderPageClient({
                   onTouchStart={() => startLongPress(email.id)}
                   onTouchEnd={cancelLongPress}
                   onTouchMove={cancelLongPress}
-                  onClick={(e) => {
+                  onClick={() => {
                     if (isLongPressRef.current) {
                       isLongPressRef.current = false;
                       return;

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
           .limit(1);
 
         if (existing) {
-          const currentData = existing.data as any;
+          const currentData = existing.data as { labelIds?: string[] } & Record<string, unknown>;
           const currentLabels = currentData.labelIds || [];
           let updatedLabels: string[];
           if (starred) {

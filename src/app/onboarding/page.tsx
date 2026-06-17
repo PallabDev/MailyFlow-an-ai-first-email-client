@@ -21,7 +21,7 @@ export default async function OnboardingPage({
   const oauthError = resolvedSearchParams.error;
 
   // Query database to see what's connected for this user
-  let connectedAccounts: any[] = [];
+  let connectedAccounts: { name: string; tenantId: string; config: unknown }[] = [];
   let dbError = false;
   try {
     connectedAccounts = await db
@@ -40,8 +40,8 @@ export default async function OnboardingPage({
     dbError = true;
   }
 
-  const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as any)?.access_token);
-  const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as any)?.access_token);
+  const isGmailConnected = connectedAccounts.some((acc) => acc.name === 'gmail' && (acc.config as Record<string, unknown>)?.access_token);
+  const isCalendarConnected = connectedAccounts.some((acc) => acc.name === 'googlecalendar' && (acc.config as Record<string, unknown>)?.access_token);
   const isGoogleConnected = isGmailConnected && isCalendarConnected;
   const allConnected = isGoogleConnected || dbError;
 

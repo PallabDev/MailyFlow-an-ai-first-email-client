@@ -10,14 +10,14 @@ import { ChatRequestBody } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
 
 // GET: Retrieve all chat messages for authenticated user
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    let messages: any[] = [];
+    let messages: (typeof chatMessages.$inferSelect)[] = [];
     try {
       messages = await db
         .select()

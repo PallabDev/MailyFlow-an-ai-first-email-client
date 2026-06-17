@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         const clientId = await integrationKm.get_client_id();
         const clientSecret = await integrationKm.get_client_secret();
         const refreshToken = await accountKm.get_refresh_token();
-        const topicId = (await (integrationKm as any).get_topic_id()) || process.env.TOPIC_ID;
+        const topicId = (await (integrationKm as unknown as { get_topic_id: () => Promise<string | null> }).get_topic_id()) || process.env.TOPIC_ID;
 
         if (clientId && clientSecret && refreshToken && topicId) {
           console.log(`[OAuth Callback] Refreshing Gmail access token for tenant: ${tenantId}`);
@@ -233,9 +233,9 @@ export async function GET(req: NextRequest) {
                 if (watchRes.ok) {
                   const watchData = (await watchRes.json()) as GoogleWatchResponse;
                   // Save channel ID and resource ID for cancellation
-                  await (calendarAccountKm as any).set_calendar_watch_channel_id(channelId);
+                  await (calendarAccountKm as unknown as { set_calendar_watch_channel_id: (val: string) => Promise<void> }).set_calendar_watch_channel_id(channelId);
                   if (watchData.resourceId) {
-                    await (calendarAccountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+                    await (calendarAccountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
                   }
                   console.log(`[OAuth Callback] Calendar watch registered successfully from Gmail flow for tenant: ${tenantId}. Channel: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
                 } else {
@@ -324,9 +324,9 @@ export async function GET(req: NextRequest) {
             if (watchRes.ok) {
               const watchData = (await watchRes.json()) as GoogleWatchResponse;
               // Save channel ID and resource ID for cancellation
-              await (accountKm as any).set_calendar_watch_channel_id(channelId);
+              await (accountKm as unknown as { set_calendar_watch_channel_id: (val: string) => Promise<void> }).set_calendar_watch_channel_id(channelId);
               if (watchData.resourceId) {
-                await (accountKm as any).set_calendar_watch_resource_id(watchData.resourceId);
+                await (accountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
               }
               console.log(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {

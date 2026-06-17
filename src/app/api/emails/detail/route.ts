@@ -5,6 +5,7 @@ import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/sche
 import { eq, and } from 'drizzle-orm';
 import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
   if (!err) return false;
   const errMsg = String(err.message || err.error || err).toLowerCase();
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
       .then(rows => rows[0]);
 
     // Check if Gmail is currently rate-limited (cooldown)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cooldownExpiry = (global as any)._gmailCooldownExpiration;
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
@@ -90,6 +92,7 @@ export async function GET(req: NextRequest) {
           .then(rows => rows[0]);
 
         if (cacheRow) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const cachedData = cacheRow.data as any;
           return NextResponse.json({
             id: cachedData.id,
@@ -113,6 +116,7 @@ export async function GET(req: NextRequest) {
     const client = corsair.withTenant(userId);
 
     // Fetch full message payload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let full: any = null;
     try {
       full = await client.gmail.api.messages.get({
@@ -122,6 +126,7 @@ export async function GET(req: NextRequest) {
     } catch (apiErr) {
       if (is429Error(apiErr)) {
         console.warn('[Emails Detail API] Gmail API returned 429. Setting 20-minute cooldown.');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
       }
       throw apiErr;
@@ -138,6 +143,7 @@ export async function GET(req: NextRequest) {
         console.error('Failed to mark message as read in Gmail:', err);
         if (is429Error(err)) {
           console.warn('[Emails Detail API] batchModify returned 429. Setting 20-minute cooldown.');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
         }
       }
@@ -230,6 +236,7 @@ export async function GET(req: NextRequest) {
     console.error('Error in /api/emails/detail:', error);
     if (is429Error(error)) {
       console.warn('[Emails Detail API] Outer handler caught 429. Setting 20-minute cooldown.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
     }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';

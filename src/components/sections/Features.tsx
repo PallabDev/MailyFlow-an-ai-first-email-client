@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Cloud, Database, Layers, ShieldCheck, Mail, Calendar, Bot, ArrowRight } from "lucide-react";
+import { Search, Cloud, Database, Layers, ShieldCheck, Mail, Calendar } from "lucide-react";
 import { motion } from "motion/react";
 import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";
@@ -591,7 +591,7 @@ function DraftStagingAnimation() {
 /* ─── Bento Items ────────────────────────────────────────────────────────── */
 
 interface BentoItem {
-  icon: any;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
   title: string;
   description: string;
   Illustration: React.ComponentType;
@@ -655,7 +655,7 @@ export default function Features() {
         />
 
         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-3">
-          {BENTO_FEATURES.map((feature, i) => {
+          {BENTO_FEATURES.map((feature) => {
             const Icon = feature.icon;
             const Illustration = feature.Illustration;
             return (

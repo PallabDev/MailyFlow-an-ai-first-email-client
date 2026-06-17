@@ -6,7 +6,7 @@ import { corsairAccounts, corsairIntegrations, corsairEntities, corsairEvents } 
 import { eq, and, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
-export async function disconnectPlugin(plugin: 'gmail' | 'googlecalendar' | 'google') {
+export async function disconnectPlugin(_plugin: 'gmail' | 'googlecalendar' | 'google') {
   try {
     const { userId } = await auth();
     if (!userId) {

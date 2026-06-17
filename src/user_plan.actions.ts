@@ -3,7 +3,6 @@
 import { db } from '@/utils/corsair';
 import { userSubscriptions } from '@/db/schema';
 import { createClerkClient } from '@clerk/nextjs/server';
-import { eq } from 'drizzle-orm';
 
 const CLERK_SECRET_KEY = process.env.PROD_CLERK_SECRET_KEY || process.env.CLERK_SECRET_KEY;
 
@@ -32,7 +31,7 @@ export async function listAllUsersAndPlans() {
     const subMap = new Map(subs.map(s => [s.userId, s]));
 
     const result = users.map(user => {
-      const primaryEmailObj = user.emailAddresses?.find((e: any) => e.id === user.primaryEmailAddressId);
+      const primaryEmailObj = user.emailAddresses?.find((e: { id: string; emailAddress: string }) => e.id === user.primaryEmailAddressId);
       const email = primaryEmailObj?.emailAddress 
         || user.emailAddresses?.[0]?.emailAddress 
         || '';
@@ -51,9 +50,10 @@ export async function listAllUsersAndPlans() {
     });
 
     return { success: true, users: result };
-  } catch (error: any) {
+  } catch (error) {
+    const errObj = error as Record<string, unknown>;
     console.error('Failed to list users and plans:', error);
-    return { success: false, error: error.message || 'Failed to list users' };
+    return { success: false, error: String(errObj?.message || 'Failed to list users') };
   }
 }
 
@@ -94,8 +94,9 @@ export async function grantPaidPlanAccessById(userId: string, planName: 'Starter
       });
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
+    const errObj = error as Record<string, unknown>;
     console.error('Failed to update plan by ID:', error);
-    return { success: false, error: error.message || 'Failed to update plan' };
+    return { success: false, error: String(errObj?.message || 'Failed to update plan') };
   }
 }
