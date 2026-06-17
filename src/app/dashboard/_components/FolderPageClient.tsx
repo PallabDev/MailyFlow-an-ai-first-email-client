@@ -13,7 +13,8 @@ import {
   PenSquare,
   ChevronLeft,
   Trash2,
-  Check
+  Check,
+  Star
 } from 'lucide-react';
 import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
@@ -33,7 +34,7 @@ type Email = {
 type FolderPageClientProps = {
   initialEmails: Email[];
   initialNextPageToken: string | null;
-  folder: 'inbox' | 'drafts' | 'sent' | 'spam' | 'trash';
+  folder: 'inbox' | 'starred' | 'drafts' | 'sent' | 'spam' | 'trash';
   title: string;
   emailError: string | null;
 };
@@ -76,6 +77,40 @@ export default function FolderPageClient({
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+  };
+
+  const toggleStarEmail = async (emailId: string) => {
+    const email = emailsState.find((e) => e.id === emailId);
+    if (!email) return;
+    const isStarred = email.labelIds?.includes('STARRED') ?? false;
+
+    // Optimistic UI update
+    setEmailsState((prev) => {
+      const updated = prev.map((e) => {
+        if (e.id === emailId) {
+          const currentLabels = e.labelIds || [];
+          const nextLabels = isStarred
+            ? currentLabels.filter((l) => l !== 'STARRED')
+            : [...currentLabels, 'STARRED'];
+          return { ...e, labelIds: nextLabels };
+        }
+        return e;
+      });
+      if (emailCache[folder]) {
+        emailCache[folder].emails = updated;
+      }
+      return updated;
+    });
+
+    try {
+      await fetch('/api/star-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: emailId, starred: !isStarred }),
+      });
+    } catch (err) {
+      console.error('Error toggling star via API:', err);
     }
   };
 
@@ -544,12 +579,26 @@ export default function FolderPageClient({
 
 
   const getFolderIcon = () => {
+    const unreadCount = uniqueEmails.filter(e => e.labelIds?.includes('UNREAD')).length;
+
     switch (folder) {
-      case 'inbox': return <InboxIcon className="h-5 w-5 text-slate-600" />;
-      case 'drafts': return <FileText className="h-5 w-5 text-slate-600" />;
-      case 'sent': return <Send className="h-5 w-5 text-slate-600" />;
-      case 'spam': return <AlertCircle className="h-5 w-5 text-slate-600" />;
-      case 'trash': return <Clock className="h-5 w-5 text-slate-600" />;
+      case 'inbox': 
+        return (
+          <div className="relative flex items-center shrink-0">
+            <InboxIcon className="h-5 w-5 text-slate-600" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-success text-white text-[9px] font-bold px-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center border border-card shadow-sm">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+        );
+      case 'starred':
+        return <Star className="h-5 w-5 text-yellow-500 fill-yellow-500 shrink-0" />;
+      case 'drafts': return <FileText className="h-5 w-5 text-slate-600 shrink-0" />;
+      case 'sent': return <Send className="h-5 w-5 text-slate-600 shrink-0" />;
+      case 'spam': return <AlertCircle className="h-5 w-5 text-slate-600 shrink-0" />;
+      case 'trash': return <Clock className="h-5 w-5 text-slate-600 shrink-0" />;
     }
   };
 
@@ -807,16 +856,25 @@ export default function FolderPageClient({
                     </div>
                   </div>
 
-                  {/* Select option (Checkbox on the far right, hidden on mobile) */}
+                  {/* Select option (Checkbox and Star on the far right, hidden on mobile) */}
                   <div 
-                    className="shrink-0 ml-4 select-none hidden md:block"
+                    className="shrink-0 ml-4 flex items-center space-x-3 select-none"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* Star Button */}
+                    <button 
+                      onClick={() => toggleStarEmail(email.id)}
+                      className="p-1 hover:bg-hover-row rounded transition-colors text-text-muted hover:text-yellow-500 cursor-pointer"
+                    >
+                      <Star className={`h-4.5 w-4.5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+                    </button>
+
+                    {/* Checkbox (Hidden on mobile) */}
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelectEmail(email.id)}
-                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 ${
+                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 hidden md:block ${
                         isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                       }`}
                     />

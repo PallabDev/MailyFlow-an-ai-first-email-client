@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, RefreshCw, AlertCircle } from 'lucide-react';
+import { ChevronLeft, RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
 import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 
@@ -32,6 +32,46 @@ export default function EmailDetail({
   const [iframeHeight, setIframeHeight] = useState('500px');
   const { theme } = useChatStore();
   const isDark = theme === 'dark';
+
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replySuccess, setReplySuccess] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return;
+    setSendingReply(true);
+    setReplyError(null);
+    setReplySuccess(false);
+    try {
+      const recipient = parseSender(email.from).email || email.from;
+      const cleanSubject = email.subject.toLowerCase().startsWith('re:') 
+        ? email.subject 
+        : `Re: ${email.subject}`;
+
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipient,
+          subject: cleanSubject,
+          body: replyText,
+        }),
+      });
+
+      if (res.ok) {
+        setReplySuccess(true);
+        setReplyText('');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setReplyError(data.error || 'Failed to send reply.');
+      }
+    } catch (err) {
+      setReplyError('Failed to send reply due to network error.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   useEffect(() => {
     if (!email) return;
@@ -85,13 +125,13 @@ export default function EmailDetail({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4 md:space-y-6">
         <div className="space-y-4 shrink-0">
           <h2 className="text-xl font-extrabold text-text-primary leading-snug">
             {email.subject}
           </h2>
 
-          <div className="flex items-center space-x-3 bg-surface-subtle p-4 rounded-xl border border-border">
+          <div className="flex items-center space-x-3 bg-surface-subtle p-3 md:p-4 rounded-xl border border-border">
             <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(email.from)}`}>
               {getInitials(email.from)}
             </div>
@@ -134,17 +174,69 @@ export default function EmailDetail({
           )}
 
           {!loading && !error && detailEmail && (
-            <div className="bg-surface-subtle rounded-xl border border-border p-4">
-              <iframe
-                ref={iframeRef}
-                srcDoc={getEmailHtml(detailEmail, true, isDark)}
-                style={{ height: iframeHeight }}
-                className="w-full border-0 overflow-hidden bg-transparent"
-                scrolling="no"
-                title="Email Body Content"
-                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-              />
-            </div>
+            <>
+              <div className="bg-surface-subtle rounded-xl border border-border p-2 md:p-4">
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={getEmailHtml(detailEmail, true, isDark)}
+                  style={{ height: iframeHeight }}
+                  className="w-full border-0 overflow-hidden bg-transparent"
+                  scrolling="no"
+                  title="Email Body Content"
+                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+                />
+              </div>
+
+              {/* Inline Reply Form */}
+              <div className="border-t border-border pt-4 md:pt-6 mt-6">
+                <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3 flex items-center space-x-1">
+                  <CornerUpLeft className="h-3.5 w-3.5 text-text-muted" />
+                  <span>Reply</span>
+                </h4>
+                <div className="bg-card border border-border rounded-xl p-4 space-y-4">
+                  <div className="flex items-center justify-between text-xs text-text-secondary">
+                    <span>Replying to: <strong>{sender.email || email.from}</strong></span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Type your reply here..."
+                    disabled={sendingReply}
+                    className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none"
+                  />
+                  {replyError && (
+                    <div className="text-xs text-red-500 font-medium">
+                      ⚠️ {replyError}
+                    </div>
+                  )}
+                  {replySuccess && (
+                    <div className="text-xs text-success font-medium">
+                      ✅ Reply sent successfully!
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSendReply}
+                      disabled={sendingReply || !replyText.trim()}
+                      className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingReply ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-3 w-3" />
+                          <span>Send Reply</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

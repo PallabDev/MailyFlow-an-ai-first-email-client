@@ -14,7 +14,8 @@ import {
   Clock,
   Link2,
   CreditCard,
-  X
+  X,
+  Star
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -165,6 +166,20 @@ export default function Sidebar({
                 <Mail className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && (
                   <span className="ml-3 flex-1 text-left">Inbox</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => navigateToTab('starred')}
+                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+                  activeTab === 'starred'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
+                }`}
+              >
+                <Star className="h-4.5 w-4.5 shrink-0 text-yellow-500 fill-yellow-500" />
+                {!isLeftSidebarCollapsed && (
+                  <span className="ml-3 flex-1 text-left">Starred</span>
                 )}
               </button>
 

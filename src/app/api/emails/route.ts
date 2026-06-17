@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
 
     const labelIdsMap: Record<string, string[]> = {
       inbox: ['INBOX'],
+      starred: ['STARRED'],
       drafts: ['DRAFT'],
       draft: ['DRAFT'],
       sent: ['SENT'],
@@ -162,6 +163,7 @@ export async function GET(req: NextRequest) {
 
         const labelIdsMap: Record<string, string[]> = {
           inbox: ['INBOX'],
+          starred: ['STARRED'],
           drafts: ['DRAFT'],
           draft: ['DRAFT'],
           sent: ['SENT'],

@@ -81,7 +81,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
   const linkColor = '#2563eb';
 
   return `
-    <html style="${isDark ? 'background-color: #ffffff !important; filter: invert(0.9) hue-rotate(180deg) !important;' : ''}">
+    <html>
       <head>
         <base target="_blank">
         <style>
@@ -105,11 +105,6 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
           img { max-width: 100% !important; height: auto; }
           table { max-width: 100% !important; table-layout: fixed !important; }
           * { box-sizing: border-box !important; word-break: break-word !important; }
-          ${isDark ? `
-          img, svg, video, [style*="background-image"] {
-            filter: invert(1.11) hue-rotate(180deg) !important;
-          }
-          ` : ''}
         </style>
         ${iframeHeightScript ? `
         <script>
@@ -189,16 +184,24 @@ export const formatEmailDate = (dateVal: string | Date | number | undefined): st
     return String(dateVal);
   }
 
-  const day = String(parsed.getDate()).padStart(2, '0');
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const year = parsed.getFullYear();
+  const now = new Date();
+  const isToday = parsed.toDateString() === now.toDateString();
+  const isThisYear = parsed.getFullYear() === now.getFullYear();
 
-  let hours = parsed.getHours();
-  const minutes = String(parsed.getMinutes()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'pm' : 'am';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  const hoursStr = String(hours).padStart(2, '0');
-
-  return `${day}/${month}/${year} at ${hoursStr}:${minutes} ${ampm}`;
+  if (isToday) {
+    let hours = parsed.getHours();
+    const minutes = String(parsed.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+    return `${hours}:${minutes} ${ampm}`;
+  } else if (isThisYear) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[parsed.getMonth()]} ${parsed.getDate()}`;
+  } else {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const yearShort = String(parsed.getFullYear()).slice(-2);
+    return `${day}/${month}/${yearShort}`;
+  }
 };
