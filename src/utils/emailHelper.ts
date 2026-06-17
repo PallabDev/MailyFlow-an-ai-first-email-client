@@ -29,9 +29,27 @@ export const formatPlainTextInput = (text: string) => {
     return html;
 };
 
-export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolean = true, isDark: boolean = false) => {
+const EMAIL_THEME_LOCK_CSS = `
+  :root, html {
+    color-scheme: light only !important;
+  }
+  html, body {
+    background-color: #ffffff !important;
+    forced-color-adjust: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root, html, body {
+      color-scheme: light only !important;
+      background-color: #ffffff !important;
+    }
+  }
+`;
+
+export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolean = true) => {
     let rawHtml = email.body;
-    if (!isHtml(rawHtml)) {
+    const isHtmlEmail = isHtml(rawHtml);
+
+    if (!isHtmlEmail) {
         rawHtml = formatPlainTextInput(rawHtml);
     }
 
@@ -41,22 +59,19 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         const parser = new DOMParser();
         const doc = parser.parseFromString(rawHtml, 'text/html');
 
-        // 1. Sanitize HTML
-        // Remove blacklisted elements
+        // 1. Sanitize HTML — remove dangerous elements only, never touch visual content
         const blacklist = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'applet', 'form', 'svg'];
         blacklist.forEach(tag => {
             doc.querySelectorAll(tag).forEach(el => el.remove());
         });
 
-        // Traverse and clean attributes
+        // Remove inline event handlers (on*) and javascript: hrefs
         const allElements = doc.querySelectorAll('*');
         allElements.forEach(el => {
-            // Remove inline event handlers (on*) and javascript: links
             const attrs = Array.from(el.attributes);
             attrs.forEach(attr => {
                 const name = attr.name.toLowerCase();
                 const val = attr.value.toLowerCase();
-
                 if (name.startsWith('on')) {
                     el.removeAttribute(attr.name);
                 } else if ((name === 'href' || name === 'src' || name === 'action') && val.startsWith('javascript:')) {
@@ -65,22 +80,16 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             });
         });
 
-        // 2. Resolve parent origin dynamically to enforce strict postMessage destination
+        // 2. Ensure <head> exists
         const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
-        const isHtmlEmail = isHtml(email.body);
-        const bodyBg = isHtmlEmail ? '#ede8e8' : '#dddadaff';
-        const linkColor = '#2563eb';
-
-        // 3. Inject our style overrides at the top of doc.head so email stylesheet rules cascade over them
         let head = doc.head;
         if (!head) {
             head = doc.createElement('head');
             doc.documentElement.insertBefore(head, doc.body);
         }
 
-        // Force light color-scheme at browser meta level so the parent app's
-        // dark color-scheme is NOT inherited into this iframe document.
-        // A <meta name="color-scheme"> overrides inheritance from the parent frame.
+        // 3. Force light color-scheme so the app's dark mode doesn't bleed into the iframe.
+        //    <meta name="color-scheme"> works at browser level, overriding parent frame inheritance.
         let colorSchemeMeta = doc.querySelector('meta[name="color-scheme"]');
         if (!colorSchemeMeta) {
             colorSchemeMeta = doc.createElement('meta');
@@ -89,10 +98,28 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         }
         colorSchemeMeta.setAttribute('content', 'light only');
 
-        // Also set it as an inline style on <html> (highest CSS specificity, beats !important in sheets)
-        doc.documentElement.style.colorScheme = 'light';
+        let supportedSchemesMeta = doc.querySelector('meta[name="supported-color-schemes"]');
+        if (!supportedSchemesMeta) {
+            supportedSchemesMeta = doc.createElement('meta');
+            supportedSchemesMeta.setAttribute('name', 'supported-color-schemes');
+            head.insertBefore(supportedSchemesMeta, head.firstChild);
+        }
+        supportedSchemesMeta.setAttribute('content', 'light only');
 
-        // Add base tag for links
+        // Inline style = highest specificity, cannot be overridden by any stylesheet rule
+        doc.documentElement.style.colorScheme = 'light only';
+        if (doc.body) {
+            doc.body.style.colorScheme = 'light only';
+            doc.body.style.backgroundColor = '#ffffff';
+        }
+
+        // Lock emails to light rendering so app dark mode never inverts email colors.
+        const themeLockStyle = doc.createElement('style');
+        themeLockStyle.setAttribute('data-email-theme-lock', 'true');
+        themeLockStyle.textContent = EMAIL_THEME_LOCK_CSS;
+        head.appendChild(themeLockStyle);
+
+        // 4. Add base tag so links open in a new tab
         let baseTag = doc.querySelector('base');
         if (!baseTag) {
             baseTag = doc.createElement('base');
@@ -100,13 +127,11 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         }
         baseTag.setAttribute('target', '_blank');
 
-        const styleTag = doc.createElement('style');
-        styleTag.textContent = `
-      :root, html {
-        /* Force light color-scheme inside email iframe so the browser UA stylesheet
-           does not remap the email's own colors when the app is in dark mode */
-        color-scheme: light !important;
-      }
+        // 5. For plain-text emails only: inject readability styles.
+        //    HTML emails keep their original colors; theme lock above prevents dark-mode inversion.
+        if (!isHtmlEmail) {
+            const styleTag = doc.createElement('style');
+            styleTag.textContent = `
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         font-size: 14px;
@@ -118,22 +143,19 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         overflow-x: hidden !important;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
-        ${isHtmlEmail ? '' : `background-color: ${bodyBg};`}
+        background-color: #ffffff !important;
+        color: #1a1a1a !important;
       }
-      a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
+      a { color: #2563eb; text-decoration: none; word-break: break-all; }
       a:hover { text-decoration: underline; }
       img { max-width: 100% !important; height: auto !important; }
-      table { max-width: 100% !important; }
-      @media (max-width: 768px) {
-        table { width: 100% !important; }
-      }
       td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
       * { box-sizing: border-box !important; }
     `;
-        // Prepend styleTag so it has lower precedence than email-defined stylesheets
-        head.insertBefore(styleTag, baseTag.nextSibling);
+            head.appendChild(styleTag);
+        }
 
-        // 4. Inject iframe resize script in doc.head
+        // 6. Inject iframe auto-resize script
         if (iframeHeightScript) {
             const scriptTag = doc.createElement('script');
             scriptTag.textContent = `
@@ -153,15 +175,9 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             links[i].setAttribute('rel', 'noopener noreferrer');
           }
         }
-        window.addEventListener('load', function() {
-          sendHeight();
-          forceBlankLinks();
-        });
+        window.addEventListener('load', function() { sendHeight(); forceBlankLinks(); });
         window.addEventListener('resize', sendHeight);
-        document.addEventListener('DOMContentLoaded', function() {
-          sendHeight();
-          forceBlankLinks();
-        });
+        document.addEventListener('DOMContentLoaded', function() { sendHeight(); forceBlankLinks(); });
         setTimeout(function() { sendHeight(); forceBlankLinks(); }, 100);
         setTimeout(function() { sendHeight(); forceBlankLinks(); }, 500);
         setTimeout(function() { sendHeight(); forceBlankLinks(); }, 1000);

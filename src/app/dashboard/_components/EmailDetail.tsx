@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
-import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
-import { useChatStore } from '@/store/chatStore';
+import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import toast from 'react-hot-toast';
 
 type Email = {
@@ -33,9 +32,6 @@ export default function EmailDetail({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [iframeHeight, setIframeHeight] = useState('500px');
-  const { theme } = useChatStore();
-  const isDark = theme === 'dark';
-
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
 
@@ -137,12 +133,8 @@ export default function EmailDetail({
 
   const emailHtml = React.useMemo(() => {
     if (!detailEmail) return '';
-    return getEmailHtml(detailEmail, true, isDark);
-  }, [detailEmail?.id, detailEmail?.body, isDark]);
-
-  const isHtmlEmail = React.useMemo(() => {
-    return detailEmail ? isHtml(detailEmail.body || '') : false;
-  }, [detailEmail]);
+    return getEmailHtml(detailEmail, true);
+  }, [detailEmail?.id, detailEmail?.body]);
 
   const sender = parseSender(email.from);
 
@@ -200,12 +192,12 @@ export default function EmailDetail({
 
           {!loading && !error && detailEmail && (
             <>
-              <div className={`${isHtmlEmail ? 'bg-white text-black' : 'bg-surface-subtle text-text-primary'} rounded-xl border border-border p-1 md:p-4`}>
+              <div className="bg-white text-black rounded-xl border border-border p-1 md:p-4">
                 <iframe
                   ref={iframeRef}
                   srcDoc={emailHtml}
-                  style={{ height: iframeHeight }}
-                  className="w-full border-0 overflow-hidden bg-transparent"
+                  style={{ height: iframeHeight, colorScheme: 'light only' }}
+                  className="w-full border-0 overflow-hidden bg-white"
                   scrolling="no"
                   title="Email Body Content"
                   sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
