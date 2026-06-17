@@ -126,6 +126,7 @@ export default function FolderPageClient({
       // Run DB revalidation in the background silently to get any updates
       fetchEmails(false, true);
     } else {
+      setNextPageToken(null);
       // Fetch DB cache (this will fallback to Gmail API fetch if DB cache is empty)
       fetchEmails(false, false);
     }
@@ -517,12 +518,7 @@ export default function FolderPageClient({
     }
   }
 
-  // Trigger loading next page automatically if the visible list is empty but nextPageToken exists
-  useEffect(() => {
-    if (!loading && !loadingMore && uniqueEmails.length === 0 && nextPageToken) {
-      loadMoreEmails();
-    }
-  }, [uniqueEmails.length, nextPageToken, loading, loadingMore]);
+
 
   const getFolderIcon = () => {
     switch (folder) {
