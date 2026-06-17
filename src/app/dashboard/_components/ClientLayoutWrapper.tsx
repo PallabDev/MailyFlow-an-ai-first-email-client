@@ -37,9 +37,10 @@ export default function ClientLayoutWrapper({
       useChatStore.getState().setSidebarWidth(Number(savedWidth));
     }
 
-    // Collapse left sidebar by default on mobile layouts
+    // Collapse sidebars by default on mobile layouts
     if (window.innerWidth < 768) {
       setIsLeftSidebarCollapsed(true);
+      useChatStore.getState().setIsRightSidebarCollapsed(true);
     }
   }, []);
 
