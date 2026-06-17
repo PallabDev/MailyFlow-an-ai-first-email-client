@@ -20,6 +20,53 @@ const is429Error = (err: any): boolean => {
   );
 };
 
+interface ParsedQuery {
+  from?: string;
+  to?: string;
+  subject?: string;
+  label?: string;
+  hasAttachment: boolean;
+  terms: string[];
+}
+
+function parseGmailQuery(q: string): ParsedQuery {
+  const terms: string[] = [];
+  let from: string | undefined;
+  let to: string | undefined;
+  let subject: string | undefined;
+  let label: string | undefined;
+  let hasAttachment = false;
+
+  const regex = /(?:([a-zA-Z]+):(?:"([^"]+)"|([^\s"]+)))|(?:"([^"]+)"|([^\s"]+))/g;
+  let match;
+  while ((match = regex.exec(q)) !== null) {
+    if (match[1]) {
+      const key = match[1].toLowerCase();
+      const val = match[2] || match[3];
+      if (key === 'from') {
+        from = val;
+      } else if (key === 'to') {
+        to = val;
+      } else if (key === 'subject') {
+        subject = val;
+      } else if (key === 'label' || key === 'in') {
+        label = val;
+      } else if (key === 'has') {
+        if (val.toLowerCase() === 'attachment') {
+          hasAttachment = true;
+        }
+      }
+    } else {
+      const term = match[4] || match[5];
+      if (term) {
+        terms.push(term);
+      }
+    }
+  }
+
+  return { from, to, subject, label, hasAttachment, terms };
+}
+
 export async function GET(req: NextRequest) {
   try {
     await ensureGoogleCredentialsSynced();
@@ -81,9 +128,10 @@ export async function GET(req: NextRequest) {
     };
     const targetLabels = labelIdsMap[folder] || ['INBOX'];
 
-    // 1. Try DB cache first if not forceRefresh or if cooldown is active
+    // 1. Try DB cache first if (no search query and not forceRefresh) or if cooldown is active
     const isDbToken = !pageToken || pageToken.startsWith('db_offset:');
-    if ((isDbToken && !forceRefresh || isCooldownActive) && gmailAccount) {
+    const shouldTryCache = (isDbToken && !forceRefresh && !q) || isCooldownActive;
+    if (shouldTryCache && gmailAccount) {
       try {
         let offset = 0;
         if (pageToken && pageToken.startsWith('db_offset:')) {
@@ -93,15 +141,52 @@ export async function GET(req: NextRequest) {
         const conditions = [
           eq(corsairEntities.accountId, gmailAccount.id),
           eq(corsairEntities.entityType, 'messages'),
-          sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
         ];
 
-        if (q) {
-          conditions.push(sql`(
-            ${corsairEntities.data}->>'subject' ILIKE ${`%${q}%`} OR
-            ${corsairEntities.data}->>'snippet' ILIKE ${`%${q}%`} OR
-            ${corsairEntities.data}->>'from' ILIKE ${`%${q}%`}
-          )`);
+        const hasLabelFilter = q ? /\b(in|label|is|category):/i.test(q) : false;
+        const parsedQuery = q ? parseGmailQuery(q) : null;
+
+        if (hasLabelFilter && parsedQuery) {
+          if (parsedQuery.label) {
+            const labelUpper = parsedQuery.label.toUpperCase();
+            let resolvedLabel = labelUpper;
+            if (labelUpper === 'DRAFTS') resolvedLabel = 'DRAFT';
+            if (labelUpper === 'SENT') resolvedLabel = 'SENT';
+            if (labelUpper === 'SPAM') resolvedLabel = 'SPAM';
+            if (labelUpper === 'TRASH') resolvedLabel = 'TRASH';
+            if (labelUpper === 'STARRED') resolvedLabel = 'STARRED';
+            if (labelUpper === 'INBOX') resolvedLabel = 'INBOX';
+
+            if (resolvedLabel !== 'ANYWHERE') {
+              conditions.push(sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify([resolvedLabel])}::jsonb`);
+            }
+          }
+        } else {
+          conditions.push(sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`);
+        }
+
+        if (parsedQuery) {
+          if (parsedQuery.from) {
+            conditions.push(sql`${corsairEntities.data}->>'from' ILIKE ${`%${parsedQuery.from}%`}`);
+          }
+          if (parsedQuery.to) {
+            conditions.push(sql`exists (
+              select 1 from jsonb_array_elements(${corsairEntities.data}->'payload'->'headers') h
+              where (h->>'name') ILIKE 'to' and (h->>'value') ILIKE ${`%${parsedQuery.to}%`}
+            )`);
+          }
+          if (parsedQuery.subject) {
+            conditions.push(sql`${corsairEntities.data}->>'subject' ILIKE ${`%${parsedQuery.subject}%`}`);
+          }
+          if (parsedQuery.terms && parsedQuery.terms.length > 0) {
+            for (const term of parsedQuery.terms) {
+              conditions.push(sql`(
+                ${corsairEntities.data}->>'subject' ILIKE ${`%${term}%`} OR
+                ${corsairEntities.data}->>'snippet' ILIKE ${`%${term}%`} OR
+                ${corsairEntities.data}->>'from' ILIKE ${`%${term}%`}
+              )`);
+            }
+          }
         }
 
         const rows = (await db
@@ -184,10 +269,12 @@ export async function GET(req: NextRequest) {
         const labelIds = labelIdsMap[folder] || ['INBOX'];
 
         const gmailPageToken = (pageToken && !pageToken.startsWith('db_offset:')) ? pageToken : undefined;
+        const hasLabelFilter = q ? /\b(in|label|is|category):/i.test(q) : false;
+
         const listRes = await client.gmail.api.messages.list({
           maxResults: limit,
           pageToken: gmailPageToken,
-          labelIds,
+          labelIds: hasLabelFilter ? undefined : labelIds,
           q: q || undefined,
         });
 

@@ -585,6 +585,18 @@ export default function FolderPageClient({
   const filteredEmails = sortedEmails.filter((email) => {
     const labels = email.labelIds || [];
 
+    // If search query is active, bypass local folder filters since the backend API
+    // already returned the correct set of emails. We only exclude trash/spam
+    // unless the query explicitly requests them.
+    if (debouncedSearch) {
+      const hasSpamTrashFilter = /\b(in|label|is|category):(spam|trash)/i.test(debouncedSearch);
+      if (!hasSpamTrashFilter) {
+        if (labels.includes('TRASH') && folder !== 'trash') return false;
+        if (labels.includes('SPAM') && folder !== 'spam') return false;
+      }
+      return true;
+    }
+
     // If the email is trashed, it should only appear in the trash folder
     if (folder !== 'trash' && labels.includes('TRASH')) {
       return false;
@@ -639,31 +651,11 @@ export default function FolderPageClient({
       );
       if (isTyping) return;
 
-      // Handle shortcuts
+      // Handle shortcuts (Require Alt modifier)
+      if (!e.altKey) return;
+
       switch (e.key) {
-        case 'c':
-        case 'C': {
-          e.preventDefault();
-          setIsComposeOpen(true);
-          break;
-        }
-        case 'Escape': {
-          if (selectedEmail) {
-            e.preventDefault();
-            setSelectedEmail(null);
-          }
-          break;
-        }
-        case 'u':
-        case 'U': {
-          if (selectedEmail) {
-            e.preventDefault();
-            setSelectedEmail(null);
-          }
-          break;
-        }
-        case 'j':
-        case 'J': {
+        case 'ArrowDown': {
           e.preventDefault();
           if (selectedEmail) {
             // Detail view: open next email
@@ -680,8 +672,7 @@ export default function FolderPageClient({
           }
           break;
         }
-        case 'k':
-        case 'K': {
+        case 'ArrowUp': {
           e.preventDefault();
           if (selectedEmail) {
             // Detail view: open previous email
@@ -698,12 +689,18 @@ export default function FolderPageClient({
           }
           break;
         }
-        case 'Enter':
-        case 'o':
-        case 'O': {
+        case 'Enter': {
           if (!selectedEmail && focusedEmailIndex >= 0 && focusedEmailIndex < uniqueEmails.length) {
             e.preventDefault();
             setSelectedEmail(uniqueEmails[focusedEmailIndex]);
+          }
+          break;
+        }
+        case 'Escape':
+        case 'Backspace': {
+          if (selectedEmail) {
+            e.preventDefault();
+            setSelectedEmail(null);
           }
           break;
         }
@@ -726,11 +723,7 @@ export default function FolderPageClient({
           }
           break;
         }
-        case 'e':
-        case 'E':
-        case '#':
-        case 'd':
-        case 'D': {
+        case 'Delete': {
           const activeId = selectedEmail?.id || (focusedEmailIndex >= 0 && uniqueEmails[focusedEmailIndex]?.id);
           if (activeId) {
             e.preventDefault();

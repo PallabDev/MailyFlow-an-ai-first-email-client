@@ -364,56 +364,82 @@ export default function Sidebar({
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 text-sm">
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Navigation</h4>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Navigation (Press Alt + key)</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Next message / row</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">J</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">↓</kbd>
+                    </span>
                   </div>
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Previous message / row</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">K</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">↑</kbd>
+                    </span>
                   </div>
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Open focused message</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Enter / O</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Enter</kbd>
+                    </span>
                   </div>
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Back to list view</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Esc / U</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Esc / Backspace</kbd>
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Actions</h4>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Actions (Press Alt + key)</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
-                    <span className="text-text-secondary text-xs">Compose new message</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">C</kbd>
-                  </div>
-                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Focus reply editor</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">R</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">R</kbd>
+                    </span>
                   </div>
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Star / Unstar email</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">S</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">S</kbd>
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
+                  <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl col-span-2">
                     <span className="text-text-secondary text-xs">Move to Trash</span>
-                    <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">E / D / #</kbd>
+                    <span className="flex items-center space-x-1">
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Alt</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">Delete</kbd>
+                    </span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tab Navigation (Press g then key)</h4>
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tab Navigation (Press Ctrl + Alt + key)</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Inbox</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">I</kbd>
                     </span>
@@ -421,7 +447,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Starred</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">S</kbd>
                     </span>
@@ -429,7 +457,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Drafts</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">D</kbd>
                     </span>
@@ -437,7 +467,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Sent</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">T</kbd>
                     </span>
@@ -445,7 +477,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Spam</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">P</kbd>
                     </span>
@@ -453,7 +487,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl">
                     <span className="text-text-secondary text-xs">Go to Trash</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">X</kbd>
                     </span>
@@ -461,7 +497,9 @@ export default function Sidebar({
                   <div className="flex justify-between items-center bg-background border border-border px-3 py-2 rounded-xl col-span-2">
                     <span className="text-text-secondary text-xs">Go to Calendar</span>
                     <span className="flex items-center space-x-1">
-                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">G</kbd>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Ctrl</kbd>
+                      <span className="text-[10px] text-slate-400">+</span>
+                      <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-[10px] font-bold">Alt</kbd>
                       <span className="text-[10px] text-slate-400">+</span>
                       <kbd className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded shadow-sm text-xs font-bold">C</kbd>
                     </span>

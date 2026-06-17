@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
 import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
+import toast from 'react-hot-toast';
 
 type Email = {
   id: string;
@@ -37,14 +38,10 @@ export default function EmailDetail({
 
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [replySuccess, setReplySuccess] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
 
   const handleSendReply = async () => {
     if (!replyText.trim()) return;
     setSendingReply(true);
-    setReplyError(null);
-    setReplySuccess(false);
     try {
       const recipient = parseSender(email.from).email || email.from;
       const cleanSubject = email.subject.toLowerCase().startsWith('re:') 
@@ -62,14 +59,32 @@ export default function EmailDetail({
       });
 
       if (res.ok) {
-        setReplySuccess(true);
+        toast.success('Reply sent successfully!', {
+          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+          iconTheme: {
+            primary: 'var(--success)',
+            secondary: '#fff',
+          },
+        });
         setReplyText('');
       } else {
         const data = await res.json().catch(() => ({}));
-        setReplyError(data.error || 'Failed to send reply.');
+        toast.error(data.error || 'Failed to send reply.', {
+          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+          iconTheme: {
+            primary: 'var(--danger)',
+            secondary: '#fff',
+          },
+        });
       }
     } catch {
-      setReplyError('Failed to send reply due to network error.');
+      toast.error('Failed to send reply due to network error.', {
+        className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+        iconTheme: {
+          primary: 'var(--danger)',
+          secondary: '#fff',
+        },
+      });
     } finally {
       setSendingReply(false);
     }
@@ -224,16 +239,6 @@ export default function EmailDetail({
                     disabled={sendingReply}
                     className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none"
                   />
-                  {replyError && (
-                    <div className="text-xs text-red-500 font-medium">
-                      ⚠️ {replyError}
-                    </div>
-                  )}
-                  {replySuccess && (
-                    <div className="text-xs text-success font-medium">
-                      ✅ Reply sent successfully!
-                    </div>
-                  )}
                   <div className="flex justify-end">
                     <button
                       onClick={handleSendReply}

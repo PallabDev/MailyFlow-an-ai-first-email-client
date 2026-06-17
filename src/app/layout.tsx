@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import Script from "next/script";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
           {children}
+          <Toaster position="bottom-right" />
         </ClerkProvider>
       </body>
     </html>

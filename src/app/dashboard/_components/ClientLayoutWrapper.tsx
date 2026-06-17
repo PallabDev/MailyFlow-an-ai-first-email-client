@@ -28,9 +28,6 @@ export default function ClientLayoutWrapper({
   const router = useRouter();
 
   useEffect(() => {
-    let gPressed = false;
-    let timer: NodeJS.Timeout | null = null;
-
     const handleKeyDown = (e: KeyboardEvent) => {
       // 1. Only works on desktop mode, not mobile
       if (window.innerWidth < 768) return;
@@ -44,60 +41,53 @@ export default function ClientLayoutWrapper({
       );
       if (isTyping) return;
 
-      const key = e.key.toLowerCase();
+      // Need both Ctrl and Alt modifiers
+      if (!e.ctrlKey || !e.altKey) return;
 
-      if (key === 'g') {
-        gPressed = true;
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          gPressed = false;
-        }, 1500);
-        return;
+      const key = e.key.toLowerCase();
+      let routeTarget = '';
+
+      switch (key) {
+        case 'i':
+          routeTarget = '/dashboard/inbox';
+          break;
+        case 's':
+          routeTarget = '/dashboard/starred';
+          break;
+        case 'd':
+          routeTarget = '/dashboard/draft';
+          break;
+        case 't':
+          routeTarget = '/dashboard/sent';
+          break;
+        case 'p':
+          routeTarget = '/dashboard/spam';
+          break;
+        case 'x':
+          routeTarget = '/dashboard/trash';
+          break;
+        case 'c':
+          routeTarget = '/dashboard/calendar';
+          break;
+        case 'g':
+          routeTarget = '/dashboard/integrations';
+          break;
+        case 'b':
+          routeTarget = '/dashboard/billing';
+          break;
+        default:
+          break;
       }
 
-      if (gPressed) {
-        let routeTarget = '';
-        switch (key) {
-          case 'i':
-            routeTarget = '/dashboard/inbox';
-            break;
-          case 's':
-            routeTarget = '/dashboard/starred';
-            break;
-          case 'd':
-            routeTarget = '/dashboard/draft';
-            break;
-          case 't':
-            routeTarget = '/dashboard/sent';
-            break;
-          case 'p':
-            routeTarget = '/dashboard/spam';
-            break;
-          case 'x':
-            routeTarget = '/dashboard/trash';
-            break;
-          case 'c':
-            routeTarget = '/dashboard/calendar';
-            break;
-          default:
-            break;
-        }
-
-        if (routeTarget) {
-          e.preventDefault();
-          gPressed = false;
-          if (timer) clearTimeout(timer);
-          router.push(routeTarget);
-        } else {
-          gPressed = false;
-        }
+      if (routeTarget) {
+        e.preventDefault();
+        router.push(routeTarget);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      if (timer) clearTimeout(timer);
     };
   }, [router]);
 
