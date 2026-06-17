@@ -2,68 +2,6 @@ export const isHtml = (str: string) => {
   return /<[a-z][\s\S]*>/i.test(str);
 };
 
-// Client-side lightweight HTML sanitizer to prevent stored XSS in emails
-export function sanitizeHtml(html: string): string {
-  if (typeof window === 'undefined') return html;
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    
-    // Remove blacklisted elements
-    const blacklist = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'applet', 'form', 'svg'];
-    blacklist.forEach(tag => {
-      doc.querySelectorAll(tag).forEach(el => el.remove());
-    });
-
-    // Traverse and clean attributes
-    const allElements = doc.querySelectorAll('*');
-    allElements.forEach(el => {
-      // Remove inline event handlers (on*) and javascript: links
-      const attrs = Array.from(el.attributes);
-      attrs.forEach(attr => {
-        const name = attr.name.toLowerCase();
-        const val = attr.value.toLowerCase();
-        
-        if (name.startsWith('on')) {
-          el.removeAttribute(attr.name);
-        } else if ((name === 'href' || name === 'src' || name === 'action') && val.startsWith('javascript:')) {
-          el.removeAttribute(attr.name);
-        }
-      });
-    });
-
-    // Move style tags to body so they are not discarded when returning body.innerHTML
-    doc.querySelectorAll('style').forEach(styleTag => {
-      doc.body.appendChild(styleTag);
-    });
-
-    // Create a wrapper div to preserve body attributes/styles
-    const wrapper = doc.createElement('div');
-    wrapper.id = 'email-body-wrapper';
-    wrapper.style.width = '100%';
-    wrapper.style.minHeight = '100%';
-    
-    // Copy all attributes from body to wrapper
-    if (doc.body) {
-      Array.from(doc.body.attributes).forEach(attr => {
-        // We preserve styling, classes, bgcolor, etc.
-        wrapper.setAttribute(attr.name, attr.value);
-      });
-      
-      // Move all children of body into wrapper
-      while (doc.body.firstChild) {
-        wrapper.appendChild(doc.body.firstChild);
-      }
-      doc.body.appendChild(wrapper);
-    }
-    
-    return doc.body.innerHTML;
-  } catch (e) {
-    console.error('HTML Sanitization failed', e);
-    return '';
-  }
-}
-
 export const formatPlainTextInput = (text: string) => {
   let html = text
     .replace(/&/g, '&amp;')
@@ -95,85 +33,130 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
   let rawHtml = email.body;
   if (!isHtml(rawHtml)) {
     rawHtml = formatPlainTextInput(rawHtml);
-  } else {
-    rawHtml = sanitizeHtml(rawHtml);
   }
 
-  // Resolve parent origin dynamically to enforce strict postMessage destination (prevents wildcard origin vulnerability)
-  const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
+  if (typeof window === 'undefined') return rawHtml;
 
-  const textColor = '#2c2c2a';
-  const linkColor = '#2563eb';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(rawHtml, 'text/html');
 
-  return `
-    <html>
-      <head>
-        <base target="_blank">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
-            color: ${textColor};
-            margin: 0;
-            padding: 8px;
-            box-sizing: border-box;
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow-x: hidden !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
-            background: transparent !important;
+    // 1. Sanitize HTML
+    // Remove blacklisted elements
+    const blacklist = ['script', 'iframe', 'object', 'embed', 'link', 'meta', 'applet', 'form', 'svg'];
+    blacklist.forEach(tag => {
+      doc.querySelectorAll(tag).forEach(el => el.remove());
+    });
+
+    // Traverse and clean attributes
+    const allElements = doc.querySelectorAll('*');
+    allElements.forEach(el => {
+      // Remove inline event handlers (on*) and javascript: links
+      const attrs = Array.from(el.attributes);
+      attrs.forEach(attr => {
+        const name = attr.name.toLowerCase();
+        const val = attr.value.toLowerCase();
+        
+        if (name.startsWith('on')) {
+          el.removeAttribute(attr.name);
+        } else if ((name === 'href' || name === 'src' || name === 'action') && val.startsWith('javascript:')) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+
+    // 2. Resolve parent origin dynamically to enforce strict postMessage destination
+    const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
+    const textColor = isDark ? '#e9e7df' : '#2c2c2a';
+    const linkColor = '#2563eb';
+
+    // 3. Inject our style overrides at the top of doc.head so email stylesheet rules cascade over them
+    let head = doc.head;
+    if (!head) {
+      head = doc.createElement('head');
+      doc.documentElement.insertBefore(head, doc.body);
+    }
+
+    // Add base tag for links
+    let baseTag = doc.querySelector('base');
+    if (!baseTag) {
+      baseTag = doc.createElement('base');
+      head.insertBefore(baseTag, head.firstChild);
+    }
+    baseTag.setAttribute('target', '_blank');
+
+    const styleTag = doc.createElement('style');
+    styleTag.textContent = `
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.6;
+        color: ${textColor};
+        margin: 0;
+        padding: 8px;
+        box-sizing: border-box;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        background: transparent;
+      }
+      a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
+      a:hover { text-decoration: underline; }
+      img { max-width: 100% !important; height: auto !important; }
+      table { max-width: 100% !important; }
+      @media (max-width: 768px) {
+        table { width: 100% !important; }
+      }
+      td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+      * { box-sizing: border-box !important; }
+    `;
+    // Prepend styleTag so it has lower precedence than email-defined stylesheets
+    head.insertBefore(styleTag, baseTag.nextSibling);
+
+    // 4. Inject iframe resize script in doc.head
+    if (iframeHeightScript) {
+      const scriptTag = doc.createElement('script');
+      scriptTag.textContent = `
+        function sendHeight() {
+          var height = Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+            document.body.offsetHeight,
+            document.documentElement.offsetHeight
+          );
+          window.parent.postMessage({ type: 'resize-iframe', height: height }, "${parentOrigin}");
+        }
+        function forceBlankLinks() {
+          var links = document.getElementsByTagName('a');
+          for (var i = 0; i < links.length; i++) {
+            links[i].setAttribute('target', '_blank');
+            links[i].setAttribute('rel', 'noopener noreferrer');
           }
-          a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
-          a:hover { text-decoration: underline; }
-          img { max-width: 100% !important; height: auto !important; }
-          table { max-width: 100% !important; }
-          @media (max-width: 768px) {
-            table { width: 100% !important; }
-          }
-          td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-          * { box-sizing: border-box !important; }
-        </style>
-        ${iframeHeightScript ? `
-        <script>
-          function sendHeight() {
-            var height = Math.max(
-              document.body.scrollHeight,
-              document.documentElement.scrollHeight,
-              document.body.offsetHeight,
-              document.documentElement.offsetHeight
-            );
-            window.parent.postMessage({ type: 'resize-iframe', height: height }, "${parentOrigin}");
-          }
-          function forceBlankLinks() {
-            var links = document.getElementsByTagName('a');
-            for (var i = 0; i < links.length; i++) {
-              links[i].setAttribute('target', '_blank');
-              links[i].setAttribute('rel', 'noopener noreferrer');
-            }
-          }
-          window.addEventListener('load', function() {
-            sendHeight();
-            forceBlankLinks();
-          });
-          window.addEventListener('resize', sendHeight);
-          document.addEventListener('DOMContentLoaded', function() {
-            sendHeight();
-            forceBlankLinks();
-          });
-          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 100);
-          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 500);
-          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 1000);
-          setTimeout(function() { sendHeight(); forceBlankLinks(); }, 2000);
-        </script>
-        ` : ''}
-      </head>
-      <body>
-        ${rawHtml}
-      </body>
-    </html>
-  `;
+        }
+        window.addEventListener('load', function() {
+          sendHeight();
+          forceBlankLinks();
+        });
+        window.addEventListener('resize', sendHeight);
+        document.addEventListener('DOMContentLoaded', function() {
+          sendHeight();
+          forceBlankLinks();
+        });
+        setTimeout(function() { sendHeight(); forceBlankLinks(); }, 100);
+        setTimeout(function() { sendHeight(); forceBlankLinks(); }, 500);
+        setTimeout(function() { sendHeight(); forceBlankLinks(); }, 1000);
+        setTimeout(function() { sendHeight(); forceBlankLinks(); }, 2000);
+      `;
+      head.appendChild(scriptTag);
+    }
+
+    return doc.documentElement.outerHTML;
+
+  } catch (e) {
+    console.error('Failed to parse and generate email HTML:', e);
+    return rawHtml;
+  }
 };
 
 export const parseSender = (sender: string) => {
