@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair, ensureGoogleCredentialsSynced, hasActiveConnection } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
 
@@ -68,10 +69,12 @@ function parseGmailQuery(q: string): ParsedQuery {
 }
 
 export async function GET(req: NextRequest) {
+  let userId: string | null = null;
   try {
     await ensureGoogleCredentialsSynced();
 
-    const { userId } = await auth();
+    const authResult = await auth();
+    userId = authResult.userId;
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
     }
@@ -95,8 +98,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Check if Gmail is currently rate-limited (cooldown)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const cooldownExpiry = await getGmailCooldownExpiration(userId);
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
     let emails: EmailItem[] = [];
@@ -243,7 +245,7 @@ export async function GET(req: NextRequest) {
           } else {
             apiNextPageToken = null;
           }
-          if (rows.length === limit || isCooldownActive) {
+          if (offset === 0 || rows.length === limit || isCooldownActive) {
             fetchedFromGmail = true;
           }
         }
@@ -309,8 +311,7 @@ export async function GET(req: NextRequest) {
                 console.error(`Error fetching email details for message ID ${msg.id}:`, e);
                 if (is429Error(e)) {
                   console.warn('[Emails GET API] Gmail message get returned 429. Setting 20-minute cooldown.');
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+                  if (userId) await setGmailCooldown(userId);
                 }
                 return {
                   id: msg.id!,
@@ -376,8 +377,7 @@ export async function GET(req: NextRequest) {
         console.error('Error fetching directly from Gmail API, trying to fallback to cache:', gmailErr);
         if (is429Error(gmailErr)) {
           console.warn('[Emails GET API] Gmail API list returned 429. Setting 20-minute cooldown.');
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+          if (userId) await setGmailCooldown(userId);
         }
 
         const errStr = gmailErr instanceof Error ? gmailErr.message : String(gmailErr);
@@ -478,8 +478,7 @@ export async function GET(req: NextRequest) {
     console.error('Error in /api/emails:', error);
     if (is429Error(error)) {
       console.warn('[Emails GET API] Outer handler caught 429. Setting 20-minute cooldown.');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+      if (userId) await setGmailCooldown(userId);
     }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {

@@ -8,6 +8,7 @@ import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
 import { Agent, run, tool, OpenAIProvider, setDefaultModelProvider } from '@openai/agents';
 import { processWebhook } from 'corsair';
 import { publishNewEmailEvent } from '@/utils/publish-new-email';
+import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
 
 export const processAICall = inngest.createFunction(
   {
@@ -329,7 +330,7 @@ export const syncGmailWebhook = inngest.createFunction(
     const { headersObj, body, activeTenantId } = event.data;
 
     // Check if there is an active Gmail API 429 rate limit cooldown
-    const cooldownExpiry = (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration;
+    const cooldownExpiry = await getGmailCooldownExpiration(activeTenantId);
     if (cooldownExpiry && Date.now() < cooldownExpiry) {
       const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
       console.warn(`⏳ [Inngest Sync] Skipping sync for tenant ${activeTenantId} due to active 429 cooldown. Remaining: ${remainingSeconds}s.`);
@@ -356,7 +357,7 @@ export const syncGmailWebhook = inngest.createFunction(
       }
       if (isGmail429Error(err)) {
         console.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
-        (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        await setGmailCooldown(activeTenantId);
       }
       throw err;
     }
@@ -463,8 +464,69 @@ export const syncGmailWebhook = inngest.createFunction(
         console.error('Error in custom Gmail sync inside Inngest:', err);
         if (isGmail429Error(err)) {
           console.warn(`[Inngest Sync] Custom sync returned 429. Setting 20-minute cooldown.`);
-          (globalThis as unknown as Record<string, number | undefined>)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+          await setGmailCooldown(activeTenantId);
         }
+      }
+    }
+
+    // 4. Background Sync for Label Counts
+    try {
+      await step.run('sync-label-counts', async () => {
+        const gmailConnected = await hasActiveConnection(activeTenantId, 'gmail');
+        if (!gmailConnected) return;
+
+        const gmailAccount = await db
+          .select({ id: corsairAccounts.id })
+          .from(corsairAccounts)
+          .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+          .where(
+            and(
+              eq(corsairAccounts.tenantId, activeTenantId),
+              eq(corsairIntegrations.name, 'gmail')
+            )
+          )
+          .limit(1)
+          .then((rows) => rows[0]);
+
+        if (!gmailAccount) return;
+
+        const client = corsair.withTenant(activeTenantId);
+        const [inbox, drafts, spam] = await Promise.all([
+          client.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null),
+          client.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null),
+          client.gmail.api.labels.get({ id: 'SPAM' }).catch(() => null),
+        ]);
+
+        const labelsToSave = [
+          { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
+          { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
+          { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } }
+        ];
+
+        for (const label of labelsToSave) {
+          await db
+            .insert(corsairEntities)
+            .values({
+              id: `e_labels_${label.id}_a_${gmailAccount.id}`,
+              accountId: gmailAccount.id,
+              entityId: label.id,
+              entityType: 'labels',
+              version: '1',
+              data: label.data,
+            })
+            .onConflictDoUpdate({
+              target: corsairEntities.id,
+              set: {
+                data: label.data,
+                updatedAt: new Date()
+              }
+            });
+        }
+      });
+    } catch (err) {
+      console.error('Error in background label sync inside Inngest:', err);
+      if (isGmail429Error(err)) {
+        await setGmailCooldown(activeTenantId);
       }
     }
 

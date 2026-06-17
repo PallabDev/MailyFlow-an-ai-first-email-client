@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, jsonb, timestamp, integer, index } from 'drizzle-orm/pg-core';
 
 export const corsairIntegrations = pgTable('corsair_integrations', {
     id: text('id').primaryKey(),
@@ -28,6 +28,13 @@ export const corsairEntities = pgTable('corsair_entities', {
     entityType: text('entity_type').notNull(),
     version: text('version').notNull(),
     data: jsonb('data').notNull().default({}),
+}, (table) => {
+    return [
+        index('entities_account_id_idx').on(table.accountId),
+        index('entities_entity_type_idx').on(table.entityType),
+        index('entities_entity_id_idx').on(table.entityId),
+        index('entities_lookup_idx').on(table.accountId, table.entityType, table.entityId),
+    ];
 });
 
 export const corsairEvents = pgTable('corsair_events', {

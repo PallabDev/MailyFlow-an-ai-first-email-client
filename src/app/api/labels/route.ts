@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db, corsair, hasActiveConnection } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
 import { LabelData } from './_types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,8 +21,10 @@ const is429Error = (err: any): boolean => {
 };
 
 export async function GET(req: NextRequest) {
+  let userId: string | null = null;
   try {
-    const { userId } = await auth();
+    const authResult = await auth();
+    userId = authResult.userId;
     if (!userId) {
       return new Response('Unauthorized', { status: 401 });
     }
@@ -50,8 +53,7 @@ export async function GET(req: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === 'true';
 
     // Check if Gmail is currently rate-limited (cooldown)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cooldownExpiry = (global as any)._gmailCooldownExpiration;
+    const cooldownExpiry = await getGmailCooldownExpiration(userId);
     const isCooldownActive = cooldownExpiry && Date.now() < cooldownExpiry;
 
     // Try to load counts from database cache first
@@ -98,12 +100,11 @@ export async function GET(req: NextRequest) {
 
     const client = corsair.withTenant(userId);
 
-    const handleLabelError = (err: unknown) => {
+    const handleLabelError = async (err: unknown) => {
       const errStr = err instanceof Error ? err.message : String(err);
       if (is429Error(err)) {
         console.warn('[Labels GET API] Gmail API returned 429. Setting 20-minute cooldown.');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+        if (userId) await setGmailCooldown(userId);
       }
       if (errStr.includes('unauthorized_client') || errStr.includes('invalid_grant')) {
         throw err;
@@ -117,6 +118,39 @@ export async function GET(req: NextRequest) {
       client.gmail.api.labels.get({ id: 'DRAFT' }).catch(handleLabelError),
       client.gmail.api.labels.get({ id: 'SPAM' }).catch(handleLabelError),
     ]);
+
+    // Save fetched label counts to database cache
+    if (gmailAccount) {
+      try {
+        const labelsToSave = [
+          { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
+          { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
+          { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } }
+        ];
+
+        for (const label of labelsToSave) {
+          await db
+            .insert(corsairEntities)
+            .values({
+              id: `e_labels_${label.id}_a_${gmailAccount.id}`,
+              accountId: gmailAccount.id,
+              entityId: label.id,
+              entityType: 'labels',
+              version: '1',
+              data: label.data,
+            })
+            .onConflictDoUpdate({
+              target: corsairEntities.id,
+              set: {
+                data: label.data,
+                updatedAt: new Date()
+              }
+            });
+        }
+      } catch (cacheErr) {
+        console.error('Failed to cache labels in DB:', cacheErr);
+      }
+    }
 
     const isGmailConnected = await hasActiveConnection(userId, 'gmail');
     const isCalendarConnected = await hasActiveConnection(userId, 'googlecalendar');
@@ -140,8 +174,7 @@ export async function GET(req: NextRequest) {
     console.error('Error in /api/labels:', error);
     if (is429Error(error)) {
       console.warn('[Labels GET API] Outer handler caught 429. Setting 20-minute cooldown.');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
+      if (userId) await setGmailCooldown(userId);
     }
     let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
