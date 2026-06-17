@@ -46,4 +46,5 @@ next-env.d.ts
 
 # dev-only tools
 /scripts/plan-edit.js
-/src/app/pay-access
+/pay-access/node_modules
+/pay-access

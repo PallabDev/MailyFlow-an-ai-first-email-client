@@ -10,7 +10,7 @@
         "db:push": "npx drizzle-kit push",
         "db:clear": "tsx src/db/clear.ts",
         "db:studio": "drizzle-kit studio",
-        "pay-access": "cross-env Environment=dev next dev"
+        "pay-access": "cd pay-access && npm install && npm start"
     },
     "dependencies": {
         "@clerk/nextjs": "^7.5.1",
@@ -41,7 +41,6 @@
         "@types/pg": "^8.20.0",
         "@types/react": "^19",
         "@types/react-dom": "^19",
-        "cross-env": "^7.0.3",
         "drizzle-kit": "^0.31.10",
         "eslint": "^9",
         "eslint-config-next": "16.2.9",
