@@ -106,7 +106,13 @@ export default function EmailDetail({
     };
 
     fetchDetail();
-  }, [email]);
+  }, [email.id]);
+
+  useEffect(() => {
+    if (detailEmail && email && email.id === detailEmail.id) {
+      setDetailEmail((prev) => prev ? { ...prev, labelIds: email.labelIds } : null);
+    }
+  }, [email.labelIds]);
 
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
 
@@ -130,18 +136,9 @@ export default function EmailDetail({
       <div className="flex-1 overflow-y-auto px-[2.5%] py-3 md:p-6 space-y-4 md:space-y-6">
         <div className="space-y-4 shrink-0">
           <div className="flex items-start justify-between gap-4">
-            <h2 className="text-xl font-extrabold text-text-primary leading-snug">
+            <h2 className="text-xl font-extrabold text-text-primary leading-snug break-all md:break-words">
               {email.subject}
             </h2>
-            {onStar && (
-              <button
-                onClick={() => onStar(email.id)}
-                className="p-2 hover:bg-hover-row rounded-xl transition-colors text-text-muted hover:text-yellow-500 cursor-pointer shrink-0"
-                title={email.labelIds?.includes('STARRED') ? "Unstar Email" : "Star Email"}
-              >
-                <Star className={`h-5 w-5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
-              </button>
-            )}
           </div>
 
           <div className="flex items-center space-x-3 bg-surface-subtle p-2 md:p-4 rounded-xl border border-border">
@@ -153,7 +150,7 @@ export default function EmailDetail({
               <p className="text-sm font-bold text-text-primary truncate leading-none mt-1">
                 {sender.name}
               </p>
-              <p className="text-[10px] text-text-muted truncate mt-1">
+              <p className="text-[10px] text-text-muted dark:text-slate-300 break-all mt-1">
                 {sender.email}
               </p>
             </div>

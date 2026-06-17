@@ -146,7 +146,7 @@ export default function FolderPageClient({
     }
     setEmailErrorState(null);
     try {
-      const res = await fetch(`/api/emails?folder=${folder}&limit=20${force ? '&refresh=true' : ''}`);
+      const res = await fetch(`/api/emails?folder=${folder}&limit=35${force ? '&refresh=true' : ''}`);
       if (res.ok) {
         const data = await res.json();
         let fetchedEmails = data.emails ?? [];
@@ -345,7 +345,7 @@ export default function FolderPageClient({
       }
 
       try {
-        const res = await fetch(`/api/emails?folder=${folder}&limit=20`);
+        const res = await fetch(`/api/emails?folder=${folder}&limit=35`);
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
@@ -414,7 +414,7 @@ export default function FolderPageClient({
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=20&folder=${folder}`);
+      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=35&folder=${folder}`);
       if (res.ok) {
         const data = await res.json();
         if (data.emails && data.emails.length > 0) {
@@ -842,20 +842,18 @@ export default function FolderPageClient({
                   }}
                   className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
                     isUnread ? 'bg-mail-unread-bg' : 'bg-mail-read-bg'
-                  } ${isSelected ? 'bg-success/5 border-l-2 border-success pl-[22px]' : ''}`}
+                  } ${isSelected ? 'bg-blue-500/10 dark:bg-blue-400/10' : ''}`}
                 >
 
 
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    {/* Checkbox (Desktop only, visible on hover or if selected) */}
+                    {/* Checkbox (Desktop only, always visible) */}
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleSelectEmail(email.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className={`h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer transition-opacity duration-200 hidden md:block shrink-0 ${
-                        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}
+                      className="h-4.5 w-4.5 rounded-md border-2 border-border text-success focus:ring-success accent-success bg-background cursor-pointer hidden md:block shrink-0"
                     />
 
                     {/* Star Button (Desktop only) */}
