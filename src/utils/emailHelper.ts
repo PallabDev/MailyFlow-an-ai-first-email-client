@@ -88,6 +88,11 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
 
         const styleTag = doc.createElement('style');
         styleTag.textContent = `
+      :root, html {
+        /* Force light color-scheme inside email iframe so the browser UA stylesheet
+           does not remap the email's own colors when the app is in dark mode */
+        color-scheme: light !important;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         font-size: 14px;
