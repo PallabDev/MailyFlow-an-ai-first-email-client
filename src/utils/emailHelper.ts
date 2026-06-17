@@ -128,8 +128,11 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
           a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
           a:hover { text-decoration: underline; }
           img { max-width: 100% !important; height: auto !important; }
-          table { max-width: 100% !important; width: 100% !important; table-layout: fixed !important; }
-          td, div, p, span { max-width: 100% !important; word-break: break-word !important; overflow-wrap: break-word !important; }
+          table { max-width: 100% !important; }
+          @media (max-width: 768px) {
+            table { width: 100% !important; }
+          }
+          td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
           * { box-sizing: border-box !important; }
         </style>
         ${iframeHeightScript ? `

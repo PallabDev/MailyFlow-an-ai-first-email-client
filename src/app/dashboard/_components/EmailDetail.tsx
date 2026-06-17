@@ -129,6 +129,11 @@ export default function EmailDetail({
     return () => window.removeEventListener('message', handleMessage);
   }, [detailEmail]);
 
+  const emailHtml = React.useMemo(() => {
+    if (!detailEmail) return '';
+    return getEmailHtml(detailEmail, true, isDark);
+  }, [detailEmail?.id, detailEmail?.body, isDark]);
+
   const sender = parseSender(email.from);
 
   return (
@@ -136,7 +141,7 @@ export default function EmailDetail({
       <div className="flex-1 overflow-y-auto px-[2.5%] py-3 md:p-6 space-y-4 md:space-y-6">
         <div className="space-y-4 shrink-0">
           <div className="flex items-start justify-between gap-4">
-            <h2 className="text-xl font-extrabold text-text-primary leading-snug break-all md:break-words">
+            <h2 className="text-xl font-extrabold text-text-primary leading-snug break-words [word-break:break-word]">
               {email.subject}
             </h2>
           </div>
@@ -150,7 +155,7 @@ export default function EmailDetail({
               <p className="text-sm font-bold text-text-primary truncate leading-none mt-1">
                 {sender.name}
               </p>
-              <p className="text-[10px] text-text-muted dark:text-slate-300 break-all mt-1">
+              <p className="text-[10px] text-text-muted dark:text-text-secondary break-all mt-1">
                 {sender.email}
               </p>
             </div>
@@ -188,7 +193,7 @@ export default function EmailDetail({
               <div className="bg-surface-subtle rounded-xl border border-border p-1 md:p-4">
                 <iframe
                   ref={iframeRef}
-                  srcDoc={getEmailHtml(detailEmail, true, isDark)}
+                  srcDoc={emailHtml}
                   style={{ height: iframeHeight }}
                   className="w-full border-0 overflow-hidden bg-transparent"
                   scrolling="no"

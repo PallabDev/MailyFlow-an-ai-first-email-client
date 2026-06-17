@@ -632,13 +632,15 @@ export default function FolderPageClient({
               </button>
             </div>
             <div className="flex items-center space-x-2">
-              <button
-                onClick={() => toggleStarEmail(selectedEmail.id)}
-                className="p-2 text-text-secondary hover:text-yellow-500 hover:bg-yellow-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
-                title={selectedEmail.labelIds?.includes('STARRED') ? "Unstar Email" : "Star Email"}
-              >
-                <Star className={`h-4.5 w-4.5 ${selectedEmail.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
-              </button>
+              {folder !== 'sent' && (
+                <button
+                  onClick={() => toggleStarEmail(selectedEmail.id)}
+                  className="p-2 text-text-secondary hover:text-yellow-500 hover:bg-yellow-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+                  title={selectedEmail.labelIds?.includes('STARRED') ? "Unstar Email" : "Star Email"}
+                >
+                  <Star className={`h-4.5 w-4.5 ${selectedEmail.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+                </button>
+              )}
               <button
                 onClick={() => handleTrashEmail(selectedEmail.id)}
                 className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer flex items-center justify-center"
@@ -750,7 +752,9 @@ export default function FolderPageClient({
                       <div className="hidden md:block h-4 w-4 bg-surface-subtle rounded shrink-0"></div>
 
                       {/* Star Skeleton (Desktop only) */}
-                      <div className="hidden md:block h-4.5 w-4.5 bg-surface-subtle rounded shrink-0"></div>
+                      {folder !== 'sent' && (
+                        <div className="hidden md:block h-4.5 w-4.5 bg-surface-subtle rounded shrink-0"></div>
+                      )}
 
                       {/* Avatar Skeleton (Mobile only) */}
                       <div className="md:hidden block h-10 w-10 shrink-0 rounded-full bg-surface-subtle"></div>
@@ -857,15 +861,17 @@ export default function FolderPageClient({
                     />
 
                     {/* Star Button (Desktop only) */}
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleStarEmail(email.id);
-                      }}
-                      className="p-1 hover:bg-hover-row rounded transition-colors text-text-muted hover:text-yellow-500 cursor-pointer hidden md:block shrink-0"
-                    >
-                      <Star className={`h-4.5 w-4.5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
-                    </button>
+                    {folder !== 'sent' && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStarEmail(email.id);
+                        }}
+                        className="p-1 hover:bg-hover-row rounded transition-colors text-text-muted hover:text-yellow-500 cursor-pointer hidden md:block shrink-0"
+                      >
+                        <Star className={`h-4.5 w-4.5 ${email.labelIds?.includes('STARRED') ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
+                      </button>
+                    )}
 
                     {/* Avatar (Mobile only, hidden on desktop) */}
                     <div 
