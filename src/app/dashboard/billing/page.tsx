@@ -35,7 +35,7 @@ const PLANS = [
   },
   {
     name: "Professional",
-    price: "₹599",
+    price: "₹1,499",
     priceNote: "/month",
     ops: "30 AI operations / day",
     features: [
@@ -47,7 +47,7 @@ const PLANS = [
   },
   {
     name: "Business",
-    price: "₹999",
+    price: "₹2,999",
     priceNote: "/month",
     ops: "100 AI operations / day",
     features: [

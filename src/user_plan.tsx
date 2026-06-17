@@ -349,8 +349,8 @@ export default function UserPlanEditor() {
                     className="w-full bg-background border border-border focus:border-accent text-text-primary rounded-xl py-2.5 pl-4 pr-10 text-sm outline-none transition-colors appearance-none cursor-pointer"
                   >
                     <option value="Starter">Starter (Free plan limits)</option>
-                    <option value="Professional">Professional (₹599/mo premium tier)</option>
-                    <option value="Business">Business (₹999/mo business tier)</option>
+                    <option value="Professional">Professional (₹1,499/mo premium tier)</option>
+                    <option value="Business">Business (₹2,999/mo business tier)</option>
                   </select>
                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted pointer-events-none" />
                 </div>
