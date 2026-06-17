@@ -31,6 +31,31 @@ export function sanitizeHtml(html: string): string {
         }
       });
     });
+
+    // Move style tags to body so they are not discarded when returning body.innerHTML
+    doc.querySelectorAll('style').forEach(styleTag => {
+      doc.body.appendChild(styleTag);
+    });
+
+    // Create a wrapper div to preserve body attributes/styles
+    const wrapper = doc.createElement('div');
+    wrapper.id = 'email-body-wrapper';
+    wrapper.style.width = '100%';
+    wrapper.style.minHeight = '100%';
+    
+    // Copy all attributes from body to wrapper
+    if (doc.body) {
+      Array.from(doc.body.attributes).forEach(attr => {
+        // We preserve styling, classes, bgcolor, etc.
+        wrapper.setAttribute(attr.name, attr.value);
+      });
+      
+      // Move all children of body into wrapper
+      while (doc.body.firstChild) {
+        wrapper.appendChild(doc.body.firstChild);
+      }
+      doc.body.appendChild(wrapper);
+    }
     
     return doc.body.innerHTML;
   } catch (e) {
@@ -91,7 +116,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             line-height: 1.6;
             color: ${textColor};
             margin: 0;
-            padding: 16px;
+            padding: 8px;
             box-sizing: border-box;
             width: 100% !important;
             max-width: 100% !important;
@@ -102,9 +127,10 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
           }
           a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
           a:hover { text-decoration: underline; }
-          img { max-width: 100% !important; height: auto; }
-          table { max-width: 100% !important; table-layout: fixed !important; }
-          * { box-sizing: border-box !important; word-break: break-word !important; }
+          img { max-width: 100% !important; height: auto !important; }
+          table { max-width: 100% !important; width: 100% !important; table-layout: fixed !important; }
+          td, div, p, span { max-width: 100% !important; word-break: break-word !important; overflow-wrap: break-word !important; }
+          * { box-sizing: border-box !important; }
         </style>
         ${iframeHeightScript ? `
         <script>
