@@ -78,7 +78,8 @@ export async function GET(req: NextRequest) {
     const targetLabels = labelIdsMap[folder] || ['INBOX'];
 
     // 1. Try DB cache first if not forceRefresh or if cooldown is active
-    if ((!forceRefresh || isCooldownActive) && gmailAccount) {
+    const isDbToken = !pageToken || pageToken.startsWith('db_offset:');
+    if ((isDbToken && !forceRefresh || isCooldownActive) && gmailAccount) {
       try {
         let offset = 0;
         if (pageToken && pageToken.startsWith('db_offset:')) {
@@ -145,7 +146,9 @@ export async function GET(req: NextRequest) {
           } else {
             apiNextPageToken = null;
           }
-          fetchedFromGmail = true;
+          if (rows.length === limit || isCooldownActive) {
+            fetchedFromGmail = true;
+          }
         }
       } catch (dbErr) {
         console.error('Error fetching emails from DB cache:', dbErr);
@@ -167,9 +170,10 @@ export async function GET(req: NextRequest) {
         };
         const labelIds = labelIdsMap[folder] || ['INBOX'];
 
+        const gmailPageToken = (pageToken && !pageToken.startsWith('db_offset:')) ? pageToken : undefined;
         const listRes = await client.gmail.api.messages.list({
           maxResults: limit,
-          pageToken,
+          pageToken: gmailPageToken,
           labelIds,
         });
 

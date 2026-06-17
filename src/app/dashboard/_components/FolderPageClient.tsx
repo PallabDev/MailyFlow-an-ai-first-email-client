@@ -342,7 +342,7 @@ export default function FolderPageClient({
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=50&folder=${folder}`);
+      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=20&folder=${folder}`);
       if (res.ok) {
         const data = await res.json();
         if (data.emails && data.emails.length > 0) {
