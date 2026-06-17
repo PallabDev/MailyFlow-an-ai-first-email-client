@@ -78,6 +78,20 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             doc.documentElement.insertBefore(head, doc.body);
         }
 
+        // Force light color-scheme at browser meta level so the parent app's
+        // dark color-scheme is NOT inherited into this iframe document.
+        // A <meta name="color-scheme"> overrides inheritance from the parent frame.
+        let colorSchemeMeta = doc.querySelector('meta[name="color-scheme"]');
+        if (!colorSchemeMeta) {
+            colorSchemeMeta = doc.createElement('meta');
+            colorSchemeMeta.setAttribute('name', 'color-scheme');
+            head.insertBefore(colorSchemeMeta, head.firstChild);
+        }
+        colorSchemeMeta.setAttribute('content', 'light only');
+
+        // Also set it as an inline style on <html> (highest CSS specificity, beats !important in sheets)
+        doc.documentElement.style.colorScheme = 'light';
+
         // Add base tag for links
         let baseTag = doc.querySelector('base');
         if (!baseTag) {
