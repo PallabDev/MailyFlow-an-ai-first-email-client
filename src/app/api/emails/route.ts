@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const folder = searchParams.get('folder') || 'inbox';
     const forceRefresh = searchParams.get('refresh') === 'true';
+    const q = searchParams.get('q') || undefined;
 
     // Check Gmail Connection via hasActiveConnection
     const hasGmailConnection = await hasActiveConnection(userId, 'gmail');
@@ -87,16 +88,24 @@ export async function GET(req: NextRequest) {
           offset = parseInt(pageToken.split(':')[1], 10) || 0;
         }
 
+        const conditions = [
+          eq(corsairEntities.accountId, gmailAccount.id),
+          eq(corsairEntities.entityType, 'messages'),
+          sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
+        ];
+
+        if (q) {
+          conditions.push(sql`(
+            ${corsairEntities.data}->>'subject' ILIKE ${`%${q}%`} OR
+            ${corsairEntities.data}->>'snippet' ILIKE ${`%${q}%`} OR
+            ${corsairEntities.data}->>'from' ILIKE ${`%${q}%`}
+          )`);
+        }
+
         const rows = (await db
           .select()
           .from(corsairEntities)
-          .where(
-            and(
-              eq(corsairEntities.accountId, gmailAccount.id),
-              eq(corsairEntities.entityType, 'messages'),
-              sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
-            )
-          )
+          .where(and(...conditions))
           .orderBy(desc(sql`coalesce((${corsairEntities.data}->>'internalDate')::bigint, extract(epoch from ${corsairEntities.createdAt})::bigint * 1000)`))
           .limit(limit)
           .offset(offset)) as CorsairEntityRow[];
@@ -177,6 +186,7 @@ export async function GET(req: NextRequest) {
           maxResults: limit,
           pageToken: gmailPageToken,
           labelIds,
+          q: q || undefined,
         });
 
         const messages = listRes.messages as GmailMessageSummary[] | undefined;
@@ -292,16 +302,24 @@ export async function GET(req: NextRequest) {
               offset = parseInt(pageToken.split(':')[1], 10) || 0;
             }
 
+            const conditions = [
+              eq(corsairEntities.accountId, gmailAccount.id),
+              eq(corsairEntities.entityType, 'messages'),
+              sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
+            ];
+
+            if (q) {
+              conditions.push(sql`(
+                ${corsairEntities.data}->>'subject' ILIKE ${`%${q}%`} OR
+                ${corsairEntities.data}->>'snippet' ILIKE ${`%${q}%`} OR
+                ${corsairEntities.data}->>'from' ILIKE ${`%${q}%`}
+              )`);
+            }
+
             const rows = (await db
               .select()
               .from(corsairEntities)
-              .where(
-                and(
-                  eq(corsairEntities.accountId, gmailAccount.id),
-                  eq(corsairEntities.entityType, 'messages'),
-                  sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
-                )
-              )
+              .where(and(...conditions))
               .orderBy(desc(sql`coalesce((${corsairEntities.data}->>'internalDate')::bigint, extract(epoch from ${corsairEntities.createdAt})::bigint * 1000)`))
               .limit(limit)
               .offset(offset)) as CorsairEntityRow[];

@@ -59,6 +59,35 @@ export default function FolderPageClient({
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
 
+  // Debounced search query state to prevent excessive API hits
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Keyboard navigation focus index and scroll handling
+  const [focusedEmailIndex, setFocusedEmailIndex] = useState<number>(-1);
+  const focusedEmailRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto scroll focused row into viewport
+  useEffect(() => {
+    if (focusedEmailIndex >= 0 && focusedEmailRef.current) {
+      focusedEmailRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [focusedEmailIndex]);
+
+  // Reset focus index when folder or search query changes
+  useEffect(() => {
+    setFocusedEmailIndex(-1);
+  }, [folder, debouncedSearch]);
+
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLongPressRef = useRef(false);
 
@@ -146,7 +175,8 @@ export default function FolderPageClient({
     }
     setEmailErrorState(null);
     try {
-      const res = await fetch(`/api/emails?folder=${folder}&limit=35${force ? '&refresh=true' : ''}`);
+      const qParam = debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : '';
+      const res = await fetch(`/api/emails?folder=${folder}&limit=35${force ? '&refresh=true' : ''}${qParam}`);
       if (res.ok) {
         const data = await res.json();
         let fetchedEmails = data.emails ?? [];
@@ -190,6 +220,12 @@ export default function FolderPageClient({
     setSelectedEmail(null);
     setSelectedEmails(new Set()); // Reset selected on folder change
     
+    if (debouncedSearch) {
+      setNextPageToken(null);
+      fetchEmails(false, false);
+      return;
+    }
+
     const cached = emailCache[folder];
     if (cached) {
       setEmailsState(cached.emails);
@@ -202,7 +238,7 @@ export default function FolderPageClient({
       // Fetch DB cache (this will fallback to Gmail API fetch if DB cache is empty)
       fetchEmails(false, false);
     }
-  }, [folder]);
+  }, [folder, debouncedSearch]);
 
   // Connect to real-time new email events pushed from Corsair webhooks
   useEffect(() => {
@@ -345,7 +381,8 @@ export default function FolderPageClient({
       }
 
       try {
-        const res = await fetch(`/api/emails?folder=${folder}&limit=35`);
+        const qParam = debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : '';
+        const res = await fetch(`/api/emails?folder=${folder}&limit=35${qParam}`);
         if (!active) return;
         if (res.ok) {
           const data = await res.json();
@@ -408,13 +445,14 @@ export default function FolderPageClient({
       active = false;
       clearInterval(interval);
     };
-  }, [folder]);
+  }, [folder, debouncedSearch]);
 
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);
     try {
-      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=35&folder=${folder}`);
+      const qParam = debouncedSearch ? `&q=${encodeURIComponent(debouncedSearch)}` : '';
+      const res = await fetch(`/api/emails?pageToken=${encodeURIComponent(nextPageToken)}&limit=35&folder=${folder}${qParam}`);
       if (res.ok) {
         const data = await res.json();
         if (data.emails && data.emails.length > 0) {
@@ -573,11 +611,7 @@ export default function FolderPageClient({
       if (!labels.includes('TRASH') && !email.id.includes('trash')) return false;
     }
 
-    return (
-      email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.snippet.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return true;
   });
 
   // Deduplicate emails by ID to avoid duplicate key console warnings and UI duplicate items
@@ -589,6 +623,126 @@ export default function FolderPageClient({
       uniqueEmails.push(email);
     }
   }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Check if user is typing in any input/textarea
+      const activeEl = document.activeElement;
+      const isTyping = activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.getAttribute('contenteditable') === 'true'
+      );
+      if (isTyping) return;
+
+      // Handle shortcuts
+      switch (e.key) {
+        case 'c':
+        case 'C': {
+          e.preventDefault();
+          setIsComposeOpen(true);
+          break;
+        }
+        case 'Escape': {
+          if (selectedEmail) {
+            e.preventDefault();
+            setSelectedEmail(null);
+          }
+          break;
+        }
+        case 'u':
+        case 'U': {
+          if (selectedEmail) {
+            e.preventDefault();
+            setSelectedEmail(null);
+          }
+          break;
+        }
+        case 'j':
+        case 'J': {
+          e.preventDefault();
+          if (selectedEmail) {
+            // Detail view: open next email
+            const currentIndex = uniqueEmails.findIndex(m => m.id === selectedEmail.id);
+            if (currentIndex !== -1 && currentIndex < uniqueEmails.length - 1) {
+              setSelectedEmail(uniqueEmails[currentIndex + 1]);
+            }
+          } else {
+            // List view: navigate focus index down
+            setFocusedEmailIndex(prev => {
+              const next = prev + 1;
+              return next < uniqueEmails.length ? next : prev;
+            });
+          }
+          break;
+        }
+        case 'k':
+        case 'K': {
+          e.preventDefault();
+          if (selectedEmail) {
+            // Detail view: open previous email
+            const currentIndex = uniqueEmails.findIndex(m => m.id === selectedEmail.id);
+            if (currentIndex > 0) {
+              setSelectedEmail(uniqueEmails[currentIndex - 1]);
+            }
+          } else {
+            // List view: navigate focus index up
+            setFocusedEmailIndex(prev => {
+              const next = prev - 1;
+              return next >= 0 ? next : prev;
+            });
+          }
+          break;
+        }
+        case 'Enter':
+        case 'o':
+        case 'O': {
+          if (!selectedEmail && focusedEmailIndex >= 0 && focusedEmailIndex < uniqueEmails.length) {
+            e.preventDefault();
+            setSelectedEmail(uniqueEmails[focusedEmailIndex]);
+          }
+          break;
+        }
+        case 'r':
+        case 'R': {
+          if (selectedEmail) {
+            e.preventDefault();
+            // Focus reply textarea inside EmailDetail
+            const replyTextArea = document.querySelector('textarea[placeholder="Type your reply here..."]') as HTMLTextAreaElement;
+            replyTextArea?.focus();
+          }
+          break;
+        }
+        case 's':
+        case 'S': {
+          const activeId = selectedEmail?.id || (focusedEmailIndex >= 0 && uniqueEmails[focusedEmailIndex]?.id);
+          if (activeId) {
+            e.preventDefault();
+            toggleStarEmail(activeId);
+          }
+          break;
+        }
+        case 'e':
+        case 'E':
+        case '#':
+        case 'd':
+        case 'D': {
+          const activeId = selectedEmail?.id || (focusedEmailIndex >= 0 && uniqueEmails[focusedEmailIndex]?.id);
+          if (activeId) {
+            e.preventDefault();
+            handleTrashEmail(activeId);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [selectedEmail, focusedEmailIndex, uniqueEmails]);
 
 
 
@@ -802,10 +956,12 @@ export default function FolderPageClient({
               const sender = parseSender(email.from);
               const isSelected = selectedEmails.has(email.id);
               const isUnread = email.labelIds ? email.labelIds.includes('UNREAD') : idx < 3;
+              const isFocused = focusedEmailIndex === idx;
 
               return (
                 <div
                   key={`${email.id}-${idx}`}
+                  ref={isFocused ? focusedEmailRef : null}
                   onMouseDown={() => startLongPress(email.id)}
                   onMouseUp={cancelLongPress}
                   onTouchStart={() => startLongPress(email.id)}
@@ -846,7 +1002,9 @@ export default function FolderPageClient({
                   }}
                   className={`group flex items-center px-6 py-4 transition-colors hover:bg-hover-row cursor-pointer relative ${
                     isUnread ? 'bg-mail-unread-bg' : 'bg-mail-read-bg'
-                  } ${isSelected ? 'bg-blue-500/10 dark:bg-blue-400/10' : ''}`}
+                  } ${isSelected ? 'bg-blue-500/10 dark:bg-blue-400/10' : ''} ${
+                    isFocused ? 'ring-2 ring-inset ring-success/30 bg-hover-row border-l-4 border-success' : 'border-l-4 border-transparent'
+                  }`}
                 >
 
 

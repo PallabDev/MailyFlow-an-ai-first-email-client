@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, RefreshCw, AlertCircle, CornerUpLeft, Send, Star } from 'lucide-react';
-import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
+import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 
 type Email = {
@@ -134,6 +134,10 @@ export default function EmailDetail({
     return getEmailHtml(detailEmail, true, isDark);
   }, [detailEmail?.id, detailEmail?.body, isDark]);
 
+  const isHtmlEmail = React.useMemo(() => {
+    return detailEmail ? isHtml(detailEmail.body || '') : false;
+  }, [detailEmail]);
+
   const sender = parseSender(email.from);
 
   return (
@@ -190,7 +194,7 @@ export default function EmailDetail({
 
           {!loading && !error && detailEmail && (
             <>
-              <div className="bg-surface-subtle rounded-xl border border-border p-1 md:p-4">
+              <div className={`${isHtmlEmail ? 'bg-white text-black' : 'bg-surface-subtle text-text-primary'} rounded-xl border border-border p-1 md:p-4`}>
                 <iframe
                   ref={iframeRef}
                   srcDoc={emailHtml}
