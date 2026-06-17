@@ -642,6 +642,11 @@ export default function FolderPageClient({
       // 1. Only works on desktop mode, not mobile
       if (window.innerWidth < 768) return;
 
+      // 1b. Never block copy/paste/cut/select-all actions
+      if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a'].includes(e.key.toLowerCase())) {
+        return;
+      }
+
       // Check if user is typing in any input/textarea
       const activeEl = document.activeElement;
       const isTyping = activeEl && (

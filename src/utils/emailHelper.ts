@@ -68,8 +68,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         // 2. Resolve parent origin dynamically to enforce strict postMessage destination
         const parentOrigin = typeof window !== 'undefined' ? window.location.origin : '*';
         const isHtmlEmail = isHtml(email.body);
-        const textColor = isHtmlEmail ? '#1a1a1a' : (isDark ? '#e9e7df' : '#2c2c2a');
-        const bodyBg = isHtmlEmail ? '#ffffff' : '#969595ff';
+        const bodyBg = isHtmlEmail ? '#1A1A1A/60' : '#1A1A1A/60';
         const linkColor = '#2563eb';
 
         // 3. Inject our style overrides at the top of doc.head so email stylesheet rules cascade over them
@@ -93,7 +92,6 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         font-size: 14px;
         line-height: 1.6;
-        color: ${textColor};
         margin: 0;
         padding: 8px;
         box-sizing: border-box;
@@ -101,7 +99,7 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
         overflow-x: hidden !important;
         word-wrap: break-word !important;
         overflow-wrap: break-word !important;
-        background-color: ${bodyBg};
+        ${isHtmlEmail ? '' : `background-color: ${bodyBg};`}
       }
       a { color: ${linkColor}; text-decoration: none; word-break: break-all; }
       a:hover { text-decoration: underline; }

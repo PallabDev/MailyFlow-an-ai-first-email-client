@@ -61,29 +61,20 @@ export default function EmailDetail({
       if (res.ok) {
         toast.success('Reply sent successfully!', {
           className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-          iconTheme: {
-            primary: 'var(--success)',
-            secondary: '#fff',
-          },
+          icon: null,
         });
         setReplyText('');
       } else {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error || 'Failed to send reply.', {
           className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-          iconTheme: {
-            primary: 'var(--danger)',
-            secondary: '#fff',
-          },
+          icon: null,
         });
       }
     } catch {
       toast.error('Failed to send reply due to network error.', {
         className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        iconTheme: {
-          primary: 'var(--danger)',
-          secondary: '#fff',
-        },
+        icon: null,
       });
     } finally {
       setSendingReply(false);
