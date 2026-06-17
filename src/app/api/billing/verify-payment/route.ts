@@ -36,7 +36,11 @@ export async function POST(req: NextRequest) {
       .update(signatureData)
       .digest('hex');
 
-    const isVerified = expectedSignature === razorpay_signature;
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf-8');
+    const actualBuffer = Buffer.from(razorpay_signature, 'utf-8');
+
+    const isVerified = expectedBuffer.length === actualBuffer.length &&
+      crypto.timingSafeEqual(expectedBuffer, actualBuffer);
 
     if (!isVerified) {
       console.error('Invalid payment signature computed');
