@@ -70,6 +70,24 @@ export function useEmailSocket({ onNewEmail, enabled = true }: UseEmailSocketOpt
         }
       });
 
+      socket.on('email-draft-ready', (data: { emailId: string; text: string }) => {
+        if (data?.emailId && data?.text) {
+          console.log('📱 [Socket] Received email-draft-ready event for ID:', data.emailId);
+          window.dispatchEvent(
+            new CustomEvent('mailyflow-draft-ready', { detail: { emailId: data.emailId, text: data.text } })
+          );
+        }
+      });
+
+      socket.on('email-draft-failed', (data: { emailId: string; error: string }) => {
+        if (data?.emailId) {
+          console.log('📱 [Socket] Received email-draft-failed event for ID:', data.emailId);
+          window.dispatchEvent(
+            new CustomEvent('mailyflow-draft-failed', { detail: { emailId: data.emailId, error: data.error } })
+          );
+        }
+      });
+
       socket.on('connect_error', async (err) => {
         console.warn('📱 [Socket] Connection error:', err.message);
         if (err.message === 'Unauthorized' && socket) {

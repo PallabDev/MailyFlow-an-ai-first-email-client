@@ -244,24 +244,18 @@ export default function EmailDetail({
         body: JSON.stringify({ emailId: email.id }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setReplyText(data.text || '');
-        toast.success('AI response draft ready!', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        });
-      } else {
+      if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         toast.error(data.error || 'Failed to generate AI response draft.', {
           className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
         });
+        setDraftingReply(false);
       }
     } catch (err) {
       console.error(err);
       toast.error('Connection error generating AI draft.', {
         className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
       });
-    } finally {
       setDraftingReply(false);
     }
   };
@@ -292,6 +286,40 @@ export default function EmailDetail({
       window.removeEventListener('mailyflow-summary-ready', handleSummaryReady);
       window.removeEventListener('mailyflow-summary-failed', handleSummaryFailed);
       window.removeEventListener('mailyflow-demo-summary-ready', handleSummaryReady);
+    };
+  }, [email.id]);
+
+  // Socket listeners for reply drafts
+  useEffect(() => {
+    const handleDraftReady = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.emailId === email.id) {
+        setReplyText(customEvent.detail.text || '');
+        setDraftingReply(false);
+        toast.success('AI response draft ready!', {
+          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+        });
+      }
+    };
+
+    const handleDraftFailed = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.emailId === email.id) {
+        toast.error(customEvent.detail.error || 'Failed to generate AI response draft.', {
+          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+        });
+        setDraftingReply(false);
+      }
+    };
+
+    window.addEventListener('mailyflow-draft-ready', handleDraftReady);
+    window.addEventListener('mailyflow-draft-failed', handleDraftFailed);
+    window.addEventListener('mailyflow-demo-draft-ready', handleDraftReady);
+
+    return () => {
+      window.removeEventListener('mailyflow-draft-ready', handleDraftReady);
+      window.removeEventListener('mailyflow-draft-failed', handleDraftFailed);
+      window.removeEventListener('mailyflow-demo-draft-ready', handleDraftReady);
     };
   }, [email.id]);
 
@@ -428,7 +456,7 @@ export default function EmailDetail({
               {summaryLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-3 select-none">
                   <div className="h-5 w-5 rounded-full border-2 border-success/30 border-t-success animate-spin"></div>
-                  <span className="text-xs text-text-secondary font-bold animate-pulse">Running Inngest summary flow...</span>
+                  <span className="text-xs text-text-secondary font-bold animate-pulse">Summarizing...</span>
                 </div>
               ) : (
                 <div className="whitespace-pre-line text-text-secondary">

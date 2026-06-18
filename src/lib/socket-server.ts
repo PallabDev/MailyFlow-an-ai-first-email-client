@@ -7,7 +7,6 @@ import type { NewEmailSocketEvent } from '@/types/socket';
 
 export type { NewEmailSocketEvent };
 
-let io: SocketIOServer | null = null;
 let bridgeRegistered = false;
 
 const recentSocketEvents = new Map<string, number>();
@@ -32,9 +31,9 @@ function registerEmailEventBridge(server: SocketIOServer) {
 }
 
 export function initSocketIO(httpServer: HTTPServer): SocketIOServer {
-  if (io) return io;
+  if ((global as any).socketIO) return (global as any).socketIO;
 
-  io = new SocketIOServer(httpServer, {
+  const ioServer = new SocketIOServer(httpServer, {
     path: '/socket.io',
     cors: {
       origin: process.env.NEXT_PUBLIC_APP_URL || true,
@@ -43,7 +42,7 @@ export function initSocketIO(httpServer: HTTPServer): SocketIOServer {
     transports: ['websocket', 'polling'],
   });
 
-  io.use(async (socket, next) => {
+  ioServer.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth.token as string | undefined;
       if (!token) {
@@ -66,7 +65,7 @@ export function initSocketIO(httpServer: HTTPServer): SocketIOServer {
     }
   });
 
-  io.on('connection', (socket) => {
+  ioServer.on('connection', (socket) => {
     const userId = socket.data.userId as string;
     socket.join(`user:${userId}`);
     logger.info(`[Socket] Client connected for user: ${userId}`);
@@ -78,10 +77,11 @@ export function initSocketIO(httpServer: HTTPServer): SocketIOServer {
     });
   });
 
-  registerEmailEventBridge(io);
-  return io;
+  registerEmailEventBridge(ioServer);
+  (global as any).socketIO = ioServer;
+  return ioServer;
 }
 
 export function getSocketIO(): SocketIOServer | null {
-  return io;
+  return (global as any).socketIO || null;
 }

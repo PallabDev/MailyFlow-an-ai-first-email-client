@@ -578,11 +578,23 @@ export function setupDemoFetchInterceptor() {
       if (planName === 'Starter') {
         return jsonResponse({ error: 'Upgrade required. AI reply drafting is a paid feature.' }, 403);
       }
+
+      const body = JSON.parse((init?.body as string) || '{}');
+      const { emailId } = body;
+
+      // Simulate asynchronous background Inngest push after 1.5 seconds
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('mailyflow-demo-draft-ready', {
+            detail: {
+              emailId,
+              text: `Hi,\n\nThanks for reaching out! This is a mockup of the context-aware AI response generated automatically in offline demo mode. Let me know if you would like to schedule a review next week.\n\nBest regards,\nDemo User`
+            }
+          })
+        );
+      }, 1500);
       
-      return jsonResponse({
-        success: true,
-        text: `Hi,\n\nThanks for reaching out! This is a mockup of the context-aware AI response generated automatically in offline demo mode. Let me know if you would like to schedule a review next week.\n\nBest regards,\nDemo User`
-      });
+      return jsonResponse({ success: true });
     }
 
     // Default: Fallback to real network request

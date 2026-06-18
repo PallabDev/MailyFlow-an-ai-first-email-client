@@ -614,3 +614,87 @@ Content: ${bodyText.slice(0, 4000)}`;
   }
 );
 
+export const draftEmailReply = inngest.createFunction(
+  {
+    id: 'draft-email-reply',
+    name: 'Draft Email Reply',
+    triggers: [{ event: 'email.draft.requested' }],
+  },
+  async ({ event, step }) => {
+    const { userId, emailId } = event.data;
+
+    try {
+      const draftText = await step.run('generate-draft', async () => {
+        const client = corsair.withTenant(userId);
+        
+        // Fetch message details
+        const message = await client.gmail.api.messages.get({ id: emailId });
+
+        // Extract body and sender
+        const subject = message.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || '(No Subject)';
+        const sender = message.payload?.headers?.find((h: any) => h.name === 'From')?.value || 'Unknown';
+        const snippet = message.snippet || '';
+        let bodyText = snippet;
+
+        if (message.payload) {
+          const parts = message.payload.parts || [];
+          const textPart = parts.find((p: any) => p.mimeType === 'text/plain');
+          if (textPart && textPart.body?.data) {
+            bodyText = Buffer.from(textPart.body.data, 'base64').toString('utf8');
+          } else if (message.payload.body?.data) {
+            bodyText = Buffer.from(message.payload.body.data, 'base64').toString('utf8');
+          }
+        }
+
+        // Construct OpenAI prompt
+        const prompt = `You are a professional email executive. Please draft a polite, concise, and contextually appropriate reply to the email below. 
+
+Instructions:
+- Write a ready-to-send reply.
+- Do not include placeholders like "[Your Name]", "[Company]", or other brackets.
+- Match the tone of the sender (professional, polite, or friendly).
+
+Original Email details:
+Sender: ${sender}
+Subject: ${subject}
+Content: ${bodyText.slice(0, 3000)}`;
+
+        const response = await openai.chat.completions.create({
+          model: AI_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 400,
+        });
+
+        return response.choices[0].message.content || 'Failed to generate AI response draft.';
+      });
+
+      // Emit draft ready socket event
+      await step.run('broadcast-draft', async () => {
+        const io = getSocketIO();
+        if (io) {
+          io.to(`user:${userId}`).emit('email-draft-ready', {
+            emailId,
+            text: draftText,
+          });
+          console.log(`[Inngest Draft] Emitted draft for email ${emailId} to user:${userId}`);
+        } else {
+          console.warn('[Inngest Draft] Socket.IO server not initialized, could not emit draft.');
+        }
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error in Inngest email reply draft workflow:', err);
+      // Emit failure event
+      const io = getSocketIO();
+      if (io) {
+        io.to(`user:${userId}`).emit('email-draft-failed', {
+          emailId,
+          error: err instanceof Error ? err.message : 'Failed to generate AI response draft.',
+        });
+      }
+      throw err;
+    }
+  }
+);
+
