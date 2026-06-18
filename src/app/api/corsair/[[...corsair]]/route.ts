@@ -165,6 +165,72 @@ export async function POST(request: Request) {
         });
       }
 
+      // Extract historyId from Gmail Pub/Sub payload.
+      // Gmail sends 5+ notifications per email with the SAME historyId.
+      // If we already processed this historyId, skip — no Gmail API call needed.
+      let historyId: string | null = null;
+      if (body.message?.data) {
+        try {
+          const decoded = Buffer.from(body.message.data, 'base64').toString('utf-8');
+          const parsed = JSON.parse(decoded);
+          historyId = parsed.historyId || null;
+        } catch {
+          // Not a Gmail payload — proceed anyway
+        }
+      }
+
+      if (historyId) {
+        const HISTORY_KEY = `history:${activeTenantId}`;
+        const existing = await db
+          .select({ messageId: webhookDedup.messageId })
+          .from(webhookDedup)
+          .where(
+            and(
+              eq(webhookDedup.tenantId, '__history__'),
+              eq(webhookDedup.messageId, HISTORY_KEY)
+            )
+          )
+          .limit(1);
+
+        // If we've seen this exact historyId before, skip
+        if (existing.length > 0) {
+          // The stored value is the historyId — check if it matches
+          const storedHistoryId = existing[0].messageId.replace(`${HISTORY_KEY}:`, '');
+          if (storedHistoryId === historyId) {
+            logger.info(`[Webhook POST] Skipping duplicate: tenant ${activeTenantId} historyId=${historyId} already processed`);
+            return new Response(JSON.stringify({ success: true, message: 'Duplicate historyId' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+        }
+
+        // Store this historyId as the latest processed
+        await db
+          .insert(webhookDedup)
+          .values({
+            tenantId: '__history__',
+            messageId: `${HISTORY_KEY}:${historyId}`,
+            seenAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [webhookDedup.tenantId, webhookDedup.messageId],
+            set: { seenAt: new Date() },
+          });
+
+        // Clean up old historyId entries for this tenant (keep only latest)
+        if (existing.length > 0) {
+          await db
+            .delete(webhookDedup)
+            .where(
+              and(
+                eq(webhookDedup.tenantId, '__history__'),
+                eq(webhookDedup.messageId, existing[0].messageId)
+              )
+            );
+        }
+      }
+
       logger.info(`[Webhook POST] Dispatching async sync event to Inngest for tenant: ${activeTenantId}`);
 
       try {
