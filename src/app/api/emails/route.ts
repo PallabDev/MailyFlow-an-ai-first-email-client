@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
         const conditions = [
           eq(corsairEntities.accountId, gmailAccount.id),
           eq(corsairEntities.entityType, 'messages'),
+          sql`${corsairEntities.id} LIKE 'e_messages_%'`,
         ];
 
         const hasLabelFilter = q ? /\b(in|label|is|category):/i.test(q) : false;
@@ -362,7 +363,7 @@ export async function GET(req: NextRequest) {
                   .onConflictDoUpdate({
                     target: corsairEntities.id,
                     set: {
-                      data: entityData,
+                      data: sql`coalesce(${corsairEntities.data}, '{}'::jsonb) || ${JSON.stringify(entityData)}::jsonb`,
                       updatedAt: new Date(),
                     }
                   });
@@ -396,6 +397,7 @@ export async function GET(req: NextRequest) {
             const conditions = [
               eq(corsairEntities.accountId, gmailAccount.id),
               eq(corsairEntities.entityType, 'messages'),
+              sql`${corsairEntities.id} LIKE 'e_messages_%'`,
               sql`${corsairEntities.data}->'labelIds' @> ${JSON.stringify(targetLabels)}::jsonb`
             ];
 

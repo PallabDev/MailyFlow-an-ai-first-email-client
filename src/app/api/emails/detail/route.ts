@@ -83,11 +83,7 @@ export async function GET(req: NextRequest) {
         .select()
         .from(corsairEntities)
         .where(
-          and(
-            eq(corsairEntities.accountId, gmailAccount.id),
-            eq(corsairEntities.entityId, id),
-            eq(corsairEntities.entityType, 'messages')
-          )
+          eq(corsairEntities.id, `e_messages_${id}_a_${gmailAccount.id}`)
         )
         .limit(1)
         .then(rows => rows[0]);

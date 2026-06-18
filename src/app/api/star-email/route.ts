@@ -51,10 +51,7 @@ export async function POST(req: NextRequest) {
           .select({ data: corsairEntities.data })
           .from(corsairEntities)
           .where(
-            and(
-              eq(corsairEntities.accountId, gmailAccount.id),
-              eq(corsairEntities.entityId, id)
-            )
+            eq(corsairEntities.id, `e_messages_${id}_a_${gmailAccount.id}`)
           )
           .limit(1);
 
@@ -73,10 +70,7 @@ export async function POST(req: NextRequest) {
             .update(corsairEntities)
             .set({ data: updatedData, updatedAt: new Date() })
             .where(
-              and(
-                eq(corsairEntities.accountId, gmailAccount.id),
-                eq(corsairEntities.entityId, id)
-              )
+              eq(corsairEntities.id, `e_messages_${id}_a_${gmailAccount.id}`)
             );
         }
       } catch (dbErr) {

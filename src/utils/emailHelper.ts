@@ -30,9 +30,9 @@ export const formatPlainTextInput = (text: string) => {
 };
 
 export const getEmailHtml = (
-  email: { body: string },
-  iframeHeightScript: boolean = true,
-  theme: 'light' | 'dark' = 'light'
+    email: { body: string },
+    iframeHeightScript: boolean = true,
+    theme: 'light' | 'dark' = 'light'
 ) => {
     let rawHtml = email.body;
     const isHtmlEmail = isHtml(rawHtml);
