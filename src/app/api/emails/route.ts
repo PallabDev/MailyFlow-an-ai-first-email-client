@@ -70,6 +70,70 @@ function parseGmailQuery(q: string): ParsedQuery {
   return { from, to, subject, label, hasAttachment, terms };
 }
 
+/** Detect if a search string looks like a date (e.g. "2026-06-18", "june 18", "18 june", "yesterday", "today") */
+function detectDateRange(q: string): { after?: string; before?: string } | null {
+  const lower = q.toLowerCase().trim();
+
+  // Exact date: 2026-06-18 or 2026/06/18
+  const isoMatch = lower.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    const date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    return { after: date, before: date };
+  }
+
+  // "today"
+  if (lower === 'today') {
+    const today = new Date().toISOString().split('T')[0];
+    return { after: today, before: today };
+  }
+
+  // "yesterday"
+  if (lower === 'yesterday') {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    return { after: yesterday, before: yesterday };
+  }
+
+  // "last week"
+  if (lower === 'last week') {
+    const end = new Date().toISOString().split('T')[0];
+    const start = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+    return { after: start, before: end };
+  }
+
+  // "last month"
+  if (lower === 'last month') {
+    const end = new Date().toISOString().split('T')[0];
+    const start = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    return { after: start, before: end };
+  }
+
+  // Month name + day: "june 18", "18 june", "jun 18"
+  const months: Record<string, string> = {
+    january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
+    jan: '01', feb: '02', mar: '03', apr: '04', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+  };
+  const monthDayMatch = lower.match(/^(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})$/);
+  if (monthDayMatch) {
+    const monthNum = months[monthDayMatch[1]];
+    const day = monthDayMatch[2].padStart(2, '0');
+    const year = new Date().getFullYear();
+    const date = `${year}-${monthNum}-${day}`;
+    return { after: date, before: date };
+  }
+  const dayMonthMatch = lower.match(/^(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)$/);
+  if (dayMonthMatch) {
+    const monthNum = months[dayMonthMatch[2]];
+    const day = dayMonthMatch[1].padStart(2, '0');
+    const year = new Date().getFullYear();
+    const date = `${year}-${monthNum}-${day}`;
+    return { after: date, before: date };
+  }
+
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   let userId: string | null = null;
   try {
@@ -172,6 +236,19 @@ export async function GET(req: NextRequest) {
         }
 
         if (parsedQuery) {
+          // Date detection: if user typed "today", "yesterday", "june 18", etc.
+          const dateRange = q ? detectDateRange(q) : null;
+          if (dateRange) {
+            if (dateRange.after) {
+              const afterTs = new Date(dateRange.after + 'T00:00:00Z').getTime();
+              conditions.push(sql`(${corsairEntities.data}->>'internalDate')::bigint >= ${afterTs}`);
+            }
+            if (dateRange.before) {
+              const beforeTs = new Date(dateRange.before + 'T23:59:59Z').getTime();
+              conditions.push(sql`(${corsairEntities.data}->>'internalDate')::bigint <= ${beforeTs}`);
+            }
+          }
+
           if (parsedQuery.from) {
             conditions.push(sql`${corsairEntities.data}->>'from' ILIKE ${`%${parsedQuery.from}%`}`);
           }
@@ -186,6 +263,8 @@ export async function GET(req: NextRequest) {
           }
           if (parsedQuery.terms && parsedQuery.terms.length > 0) {
             for (const term of parsedQuery.terms) {
+              // Skip date-like terms that we already handled
+              if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(term)) continue;
               conditions.push(sql`(
                 ${corsairEntities.data}->>'subject' ILIKE ${`%${term}%`} OR
                 ${corsairEntities.data}->>'snippet' ILIKE ${`%${term}%`} OR

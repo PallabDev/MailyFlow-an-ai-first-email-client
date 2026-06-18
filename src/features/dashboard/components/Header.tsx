@@ -20,7 +20,6 @@ type HeaderProps = {
   projectName: string;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (v: boolean) => void;
-  setIsAdvancedSearchOpen?: (v: boolean) => void;
 };
 
 export default function Header({
@@ -28,7 +27,6 @@ export default function Header({
   projectName: _projectName,
   isLeftSidebarCollapsed,
   setIsLeftSidebarCollapsed,
-  setIsAdvancedSearchOpen
 }: HeaderProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -133,12 +131,10 @@ export default function Header({
           <input
             type="text"
             ref={searchInputRef}
-            placeholder="Search mail, events, people..."
+            placeholder="Search emails..."
             value={searchVal}
             onChange={(e) => handleSearchChange(e.target.value)}
-            onFocus={() => setIsAdvancedSearchOpen?.(true)}
-            readOnly
-            className="w-full bg-background border border-border rounded-xl py-1.5 pl-10 pr-12 text-sm text-foreground placeholder-slate-400 shadow-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all cursor-pointer"
+            className="w-full bg-background border border-border rounded-xl py-1.5 pl-10 pr-12 text-sm text-foreground placeholder-slate-400 shadow-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all"
           />
           <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 border border-border bg-background px-1.5 py-0.5 rounded shadow-sm select-none">
             ⌘K
