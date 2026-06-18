@@ -1,5 +1,3 @@
-import logger from '@/lib/logger';
-
 export const isHtml = (str: string) => {
     if (typeof str !== 'string') return false;
     return /<[a-z][\s\S]*>/i.test(str);
@@ -229,7 +227,7 @@ export const getEmailHtml = (
         return doc.documentElement.outerHTML;
 
     } catch (e) {
-        logger.error('Failed to parse and generate email HTML:', e);
+        console.error('Failed to parse and generate email HTML:', e);
         return rawHtml;
     }
 };
