@@ -33,7 +33,6 @@ type Phase = "waiting" | "thinking" | "streaming" | "success";
 export default function Simulation() {
   return (
     <section className="relative py-24 md:py-32">
-      <div aria-hidden className="absolute inset-0 -z-10 bg-dots opacity-[0.35]" />
       <Container className="flex flex-col gap-14">
         <SectionHeading
           eyebrow="Live simulation"

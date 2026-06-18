@@ -35,16 +35,9 @@ function GlowBlob({
     />
   );
 }
-
 export default function FinalCTA() {
   return (
     <section className="relative overflow-hidden py-28 md:py-40">
-      {/* animated grid backdrop */}
-      <div
-        aria-hidden
-        className="bg-grid bg-grid-move absolute inset-0 -z-10 opacity-[0.28]"
-      />
-
       {/* corner glow blobs — placed at edges so they never sit behind headline text */}
       <GlowBlob
         style={{

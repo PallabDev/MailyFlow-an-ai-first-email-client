@@ -30,11 +30,6 @@ export default function Stats() {
         {/* stats band */}
         <Reveal y={20}>
           <div className="relative overflow-hidden rounded-xl border border-line bg-surface2">
-            {/* dots texture */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-dots opacity-50"
-            />
 
             {/* subtle accent glow at center */}
             <div

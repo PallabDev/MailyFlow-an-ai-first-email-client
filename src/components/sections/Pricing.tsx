@@ -91,8 +91,6 @@ export default function Pricing() {
             {/* Target anchor for payments redirect */}
             <div id="payment" className="absolute -top-20" />
 
-            {/* subtle grid backdrop */}
-            <div aria-hidden className="absolute inset-0 -z-10 bg-grid opacity-40" />
 
             <Container className="flex flex-col gap-14">
                 <SectionHeading

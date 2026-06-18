@@ -29,7 +29,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{ isDark, toggle }}>
-      <div className={`landing-page ${isDark ? "dark" : ""} min-h-screen bg-bg text-text antialiased`}>
+      <div className={`landing-page ${isDark ? "dark" : ""} min-h-screen bg-bg text-text antialiased isolate`}>
         {children}
       </div>
     </Ctx.Provider>

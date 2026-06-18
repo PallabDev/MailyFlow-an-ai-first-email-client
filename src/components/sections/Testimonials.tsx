@@ -167,9 +167,6 @@ export default function Testimonials() {
 
   return (
     <section id="testimonials" className="relative py-24 md:py-32 overflow-hidden">
-      {/* subtle dot backdrop */}
-      <div aria-hidden className="absolute inset-0 -z-10 bg-dots opacity-40" />
-
       <Container className="flex flex-col gap-14">
         <SectionHeading
           eyebrow="Testimonials"

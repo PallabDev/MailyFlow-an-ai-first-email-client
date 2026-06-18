@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { motion } from "motion/react";
 import {
   ArrowRight,
   Play,
@@ -24,59 +25,64 @@ import { useTheme } from "../../theme";
 
 const EMAILS = [
   {
-    sender: "Google",
-    date: "14/06/2026 with 11:25 pm",
-    subject: "Security alert",
-    snippet: "You allowed mailyflow.in access to some of your Google...",
+    sender: "Sarah Jenkins",
+    date: "10:42 am",
+    subject: "Q3 Investor Update & Projections",
+    snippet: "Hi Team, please find attached our initial outline for the Q3 update. I'd love your feedback on the SaaS subscription metrics...",
     unread: true,
   },
   {
-    sender: "Google",
-    date: "14/06/2026 with 11:25 pm",
-    subject: "Security alert",
-    snippet: "You allowed mailyflow.in access to some of your Google...",
+    sender: "David Chen",
+    date: "09:15 am",
+    subject: "Follow-up: Meeting schedule next week",
+    snippet: "Great connecting yesterday! Let's lock in a 30-minute sync next week to discuss the Pro tier expansion and marketing budget...",
     unread: true,
   },
   {
-    sender: "MailyFlow",
-    date: "14/06/2026 with 11:25 pm",
-    subject: "New device signed in to your MailyFlow account",
-    snippet: "New sign in to your...",
+    sender: "MailyFlow Support",
+    date: "Yesterday",
+    subject: "Welcome to MailyFlow!",
+    snippet: "Welcome aboard! Here are 3 quick tips to get started with your new AI email and calendar co-pilot...",
     unread: true,
   },
   {
-    sender: "Google",
-    date: "14/06/2026 with 10:36 pm",
-    subject: "You shared some Google Account data with mailyflow.in",
-    snippet: "Keep track...",
+    sender: "Google Security",
+    date: "Yesterday",
+    subject: "Security alert: MailyFlow connection",
+    snippet: "Your Google Account was successfully linked to MailyFlow. You can now manage your emails and calendar events...",
     unread: false,
   },
   {
-    sender: "Pallab Karmakar",
-    date: "14/06/2026 with 02:51 am",
-    subject: "Invitation from an unknown sender: Meeting with nroynibedita02 @ S...",
-    snippet: "Invitation from...",
+    sender: "Elena Rostova",
+    date: "14 Jun",
+    subject: "Partnership proposal / MailyFlow",
+    snippet: "Hi, I'm the partnerships lead at ProductHub. We've been following your launch and would love to discuss a native integration...",
     unread: false,
   },
   {
-    sender: "Pallab Karmakar",
-    date: "14/06/2026 with 02:51 am",
-    subject: "Meeting today at 9 AM",
-    snippet: "Hi, I scheduled a meeting today at 9:00 AM...",
+    sender: "HubSpot",
+    date: "12 Jun",
+    subject: "Integration successfully connected",
+    snippet: "Your HubSpot CRM has been linked to your MailyFlow workspace. Contact records will now auto-sync automatically...",
     unread: false,
   },
 ];
 
 const getInitials = (sender: string) => {
-  if (sender === "Google") return "GO";
-  if (sender === "MailyFlow") return "MA";
-  if (sender === "Pallab Karmakar") return "PK";
+  const parts = sender.split(" ");
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
   return sender.slice(0, 2).toUpperCase();
 };
 
 const getInitialsStyles = (sender: string) => {
-  if (sender === "Google") return "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700/50";
-  if (sender === "MailyFlow") return "bg-red-500/10 text-red-500 dark:text-red-400";
+  if (sender.includes("Google")) return "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700/50";
+  if (sender.includes("MailyFlow")) return "bg-accent/15 text-accent dark:text-accent font-semibold";
+  if (sender.includes("HubSpot")) return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-200/30 dark:border-orange-900/30";
+  if (sender.includes("Sarah")) return "bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-200/30 dark:border-pink-900/30";
+  if (sender.includes("David")) return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/30 dark:border-blue-900/30";
+  if (sender.includes("Elena")) return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200/30 dark:border-emerald-900/30";
   return "bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50";
 };
 
@@ -84,7 +90,9 @@ export default function Hero() {
   return (
     <section id="top" className="relative overflow-hidden pt-36 pb-20 md:pt-44 md:pb-28">
       {/* ambient backdrop */}
-      <div aria-hidden className="absolute inset-0 -z-10 bg-grid opacity-[0.5]" />
+      <div aria-hidden className="absolute inset-0 -z-10 bg-dots-dense bg-dots-fade opacity-85" />
+      
+
       <div
         aria-hidden
         className="animate-glow absolute -top-20 left-1/2 -z-10 h-[420px] w-[820px] -translate-x-1/2 rounded-full blur-3xl"
@@ -95,8 +103,23 @@ export default function Hero() {
         {/* Centered Content Block */}
         <div className="flex flex-col items-center gap-7 max-w-3xl">
           <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-accent-ink">
-              <Sparkles size={13} strokeWidth={2} />
+            <span className="inline-flex items-center gap-2.5 rounded-full border border-line bg-surface pl-1.5 pr-3.5 py-1 text-xs font-medium text-accent-ink relative overflow-hidden select-none">
+              <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[9.5px] font-semibold text-white relative overflow-hidden shrink-0">
+                New
+                {/* motion flash highlight */}
+                <motion.span
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                  animate={{
+                    left: ["-100%", "200%"],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.8,
+                    ease: "easeInOut",
+                    repeatDelay: 1.2,
+                  }}
+                />
+              </span>
               Your AI employee for email & calendar
             </span>
           </Reveal>

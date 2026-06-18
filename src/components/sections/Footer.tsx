@@ -74,11 +74,9 @@ const COLS = [
     ],
   },
 ];
-
 export default function Footer() {
   return (
     <footer className="relative overflow-hidden border-t border-line">
-      <div aria-hidden className="bg-grid bg-grid-move absolute inset-0 -z-10 opacity-[0.35]" />
       <Container className="py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="flex flex-col gap-4">

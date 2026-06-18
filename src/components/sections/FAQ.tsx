@@ -43,12 +43,8 @@ export default function FAQ() {
   const toggle = (i: number) => {
     setOpenIndex((prev) => (prev === i ? null : i));
   };
-
   return (
     <section id="faq" className="relative py-24 md:py-32">
-      {/* subtle grid backdrop */}
-      <div aria-hidden className="absolute inset-0 -z-10 bg-grid opacity-[0.3]" />
-
       <Container className="flex flex-col items-center gap-14">
         <SectionHeading
           eyebrow="FAQ"

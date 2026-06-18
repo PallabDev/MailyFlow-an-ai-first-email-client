@@ -270,8 +270,6 @@ export default function Playground() {
 
   return (
     <section id="playground" className="relative py-24 md:py-32">
-      <div aria-hidden className="absolute inset-0 -z-10 bg-grid opacity-40" />
-
       <Container className="flex flex-col items-center gap-14">
         <SectionHeading
           eyebrow="AI Workflows"
