@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { CreditCard, Sparkles, Mail, Calendar as CalendarIcon, CheckCircle2, XCircle, RefreshCw, ArrowUpRight } from 'lucide-react';
+import { SpotlightCard } from '@/components/ui/ReactBitsEffects';
 
 type SubscriptionData = {
   planName: string;
@@ -401,16 +402,16 @@ export default function BillingPage() {
                     const isHighlighted = p.name === 'Professional';
 
                     return (
-                      <div
+                      <SpotlightCard
                         key={p.name}
-                        className={`flex flex-col rounded-2xl border p-6 bg-card transition-all relative ${
+                        className={`flex flex-col relative border ${
                           isHighlighted
                             ? 'border-accent shadow-md shadow-accent/5 ring-1 ring-accent/25'
                             : 'border-border shadow-sm'
                         }`}
                       >
                         {isHighlighted && (
-                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase select-none">
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-white px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase select-none z-20">
                             Most Popular
                           </span>
                         )}
@@ -455,7 +456,7 @@ export default function BillingPage() {
                             )}
                           </button>
                         </div>
-                      </div>
+                      </SpotlightCard>
                     );
                   })}
                 </div>

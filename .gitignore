@@ -48,3 +48,4 @@ next-env.d.ts
 /scripts/plan-edit.js
 /pay-access/node_modules
 /pay-access
+package-lock.json

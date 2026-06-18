@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Mail, Calendar as CalendarIcon, Link2, CheckCircle2, XCircle, ArrowRight, RefreshCw, Trash2, CalendarRange, Clock, MapPin, AlertCircle } from 'lucide-react';
 import { disconnectPlugin } from '../../onboarding/actions';
+import { SpotlightCard } from '@/components/ui/ReactBitsEffects';
 
 type CalendarEvent = {
   id?: string;
@@ -154,70 +155,71 @@ export default function IntegrationsClient({
             {(() => {
               const isGoogleConnected = isGmailConnected && isCalendarConnected;
               return (
-                <div className={`rounded-2xl border p-6 transition-all duration-300 ${
-                  isGoogleConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
-                }`}>
-                  <div className="flex flex-col h-full justify-between space-y-6">
-                    <div className="space-y-4">
-                      <div className="flex space-x-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
-                          <Mail className="h-6 w-6" />
-                        </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
-                          <CalendarIcon className="h-6 w-6" />
-                        </div>
+                <SpotlightCard
+                  spotlightColor={isGoogleConnected ? "rgba(110, 155, 126, 0.15)" : "rgba(129, 154, 145, 0.15)"}
+                  className={`rounded-2xl border transition-all duration-300 ${
+                    isGoogleConnected ? 'border-success/30 bg-success/5' : 'border-border bg-card hover:border-accent/30'
+                  }`}
+                >
+                  <div className="space-y-4">
+                    <div className="flex space-x-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-danger/10 text-danger">
+                        <Mail className="h-6 w-6" />
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-text-primary flex items-center space-x-2">
-                          <span>Google Account</span>
-                          {isGoogleConnected && (
-                            <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">
-                              Connected
-                            </span>
-                          )}
-                        </h3>
-                        <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
-                          Authorizes MailyFlow to read, draft, and organize your emails, and sync with your primary Google calendar to manage events and meetings.
-                        </p>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                        <CalendarIcon className="h-6 w-6" />
                       </div>
                     </div>
-
-                    <div className="pt-2">
-                      {isGoogleConnected ? (
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex items-center space-x-2 text-success font-semibold text-sm">
-                            <CheckCircle2 className="h-4.5 w-4.5" />
-                            <span>Authorized</span>
-                          </div>
-                          <button
-                            onClick={() => handleDisconnect('gmail')}
-                            disabled={gmailLoading}
-                            className="rounded-xl border border-danger/25 text-danger hover:bg-danger/10 px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer flex items-center space-x-1.5"
-                          >
-                            {gmailLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                            <span>Disconnect</span>
-                          </button>
-                        </div>
-                      ) : isDemo ? (
-                        <button
-                          onClick={handleConnectDemo}
-                          className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95 cursor-pointer"
-                        >
-                          <span>Connect Google Account</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </button>
-                      ) : (
-                        <a
-                          href="/api/auth/connect?plugin=gmail"
-                          className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
-                        >
-                          <span>Connect Google Account</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </a>
-                      )}
+                    <div>
+                      <h3 className="text-lg font-bold text-text-primary flex items-center space-x-2">
+                        <span>Google Account</span>
+                        {isGoogleConnected && (
+                          <span className="text-success text-xs font-semibold bg-success/10 px-2 py-0.5 rounded-full">
+                            Connected
+                          </span>
+                        )}
+                      </h3>
+                      <p className="mt-1.5 text-xs text-text-secondary leading-relaxed">
+                        Authorizes MailyFlow to read, draft, and organize your emails, and sync with your primary Google calendar to manage events and meetings.
+                      </p>
                     </div>
                   </div>
-                </div>
+
+                  <div className="pt-2 mt-auto">
+                    {isGoogleConnected ? (
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center space-x-2 text-success font-semibold text-sm">
+                          <CheckCircle2 className="h-4.5 w-4.5" />
+                          <span>Authorized</span>
+                        </div>
+                        <button
+                          onClick={() => handleDisconnect('gmail')}
+                          disabled={gmailLoading}
+                          className="rounded-xl border border-danger/25 text-danger hover:bg-danger/10 px-4 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 cursor-pointer flex items-center space-x-1.5"
+                        >
+                          {gmailLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          <span>Disconnect</span>
+                        </button>
+                      </div>
+                    ) : isDemo ? (
+                      <button
+                        onClick={handleConnectDemo}
+                        className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95 cursor-pointer"
+                      >
+                        <span>Connect Google Account</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <a
+                        href="/api/auth/connect?plugin=gmail"
+                        className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95"
+                      >
+                        <span>Connect Google Account</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </SpotlightCard>
               );
             })()}
           </div>

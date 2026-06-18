@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import crypto from 'crypto';
 import { db } from '@/utils/corsair';
 import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { Resend } from 'resend';
 
 export async function POST(req: NextRequest) {
   try {
@@ -124,6 +125,82 @@ export async function POST(req: NextRequest) {
         startDate: new Date(),
         endDate: cycleEndDate,
       });
+    }
+
+    // 4. Fetch user details and send confirmation email via Resend
+    try {
+      const user = await currentUser();
+      const userEmail = user?.emailAddresses[0]?.emailAddress;
+
+      if (userEmail && process.env.RESEND_API_KEY) {
+        const from = process.env.RESEND_FROM || 'HexFrom <no-reply@luqe.in>';
+        const resend = new Resend(process.env.RESEND_API_KEY.replace(/['"]/g, ''));
+        
+        const { data, error: emailError } = await resend.emails.send({
+          from: from.replace(/['"]/g, ''),
+          to: [userEmail],
+          subject: `Welcome to MailyFlow ${planName}!`,
+          html: `
+            <div style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8faf7; padding: 40px 20px; color: #2c2c2a; line-height: 1.6;">
+              <div style="max-width: 540px; margin: 0 auto; background-color: #ffffff; border: 1px solid rgba(17, 24, 39, 0.08); border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);">
+                <!-- Logo -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                  <h2 style="font-size: 24px; font-weight: 700; color: #5f7a68; margin: 0; letter-spacing: -0.5px;">MailyFlow</h2>
+                  <p style="font-size: 12px; color: #8d9590; margin: 5px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">Your AI Email Employee</p>
+                </div>
+                
+                <!-- Title -->
+                <h1 style="font-size: 20px; font-weight: 600; color: #2c302d; margin-top: 0; margin-bottom: 15px; text-align: center;">Subscription Confirmed!</h1>
+                
+                <p style="font-size: 14px; color: #5e635f; margin-bottom: 25px; text-align: center;">
+                  Thank you for upgrading! Your workspace has been successfully upgraded to the <strong>${planName} Plan</strong>.
+                </p>
+                
+                <!-- Plan Details Box -->
+                <div style="background-color: #f4f7f4; border-radius: 12px; padding: 20px; margin-bottom: 30px; border: 1px solid #ccd2cd;">
+                  <h3 style="font-size: 12px; font-weight: 700; color: #5f7a68; margin-top: 0; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Your Subscription Details</h3>
+                  <table style="width: 100%; font-size: 13.5px; border-collapse: collapse;">
+                    <tr>
+                      <td style="padding: 6px 0; color: #8d9590; font-weight: 500;">Plan Type:</td>
+                      <td style="padding: 6px 0; text-align: right; color: #2c302d; font-weight: 600;">${planName}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #8d9590; font-weight: 500;">Price:</td>
+                      <td style="padding: 6px 0; text-align: right; color: #2c302d; font-weight: 600;">${priceStr}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #8d9590; font-weight: 500;">Status:</td>
+                      <td style="padding: 6px 0; text-align: right; color: #6e9b7e; font-weight: 600;">Active</td>
+                    </tr>
+                  </table>
+                </div>
+                
+                <!-- Call to Action -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                  <a href="https://mailyflow.in/dashboard" style="display: inline-block; background-color: #5f7a68; color: #ffffff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; transition: background-color 0.2s;">
+                    Go to Dashboard
+                  </a>
+                </div>
+                
+                <!-- Footer info -->
+                <div style="border-top: 1px solid rgba(17, 24, 39, 0.08); padding-top: 20px; text-align: center; font-size: 12px; color: #8d9590;">
+                  <p style="margin: 0;">If you have any questions or billing issues, feel free to reply to this email or contact support at <a href="mailto:support@mailyflow.in" style="color: #5f7a68; text-decoration: underline;">support@mailyflow.in</a>.</p>
+                </div>
+              </div>
+            </div>
+          `
+        });
+
+        if (emailError) {
+          console.error('Failed to send Resend confirmation email:', emailError);
+        } else {
+          console.log(`Resend confirmation email sent to ${userEmail} successfully. Msg ID: ${data?.id}`);
+        }
+      } else {
+        console.warn('Skipping Resend email: userEmail or RESEND_API_KEY is not defined', { userEmail, hasKey: !!process.env.RESEND_API_KEY });
+      }
+    } catch (emailErr) {
+      console.error('Error occurred while sending Resend confirmation email:', emailErr);
     }
 
     return NextResponse.json({

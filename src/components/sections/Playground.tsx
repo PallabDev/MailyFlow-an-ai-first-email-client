@@ -15,6 +15,7 @@ import SectionHeading from "../ui/SectionHeading";
 import Reveal from "../ui/Reveal";
 import Button from "../ui/Button";
 import { useReveal } from "../../hooks/useReveal";
+import { DecryptText } from "../ui/ReactBitsEffects";
 
 /* ─── data ─────────────────────────────────────────────────── */
 
@@ -286,7 +287,7 @@ export default function Playground() {
             </div>
             <div className="flex items-center gap-3 rounded-lg border border-line bg-surface2 px-4 py-3">
               <span className="flex-1 text-[14px] leading-snug text-text">
-                {PROMPT}
+                <DecryptText text={PROMPT} trigger={running} speed={25} />
               </span>
               <Button
                 variant="primary"

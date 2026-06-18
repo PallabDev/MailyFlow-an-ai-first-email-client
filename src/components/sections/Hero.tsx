@@ -22,6 +22,7 @@ import Container from "../ui/Container";
 import Button from "../ui/Button";
 import Reveal from "../ui/Reveal";
 import { useTheme } from "../../theme";
+import { ShinyText, TiltedCard } from "../ui/ReactBitsEffects";
 
 const EMAILS = [
   {
@@ -128,7 +129,7 @@ export default function Hero() {
             <h1 className="font-display text-[44px] font-semibold leading-[1.04] tracking-tight text-text sm:text-6xl md:text-[68px] max-w-2xl">
               Your Inbox Can{" "}
               <span className="relative whitespace-nowrap text-accent-ink">
-                Work For You
+                <ShinyText text="Work For You" />
                 <svg className="absolute -bottom-1 left-0 w-full" height="10" viewBox="0 0 200 10" fill="none" preserveAspectRatio="none">
                   <path d="M2 7C50 2 150 2 198 7" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
                 </svg>
@@ -162,25 +163,27 @@ export default function Hero() {
         {/* Dashboard Preview - Center & Below */}
         <Reveal delay={200} className="w-full relative px-2">
           <div className="relative mx-auto w-full max-w-[1020px]">
-            {/* Browser frame */}
-            <div className="overflow-hidden rounded-xl border border-line-strong bg-surface shadow-[0_30px_80px_rgba(0,0,0,0.12)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
-              {/* Browser control bar */}
-              <div className="flex items-center justify-between border-b border-line bg-surface2/60 px-4 py-2.5">
-                <div className="flex gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
+            <TiltedCard>
+              {/* Browser frame */}
+              <div className="overflow-hidden rounded-xl border border-line-strong bg-surface shadow-[0_30px_80px_rgba(0,0,0,0.12)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
+                {/* Browser control bar */}
+                <div className="flex items-center justify-between border-b border-line bg-surface2/60 px-4 py-2.5">
+                  <div className="flex gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-surface border border-line rounded-md px-4 py-1 text-[10.5px] text-muted w-full max-w-[340px] justify-center select-none">
+                    <span className="text-[9px] text-accent font-semibold">https://</span>
+                    <span>mailyflow.in/dashboard/inbox</span>
+                  </div>
+                  <div className="w-12" /> {/* spacer */}
                 </div>
-                <div className="flex items-center gap-1.5 bg-surface border border-line rounded-md px-4 py-1 text-[10.5px] text-muted w-full max-w-[340px] justify-center select-none">
-                  <span className="text-[9px] text-accent font-semibold">https://</span>
-                  <span>mailyflow.in/dashboard/inbox</span>
-                </div>
-                <div className="w-12" /> {/* spacer */}
-              </div>
 
-              {/* Product preview layout */}
-              <ProductPreview />
-            </div>
+                {/* Product preview layout */}
+                <ProductPreview />
+              </div>
+            </TiltedCard>
 
             {/* Floating chips overlay - hidden on mobile */}
             <FloatChip

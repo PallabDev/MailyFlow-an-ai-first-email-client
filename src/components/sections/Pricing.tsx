@@ -7,6 +7,7 @@ import Reveal from "../ui/Reveal";
 import Button from "../ui/Button";
 import GlassCard from "../ui/GlassCard";
 import { useAuth } from "@clerk/nextjs";
+import { SpotlightCard } from "../ui/ReactBitsEffects";
 import { useRouter } from "next/navigation";
 
 interface Plan {
@@ -111,9 +112,9 @@ export default function Pricing() {
                                         style={{ background: "var(--glow)" }}
                                     />
                                     {/* card */}
-                                    <div className="relative flex flex-col gap-6 overflow-hidden rounded-xl border border-accent bg-surface p-7 shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
+                                    <SpotlightCard className="border-accent shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
                                         {/* Most popular pill */}
-                                        <div className="absolute right-5 top-5">
+                                        <div className="absolute right-5 top-5 z-20">
                                             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white">
                                                 <span className="h-1 w-1 rounded-full bg-white opacity-80" />
                                                 Most popular
@@ -123,15 +124,15 @@ export default function Pricing() {
                                             plan={plan}
                                             onSelect={() => handleCheckout(plan)}
                                         />
-                                    </div>
+                                    </SpotlightCard>
                                 </div>
                             ) : (
-                                <GlassCard hover className="flex flex-col gap-6 p-7">
+                                <SpotlightCard className="hover:-translate-y-1 hover:shadow-lg">
                                     <PlanContent
                                         plan={plan}
                                         onSelect={() => handleCheckout(plan)}
                                     />
-                                </GlassCard>
+                                </SpotlightCard>
                             )}
                         </Reveal>
                     ))}

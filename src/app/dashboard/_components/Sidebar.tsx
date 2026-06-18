@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ShinyText } from '@/components/ui/ReactBitsEffects';
 import {
   Mail,
   Calendar as CalendarIcon,
@@ -124,7 +125,7 @@ export default function Sidebar({
             <>
               <Link href="/" className="flex items-center space-x-2.5 hover:opacity-80 transition-all select-none">
                 <img src="/icon.png" alt="Logo" className="h-6 w-6 object-contain shrink-0" />
-                <span className="font-bold text-card-foreground tracking-tight text-lg">{projectName}</span>
+                <ShinyText text={projectName} className="font-bold tracking-tight text-lg" speed={3} />
               </Link>
               {/* Close button inside sidebar on mobile */}
               <button

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu, History, Plus, MessageSquare } from 'lucide-react';
 import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { motion } from 'motion/react';
+import { DecryptText } from '@/components/ui/ReactBitsEffects';
 
 type AIAssistantProps = {
   user: {
@@ -44,7 +45,10 @@ const AgentProgressLoader = () => {
         <div className="h-4 w-4 rounded-full border-2 border-[#6e9b7e]/25 border-t-[#6e9b7e] animate-spin shrink-0"></div>
         <span className="text-[11px] font-bold text-text-secondary select-none flex items-center space-x-1.5">
           {currentStage.icon}
-          <span>{currentStage.text}...</span>
+          <span>
+            <DecryptText text={currentStage.text} speed={30} />
+            <span>...</span>
+          </span>
         </span>
       </div>
 
