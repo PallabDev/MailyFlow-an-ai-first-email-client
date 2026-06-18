@@ -547,6 +547,44 @@ export function setupDemoFetchInterceptor() {
       return jsonResponse({ success: true });
     }
 
+    // 16. POST /api/emails/summarize
+    if (path === '/api/emails/summarize' && init?.method === 'POST') {
+      const planName = localStorage.getItem('mailyflow_demo_billing_plan') || 'Professional';
+      if (planName === 'Starter') {
+        return jsonResponse({ error: 'Upgrade required. Summarization is a paid feature.' }, 403);
+      }
+      
+      const body = JSON.parse((init?.body as string) || '{}');
+      const { emailId } = body;
+      
+      // Simulate asynchronous background Inngest push after 1.5 seconds
+      setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('mailyflow-demo-summary-ready', {
+            detail: {
+              emailId,
+              summary: `• **Mock AI Summary**\n• This is a simulated key takeaways list generated instantly in the offline sandbox demo.\n• The workflow runs completely in the background via Inngest serverless handlers.\n• Displays critical milestones, next steps, and action items.`,
+            }
+          })
+        );
+      }, 1500);
+      
+      return jsonResponse({ success: true });
+    }
+
+    // 17. POST /api/emails/draft-reply
+    if (path === '/api/emails/draft-reply' && init?.method === 'POST') {
+      const planName = localStorage.getItem('mailyflow_demo_billing_plan') || 'Professional';
+      if (planName === 'Starter') {
+        return jsonResponse({ error: 'Upgrade required. AI reply drafting is a paid feature.' }, 403);
+      }
+      
+      return jsonResponse({
+        success: true,
+        text: `Hi,\n\nThanks for reaching out! This is a mockup of the context-aware AI response generated automatically in offline demo mode. Let me know if you would like to schedule a review next week.\n\nBest regards,\nDemo User`
+      });
+    }
+
     // Default: Fallback to real network request
     return originalFetch(input, init);
   };

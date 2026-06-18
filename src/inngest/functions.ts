@@ -9,6 +9,7 @@ import { Agent, run, tool, OpenAIProvider, setDefaultModelProvider } from '@open
 import { processWebhook } from 'corsair';
 import { publishNewEmailEvent } from '@/utils/publish-new-email';
 import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
+import { getSocketIO } from '@/lib/socket-server';
 
 export const processAICall = inngest.createFunction(
   {
@@ -531,6 +532,85 @@ export const syncGmailWebhook = inngest.createFunction(
     }
 
     return { success: true, result };
+  }
+);
+
+export const summarizeEmail = inngest.createFunction(
+  {
+    id: 'summarize-email',
+    name: 'Summarize Email',
+    triggers: [{ event: 'email.summarize.requested' }],
+  },
+  async ({ event, step }) => {
+    const { userId, emailId } = event.data;
+
+    try {
+      const summaryText = await step.run('generate-summary', async () => {
+        const client = corsair.withTenant(userId);
+        
+        // Fetch message details
+        const message = await client.gmail.api.messages.get({
+          id: emailId,
+        });
+
+        // Resolve snippet or body text
+        const snippet = message.snippet || '';
+        let bodyText = snippet;
+
+        // Try to get body text if available in payload
+        if (message.payload) {
+          const parts = message.payload.parts || [];
+          const textPart = parts.find((p: any) => p.mimeType === 'text/plain');
+          if (textPart && textPart.body?.data) {
+            bodyText = Buffer.from(textPart.body.data, 'base64').toString('utf8');
+          } else if (message.payload.body?.data) {
+            bodyText = Buffer.from(message.payload.body.data, 'base64').toString('utf8');
+          }
+        }
+
+        // Construct context-rich OpenAI summary prompt
+        const prompt = `You are a professional email executive. Please summarize the following email in a brief, clear, and high-impact format (3-4 bullet points maximum). Avoid any greetings, introductions, or sign-offs. Focus strictly on key takeaways and any action items.
+
+Sender: ${message.payload?.headers?.find((h: any) => h.name === 'From')?.value || 'Unknown'}
+Subject: ${message.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || '(No Subject)'}
+Content: ${bodyText.slice(0, 4000)}`;
+
+        const response = await openai.chat.completions.create({
+          model: AI_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 300,
+        });
+
+        return response.choices[0].message.content || 'Failed to generate summary.';
+      });
+
+      // Emit summary ready socket event
+      await step.run('broadcast-summary', async () => {
+        const io = getSocketIO();
+        if (io) {
+          io.to(`user:${userId}`).emit('email-summary-ready', {
+            emailId,
+            summary: summaryText,
+          });
+          console.log(`[Inngest Summarize] Emitted summary for email ${emailId} to user:${userId}`);
+        } else {
+          console.warn('[Inngest Summarize] Socket.IO server not initialized, could not emit summary.');
+        }
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('Error in Inngest email summary workflow:', err);
+      // Emit failure event
+      const io = getSocketIO();
+      if (io) {
+        io.to(`user:${userId}`).emit('email-summary-failed', {
+          emailId,
+          error: err instanceof Error ? err.message : 'Failed to generate summary.',
+        });
+      }
+      throw err;
+    }
   }
 );
 

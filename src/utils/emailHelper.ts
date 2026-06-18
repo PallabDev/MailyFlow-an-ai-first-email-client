@@ -29,23 +29,11 @@ export const formatPlainTextInput = (text: string) => {
     return html;
 };
 
-const EMAIL_THEME_LOCK_CSS = `
-  :root, html {
-    color-scheme: light only !important;
-  }
-  html, body {
-    background-color: #ffffff !important;
-    forced-color-adjust: none;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root, html, body {
-      color-scheme: light only !important;
-      background-color: #ffffff !important;
-    }
-  }
-`;
-
-export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolean = true) => {
+export const getEmailHtml = (
+  email: { body: string },
+  iframeHeightScript: boolean = true,
+  theme: 'light' | 'dark' = 'light'
+) => {
     let rawHtml = email.body;
     const isHtmlEmail = isHtml(rawHtml);
 
@@ -88,74 +76,66 @@ export const getEmailHtml = (email: { body: string }, iframeHeightScript: boolea
             doc.documentElement.insertBefore(head, doc.body);
         }
 
-        // 3. Force light color-scheme so the app's dark mode doesn't bleed into the iframe.
-        //    <meta name="color-scheme"> works at browser level, overriding parent frame inheritance.
-        let colorSchemeMeta = doc.querySelector('meta[name="color-scheme"]');
-        if (!colorSchemeMeta) {
-            colorSchemeMeta = doc.createElement('meta');
-            colorSchemeMeta.setAttribute('name', 'color-scheme');
-            head.insertBefore(colorSchemeMeta, head.firstChild);
-        }
-        colorSchemeMeta.setAttribute('content', 'light only');
-
-        let supportedSchemesMeta = doc.querySelector('meta[name="supported-color-schemes"]');
-        if (!supportedSchemesMeta) {
-            supportedSchemesMeta = doc.createElement('meta');
-            supportedSchemesMeta.setAttribute('name', 'supported-color-schemes');
-            head.insertBefore(supportedSchemesMeta, head.firstChild);
-        }
-        supportedSchemesMeta.setAttribute('content', 'light only');
-
-        // Inline style = highest specificity, cannot be overridden by any stylesheet rule
-        doc.documentElement.style.colorScheme = 'light only';
-        if (doc.body) {
-            doc.body.style.colorScheme = 'light only';
-            doc.body.style.backgroundColor = '#ffffff';
-        }
-
-        // Lock emails to light rendering so app dark mode never inverts email colors.
-        const themeLockStyle = doc.createElement('style');
-        themeLockStyle.setAttribute('data-email-theme-lock', 'true');
-        themeLockStyle.textContent = EMAIL_THEME_LOCK_CSS;
-        head.appendChild(themeLockStyle);
-
-        // 4. Add base tag so links open in a new tab
-        let baseTag = doc.querySelector('base');
-        if (!baseTag) {
-            baseTag = doc.createElement('base');
-            head.insertBefore(baseTag, head.firstChild);
-        }
-        baseTag.setAttribute('target', '_blank');
-
-        // 5. For plain-text emails only: inject readability styles.
-        //    HTML emails keep their original colors; theme lock above prevents dark-mode inversion.
+        // 3. Conditional theming:
+        // Plain text: adapt to system light/dark theme.
+        // HTML: load as-is (do not enforce custom color scheme or background styles).
         if (!isHtmlEmail) {
+            let colorSchemeMeta = doc.querySelector('meta[name="color-scheme"]');
+            if (!colorSchemeMeta) {
+                colorSchemeMeta = doc.createElement('meta');
+                colorSchemeMeta.setAttribute('name', 'color-scheme');
+                head.insertBefore(colorSchemeMeta, head.firstChild);
+            }
+            colorSchemeMeta.setAttribute('content', theme === 'dark' ? 'dark only' : 'light only');
+
+            let supportedSchemesMeta = doc.querySelector('meta[name="supported-color-schemes"]');
+            if (!supportedSchemesMeta) {
+                supportedSchemesMeta = doc.createElement('meta');
+                supportedSchemesMeta.setAttribute('name', 'supported-color-schemes');
+                head.insertBefore(supportedSchemesMeta, head.firstChild);
+            }
+            supportedSchemesMeta.setAttribute('content', theme === 'dark' ? 'dark only' : 'light only');
+
+            doc.documentElement.style.colorScheme = theme === 'dark' ? 'dark only' : 'light only';
+            if (doc.body) {
+                doc.body.style.colorScheme = theme === 'dark' ? 'dark only' : 'light only';
+                doc.body.style.backgroundColor = theme === 'dark' ? '#161613' : '#ffffff';
+            }
+
             const styleTag = doc.createElement('style');
             styleTag.textContent = `
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        font-size: 14px;
-        line-height: 1.6;
-        margin: 0;
-        padding: 8px;
-        box-sizing: border-box;
-        max-width: 100% !important;
-        overflow-x: hidden !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-        background-color: #ffffff !important;
-        color: #1a1a1a !important;
-      }
-      a { color: #2563eb; text-decoration: none; word-break: break-all; }
-      a:hover { text-decoration: underline; }
-      img { max-width: 100% !important; height: auto !important; }
-      td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
-      * { box-sizing: border-box !important; }
-    `;
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+            padding: 8px;
+            box-sizing: border-box;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            background-color: ${theme === 'dark' ? '#161613' : '#ffffff'} !important;
+            color: ${theme === 'dark' ? '#e9e7df' : '#1a1a1a'} !important;
+          }
+          a { color: ${theme === 'dark' ? '#8aa593' : '#2563eb'}; text-decoration: none; word-break: break-all; }
+          a:hover { text-decoration: underline; }
+          img { max-width: 100% !important; height: auto !important; }
+          td, div, p, span { max-width: 100% !important; word-wrap: break-word !important; overflow-wrap: break-word !important; }
+          * { box-sizing: border-box !important; }
+        `;
             head.appendChild(styleTag);
+        } else {
+            // HTML emails: Ensure base tag target is safe, but don't touch colors
+            let baseTag = doc.querySelector('base');
+            if (!baseTag) {
+                baseTag = doc.createElement('base');
+                head.insertBefore(baseTag, head.firstChild);
+            }
+            baseTag.setAttribute('target', '_blank');
         }
 
-        // 6. Inject iframe auto-resize script
+        // 4. Inject iframe auto-resize script
         if (iframeHeightScript) {
             const scriptTag = doc.createElement('script');
             scriptTag.textContent = `

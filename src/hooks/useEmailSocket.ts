@@ -52,6 +52,24 @@ export function useEmailSocket({ onNewEmail, enabled = true }: UseEmailSocketOpt
         }
       });
 
+      socket.on('email-summary-ready', (data: { emailId: string; summary: string }) => {
+        if (data?.emailId && data?.summary) {
+          console.log('📱 [Socket] Received email-summary-ready event for ID:', data.emailId);
+          window.dispatchEvent(
+            new CustomEvent('mailyflow-summary-ready', { detail: { emailId: data.emailId, summary: data.summary } })
+          );
+        }
+      });
+
+      socket.on('email-summary-failed', (data: { emailId: string; error: string }) => {
+        if (data?.emailId) {
+          console.log('📱 [Socket] Received email-summary-failed event for ID:', data.emailId);
+          window.dispatchEvent(
+            new CustomEvent('mailyflow-summary-failed', { detail: { emailId: data.emailId, error: data.error } })
+          );
+        }
+      });
+
       socket.on('connect_error', async (err) => {
         console.warn('📱 [Socket] Connection error:', err.message);
         if (err.message === 'Unauthorized' && socket) {
