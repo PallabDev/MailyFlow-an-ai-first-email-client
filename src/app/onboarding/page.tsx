@@ -5,6 +5,7 @@ import { db } from '@/utils/corsair';
 import { corsairAccounts, corsairIntegrations } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { Mail, Calendar, Sparkles, Lock, Link as LinkIcon } from 'lucide-react';
+import { ShinyText, SpotlightCard } from '@/components/ui/ReactBitsEffects';
 
 export default async function OnboardingPage({
   searchParams,
@@ -61,9 +62,7 @@ export default async function OnboardingPage({
       {/* Header */}
       <header className="flex items-center justify-between border-b border-sidebar-border bg-card px-6 py-4 backdrop-blur-md shrink-0">
         <div className="flex items-center space-x-3">
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent via-success to-accent-glow bg-clip-text text-transparent">
-            MailyFlow
-          </span>
+          <ShinyText text="MailyFlow" className="text-xl font-bold tracking-tight" speed={3} />
         </div>
         <div className="flex items-center space-x-4">
           <span className="text-sm text-text-secondary hidden sm:inline">{user?.emailAddresses[0]?.emailAddress}</span>
@@ -90,7 +89,8 @@ export default async function OnboardingPage({
           )}
 
           {/* Clean White Reference Card */}
-          <div className="bg-card border border-border rounded-2xl p-8 shadow-sm flex flex-col space-y-8 items-center text-text-primary">
+          <SpotlightCard className="w-full bg-card border border-border rounded-2xl shadow-sm text-text-primary overflow-hidden" spotlightColor="rgba(95, 122, 104, 0.12)">
+            <div className="p-8 flex flex-col space-y-8 items-center w-full">
             
             {/* Google Logos side by side with link icon in the middle */}
             <div className="flex items-center justify-center space-x-4 py-2">
@@ -176,7 +176,8 @@ export default async function OnboardingPage({
               <span>Secure, private, and encrypted</span>
             </div>
           </div>
-        </div>
+        </SpotlightCard>
+      </div>
       </main>
     </div>
   );

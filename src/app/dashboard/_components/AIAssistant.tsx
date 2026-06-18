@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu, History, Plus, MessageSquare } from 'lucide-react';
+import { Bot, ChevronLeft, ChevronRight, ArrowUp, Pause, X, Brain, Wrench, Cpu, History, Plus, MessageSquare } from 'lucide-react';
 import { useChatStore, ChatMessage } from '@/store/chatStore';
 import { motion } from 'motion/react';
 import { DecryptText } from '@/components/ui/ReactBitsEffects';
@@ -45,10 +45,7 @@ const AgentProgressLoader = () => {
         <div className="h-4 w-4 rounded-full border-2 border-[#6e9b7e]/25 border-t-[#6e9b7e] animate-spin shrink-0"></div>
         <span className="text-[11px] font-bold text-text-secondary select-none flex items-center space-x-1.5">
           {currentStage.icon}
-          <span>
-            <DecryptText text={currentStage.text} speed={30} />
-            <span>...</span>
-          </span>
+          <span>{currentStage.text}...</span>
         </span>
       </div>
 
@@ -445,7 +442,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
           /* COLLAPSED ASSISTANT COLUMN */
           !isMobile && (
             <div className="flex flex-col items-center py-6 space-y-6">
-              <Sparkles className="h-5 w-5 text-[#6e9b7e]" />
+              <img src="/file.svg" className="h-5 w-[51px] object-contain dark:invert" alt="AI" />
             </div>
           )
         ) : (
@@ -454,7 +451,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
             {/* Header */}
             <div className="h-16 px-6 border-b border-border flex items-center justify-between bg-card shrink-0">
               <div className="flex items-center space-x-2">
-                <Sparkles className="h-4.5 w-4.5 text-[#6e9b7e]" />
+                <img src="/file.svg" className="h-4.5 w-[46px] object-contain dark:invert" alt="AI" />
                 <span className="font-bold text-foreground text-sm">
                   {activeView === 'history' ? 'Chat History' : 'AI Assistant'}
                 </span>
@@ -483,7 +480,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
                 {/* Close Button */}
                 <button
                   onClick={() => setIsRightSidebarCollapsed(true)}
-                  className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
+                  className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer md:hidden flex items-center justify-center"
                   title="Close AI Assistant"
                 >
                   <X className="h-4 w-4" />
@@ -534,7 +531,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
                 <>
                   {messages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-                      <Sparkles className="h-8 w-8 text-[#6e9b7e]/40 mb-2 animate-pulse" />
+                      <img src="/file.svg" className="h-8 w-[82px] object-contain dark:invert opacity-75 mb-2 animate-pulse" alt="AI" />
                       <p className="text-xs">
                         Ask me anything about your emails, drafting answers, or scheduling calendar events!
                       </p>

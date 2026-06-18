@@ -13,7 +13,7 @@
   --border: #ccd2cd;
   
   --surface-elevated: #fbfcfb; /* very soft off-white green for elevations */
-  --surface-subtle: #dbe0db; /* muted sage-gray for sidebar bg */
+  --surface-subtle: #ecf0ec; /* muted sage-gray for sidebar bg */
   --border-row: #d4dad5; /* clearly visible row separator */
   --hover-row: #e2e8e3; /* nice hover row */
   --mail-unread-bg: #eaf0eb; /* soft sage green-gray tint for unread */
@@ -32,7 +32,7 @@
   --warning: #bb8f4f;
   --danger: #bd6f5d;
   
-  --sidebar-bg: #dbe0db;
+  --sidebar-bg: #ecf0ec;
   --sidebar-text: #5e635f;
   --sidebar-border: #ccd2cd;
   --sidebar-hover: #cdd9cf; /* richer sage green tint for hover in light theme */

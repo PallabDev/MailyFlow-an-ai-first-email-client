@@ -1,5 +1,6 @@
 import { SignUp } from "@clerk/nextjs";
 import { ThemeProvider } from "../../../theme";
+import { TiltedCard, ShinyText } from "@/components/ui/ReactBitsEffects";
 
 export default function SignUpPage() {
   return (
@@ -10,15 +11,14 @@ export default function SignUpPage() {
         <div className="absolute bottom-1/4 right-1/4 -z-10 h-96 w-96 rounded-full bg-primary/10 blur-3xl animate-pulse delay-1000"></div>
 
         {/* Decorative glass card container */}
-        <div className="w-full max-w-md rounded-2xl border border-line bg-surface/60 p-8 backdrop-blur-xl shadow-2xl flex flex-col items-center">
-          <div className="mb-6 text-center">
-            <h1 className="font-display text-3xl font-extrabold tracking-tight bg-gradient-to-r from-accent via-primary to-secondary bg-clip-text text-transparent">
-              MailyFlow
-            </h1>
-            <p className="mt-2 text-sm text-muted">
-              Create an account to start configuring your agent integrations
-            </p>
-          </div>
+        <TiltedCard className="w-full max-w-md z-10">
+          <div className="rounded-2xl border border-line bg-surface/60 p-8 backdrop-blur-xl shadow-2xl flex flex-col items-center">
+            <div className="mb-6 text-center">
+              <ShinyText text="MailyFlow" className="font-display text-3xl font-extrabold tracking-tight" speed={3} />
+              <p className="mt-2 text-sm text-muted">
+                Create an account to start configuring your agent integrations
+              </p>
+            </div>
 
           <SignUp
             appearance={{
@@ -40,6 +40,7 @@ export default function SignUpPage() {
             }}
           />
         </div>
+        </TiltedCard>
       </div>
     </ThemeProvider>
   );

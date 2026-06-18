@@ -20,7 +20,7 @@ export function ShinyText({
 
   return (
     <span
-      className={`inline-block text-transparent bg-clip-text bg-gradient-to-r from-text via-text/50 to-text bg-[length:200%_auto] ${
+      className={`inline-block text-transparent bg-clip-text bg-[length:200%_auto] ${
         disabled ? "" : "animate-shiny"
       } ${className}`}
       style={{
@@ -30,7 +30,7 @@ export function ShinyText({
         WebkitBackgroundClip: "text",
         backgroundClip: "text",
         color: "transparent",
-        backgroundColor: "var(--text)",
+        backgroundColor: "var(--text-primary)",
       }}
     >
       {text}
