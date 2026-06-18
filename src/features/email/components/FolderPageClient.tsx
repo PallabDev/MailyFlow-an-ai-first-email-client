@@ -259,8 +259,11 @@ export default function FolderPageClient({
           fetchedEmails = mockEmails;
         }
         
-        // Cache the fetched emails — merge on background/initial fetch so SSE prepends aren't wiped
-        if (force) {
+        if (debouncedSearch) {
+          // Search results replace the list but never overwrite the folder cache,
+          // so clearing the search restores the cached inbox
+          setEmailsState(fetchedEmails);
+        } else if (force) {
           emailCache[folder] = {
             emails: fetchedEmails,
             nextPageToken: data.nextPageToken || null,
@@ -328,6 +331,8 @@ export default function FolderPageClient({
   }, [folder, debouncedSearch]);
 
   const handlePrependEmail = useCallback((newEmail: Email) => {
+    if (debouncedSearch) return;
+
     let alreadyExists = false;
     setEmailsState((prev) => {
       alreadyExists = prev.some((e) => e.id === newEmail.id);
@@ -352,7 +357,7 @@ export default function FolderPageClient({
     });
 
     window.dispatchEvent(new CustomEvent('refresh-labels'));
-  }, [folder]);
+  }, [folder, debouncedSearch]);
 
   // Subscribe to layout-level prepend events
   useEffect(() => {
