@@ -563,7 +563,7 @@ export function setupDemoFetchInterceptor() {
           new CustomEvent('mailyflow-demo-summary-ready', {
             detail: {
               emailId,
-              summary: `• **Mock AI Summary**\n• This is a simulated key takeaways list generated instantly in the offline sandbox demo.\n• The workflow runs completely in the background via Inngest serverless handlers.\n• Displays critical milestones, next steps, and action items.`,
+              summary: `📢 **What is happening:**\nThis is a simulated demo email summary generated in the offline sandbox.\n\n👉 **What you need to do:**\n• Explore the interactive dashboard tabs\n• Test the AI Assistant chat sidebar`,
             }
           })
         );
