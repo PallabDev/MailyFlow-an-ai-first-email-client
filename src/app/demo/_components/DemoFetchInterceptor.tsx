@@ -432,7 +432,7 @@ export function setupDemoFetchInterceptor() {
         subscription: {
           planName,
           status,
-          price: planName === 'Starter' ? 'Free' : planName === 'Professional' ? '₹599' : '₹999',
+          price: planName === 'Starter' ? 'Free' : planName === 'Professional' ? '₹999' : '₹1999',
           startDate: '2026-06-01T00:00:00Z',
           endDate: '2026-07-01T00:00:00Z',
         },

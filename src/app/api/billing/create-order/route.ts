@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,8 +15,8 @@ export async function POST(req: NextRequest) {
     }
 
     const priceMap: Record<string, number> = {
-      Professional: 59900, // INR 599 in paise
-      Business: 99900, // INR 999 in paise
+      Professional: 99900, // INR 999 in paise
+      Business: 199900, // INR 1999 in paise
     };
     const amount = priceMap[planName];
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!keyId || !keySecret) {
-      console.error('Razorpay credentials missing from env variables');
+      logger.error('Razorpay credentials missing from env variables');
       return NextResponse.json({ error: 'Payment gateway configuration error' }, { status: 500 });
     }
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     if (!razorpayRes.ok) {
       const errorData = await razorpayRes.text();
-      console.error('Razorpay Order Creation API Failed:', errorData);
+      logger.error('Razorpay Order Creation API Failed:', errorData);
       return NextResponse.json({ error: 'Failed to create payment order' }, { status: 500 });
     }
 
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
       currency: order.currency,
     });
   } catch (error) {
-    console.error('Error creating billing order:', error);
+    logger.error('Error creating billing order:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
