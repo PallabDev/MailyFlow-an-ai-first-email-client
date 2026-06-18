@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/utils/corsair';
 import { userSubscriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -7,12 +7,13 @@ import { inngest } from '@/inngest/client';
 
 export async function POST(req: NextRequest) {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const user = await currentUser();
+        if (!user) {
             return new Response('Unauthorized', { status: 401 });
         }
+        const userId = user.id;
 
-        const { emailId } = await req.json();
+        const { emailId, timezone, localTime } = await req.json();
         if (!emailId) {
             return NextResponse.json({ error: 'Missing emailId' }, { status: 400 });
         }
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
             data: {
                 userId,
                 emailId,
+                userFirstName: user.firstName,
+                userLastName: user.lastName,
+                userEmail: user.emailAddresses[0]?.emailAddress || '',
+                timezone: timezone || '',
+                localTime: localTime || '',
             },
         });
 

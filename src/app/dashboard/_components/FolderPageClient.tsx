@@ -729,7 +729,10 @@ export default function FolderPageClient({
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => setSelectedEmail(null)}
+                onClick={() => {
+                  setSelectedEmail(null);
+                  updateOpenEmailParam(null);
+                }}
                 className="inline-flex items-center space-x-1 py-1.5 px-3 rounded-lg text-sm font-semibold text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />

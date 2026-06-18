@@ -630,7 +630,7 @@ export const draftEmailReply = inngest.createFunction(
         triggers: [{ event: 'email.draft.requested' }],
     },
     async ({ event, step }) => {
-        const { userId, emailId } = event.data;
+        const { userId, emailId, userFirstName, userLastName, userEmail, timezone, localTime } = event.data;
 
         try {
             const draftText = await step.run('generate-draft', async () => {
@@ -657,6 +657,10 @@ export const draftEmailReply = inngest.createFunction(
 
                 // Construct OpenAI prompt
                 const prompt = `You are a professional email executive. Please draft a polite, concise, and contextually appropriate reply to the email below.
+
+Context:
+- The user sending this reply is: ${userFirstName || ''} ${userLastName || ''} (${userEmail || ''}). Sign off the email as "${userFirstName || ''} ${userLastName || ''}" (do not use generic signatures or brackets like "[Your Name]").
+- The current user's local time is: ${localTime || new Date().toString()} (${timezone || 'UTC'}). Use this to understand relative time references (like "tomorrow", "next week", "yesterday") correctly.
 
 Instructions:
 - Write a ready-to-send reply.

@@ -232,7 +232,11 @@ export default function EmailDetail({
             const res = await fetch('/api/emails/draft-reply', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ emailId: email.id }),
+                body: JSON.stringify({
+                    emailId: email.id,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    localTime: new Date().toString(),
+                }),
             });
 
             if (!res.ok) {
