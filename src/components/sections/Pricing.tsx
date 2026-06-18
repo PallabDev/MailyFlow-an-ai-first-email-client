@@ -107,11 +107,11 @@ export default function Pricing() {
                     subtitle="We charge strictly for AI calls. Gmail and Calendar manual tool usage is absolutely free & unlimited."
                 />
 
-                <div className="grid gap-6 lg:grid-cols-3 lg:items-center">
+                <div className="grid gap-6 lg:grid-cols-3 lg:items-stretch">
                     {PLANS.map((plan, i) => (
                         <Reveal key={plan.name} delay={i * 100}>
                             {plan.highlighted ? (
-                                <div className="relative lg:scale-[1.04]">
+                                <div className="relative lg:scale-[1.05] lg:z-10">
                                     {/* glow behind card */}
                                     <div
                                         aria-hidden
@@ -119,7 +119,7 @@ export default function Pricing() {
                                         style={{ background: "var(--glow)" }}
                                     />
                                     {/* card */}
-                                    <SpotlightCard className="border-accent shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
+                                    <SpotlightCard className="flex h-full flex-col border-accent shadow-[0_4px_24px_-8px_rgba(129,154,145,0.28)] hover:-translate-y-1 hover:shadow-[0_20px_48px_-16px_rgba(129,154,145,0.38)]">
                                         {/* Most popular pill */}
                                         <div className="absolute right-5 top-5 z-20">
                                             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider text-white">
@@ -134,7 +134,7 @@ export default function Pricing() {
                                     </SpotlightCard>
                                 </div>
                             ) : (
-                                <SpotlightCard className="hover:-translate-y-1 hover:shadow-lg">
+                                <SpotlightCard className="flex h-full flex-col hover:-translate-y-1 hover:shadow-lg">
                                     <PlanContent
                                         plan={plan}
                                         onSelect={() => handleCheckout(plan)}
