@@ -129,7 +129,7 @@ export default function Hero() {
             <h1 className="font-display text-[44px] font-semibold leading-[1.04] tracking-tight text-text sm:text-6xl md:text-[68px] max-w-2xl">
               Your Inbox Can{" "}
               <span className="relative whitespace-nowrap text-accent-ink">
-                <ShinyText text="Work For You" />
+                <ShinyText text="Work For You" speed={6} />
                 <svg className="absolute -bottom-1 left-0 w-full" height="10" viewBox="0 0 200 10" fill="none" preserveAspectRatio="none">
                   <path d="M2 7C50 2 150 2 198 7" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
                 </svg>

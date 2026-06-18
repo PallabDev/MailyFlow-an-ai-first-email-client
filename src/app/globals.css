@@ -84,6 +84,8 @@
   --sender-blue: #7ba2c7;
   --sender-clay: #c58c70;
   --sender-sand: #cda968;
+
+  --shiny-base-color: var(--text-secondary);
 }
 
 @theme inline {
@@ -219,6 +221,7 @@ body {
   --glass: rgba(255, 255, 255, 0.62);
   --glow: rgba(167, 193, 174, 0.55);
   --grid-color: rgba(17, 24, 39, 0.11);
+  --shiny-base-color: var(--accent-ink);
 }
 
 .landing-page.dark {
@@ -236,6 +239,7 @@ body {
   --glass: rgba(18, 24, 21, 0.58);
   --glow: rgba(129, 154, 145, 0.4);
   --grid-color: rgba(249, 250, 251, 0.11);
+  --shiny-base-color: var(--accent-ink);
 }
 
 .font-display {

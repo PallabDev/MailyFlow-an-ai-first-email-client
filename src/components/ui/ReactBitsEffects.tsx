@@ -8,7 +8,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 export function ShinyText({
   text,
   disabled = false,
-  speed = 2,
+  speed = 5,
   className = "",
 }: {
   text: string;
@@ -20,17 +20,17 @@ export function ShinyText({
 
   return (
     <span
-      className={`inline-block text-transparent bg-clip-text bg-[length:200%_auto] ${
+      className={`inline-block bg-clip-text bg-[length:200%_auto] ${
         disabled ? "" : "animate-shiny"
       } ${className}`}
       style={{
         animationDuration,
-        backgroundImage: "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 70%)",
+        backgroundImage: "var(--shiny-gradient, linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 70%))",
         backgroundSize: "200% 100%",
         WebkitBackgroundClip: "text",
         backgroundClip: "text",
-        color: "transparent",
-        backgroundColor: "var(--text-primary)",
+        WebkitTextFillColor: "transparent",
+        backgroundColor: "var(--shiny-base-color, currentColor)",
       }}
     >
       {text}
