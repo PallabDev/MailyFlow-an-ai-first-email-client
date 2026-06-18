@@ -106,6 +106,17 @@ export const emailPriorities = pgTable('email_priorities', {
   ];
 });
 
+export const webhookDedup = pgTable('webhook_dedup', {
+  tenantId: text('tenant_id').notNull(),
+  messageId: text('message_id').notNull(),
+  seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => {
+  return [
+    index('webhook_dedup_tenant_idx').on(table.tenantId),
+    index('webhook_dedup_seen_at_idx').on(table.seenAt),
+  ];
+});
+
 
 
 

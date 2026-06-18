@@ -11,6 +11,7 @@ import { publishNewEmailEvent } from '@/lib/publish-new-email';
 import { getGmailCooldownExpiration, setGmailCooldown } from '@/lib/cooldown';
 import { getSocketIO } from '@/lib/socket/server';
 import logger from '@/lib/logger';
+import { shouldPublishEvent, setLastSyncTime } from '@/lib/webhook-dedup';
 
 export const processAICall = inngest.createFunction(
     {
@@ -343,6 +344,10 @@ export const syncGmailWebhook = inngest.createFunction(
         let result: unknown = null;
         const syncStartedAtStr = await step.run('get-sync-start-time', () => new Date().toISOString());
         const syncStartedAt = new Date(syncStartedAtStr);
+
+        // Update last sync time for dedup tracking
+        setLastSyncTime(activeTenantId, syncStartedAt);
+
         try {
             result = await step.run('run-process-webhook', async () => {
                 const res = await processWebhook(corsair, headersObj, body, {
@@ -397,11 +402,14 @@ export const syncGmailWebhook = inngest.createFunction(
 
             const publishedIds = new Set<string>();
             for (const row of syncedEntities) {
-                const msg = row.data as { id?: string; labelIds?: string[] };
+                const msg = row.data as { id?: string; labelIds?: string[]; internalDate?: string };
                 if (!msg.id || publishedIds.has(msg.id)) continue;
 
                 const labels = msg.labelIds ?? [];
                 if (labels.length > 0 && !labels.includes('INBOX')) continue;
+
+                // Dedup: only publish if this is a truly new message
+                if (!shouldPublishEvent(activeTenantId, msg.id, msg.internalDate)) continue;
 
                 publishedIds.add(msg.id);
                 await publishNewEmailEvent(msg.id, activeTenantId);
@@ -474,6 +482,9 @@ export const syncGmailWebhook = inngest.createFunction(
 
                     for (const msg of listRes.messages) {
                         if (msg.id && !cachedIds.has(msg.id)) {
+                            // Dedup: only publish if this is a truly new message
+                            if (!shouldPublishEvent(activeTenantId, msg.id)) continue;
+
                             await publishNewEmailEvent(msg.id, activeTenantId);
                             logger.info(`✉️ [Inngest Sync] Fallback published realtime event for email ${msg.id}`);
 

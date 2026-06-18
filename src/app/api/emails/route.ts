@@ -7,6 +7,7 @@ import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { getGmailCooldownExpiration, setGmailCooldown } from '@/lib/cooldown';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { setLastSyncTime } from '@/lib/webhook-dedup';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
@@ -378,6 +379,8 @@ export async function GET(req: NextRequest) {
           }
         }
         fetchedFromGmail = true;
+        // Mark sync time so webhooks don't re-notify for these emails
+        setLastSyncTime(userId, new Date());
       } catch (gmailErr: unknown) {
         console.error('Error fetching directly from Gmail API, trying to fallback to cache:', gmailErr);
         if (is429Error(gmailErr)) {

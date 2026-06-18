@@ -27,4 +27,15 @@ export async function register() {
   } catch (err) {
     logger.error('[Corsair Init] Failed to sync Google OAuth credentials on startup:', err);
   }
+
+  // Auto-cleanup expired webhook dedup rows every 5 minutes
+  const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const { cleanupExpiredRows } = await import('./lib/webhook-dedup');
+      await cleanupExpiredRows();
+    } catch (err) {
+      logger.error('[WebhookDedup] Cleanup interval error:', err);
+    }
+  }, CLEANUP_INTERVAL_MS);
 }
