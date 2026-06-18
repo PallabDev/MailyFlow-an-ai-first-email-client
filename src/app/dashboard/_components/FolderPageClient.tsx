@@ -367,6 +367,19 @@ export default function FolderPageClient({
 
   useEmailSocket({ onNewEmail: handleNewEmailEvent });
 
+  useEffect(() => {
+    const handleDemoPrepend = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.emailId) {
+        handleNewEmailEvent(customEvent.detail.emailId);
+      }
+    };
+    window.addEventListener('mailyflow-demo-new-email', handleDemoPrepend);
+    return () => {
+      window.removeEventListener('mailyflow-demo-new-email', handleDemoPrepend);
+    };
+  }, [handleNewEmailEvent]);
+
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
     setLoadingMore(true);

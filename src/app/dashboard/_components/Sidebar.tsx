@@ -87,7 +87,8 @@ export default function Sidebar({
 
   const navigateToTab = (tab: string) => {
     const target = tab === 'drafts' ? 'draft' : tab;
-    router.push(`/dashboard/${target}`);
+    const base = pathname?.startsWith('/demo') ? '/demo' : '/dashboard';
+    router.push(`${base}/${target}`);
     // Auto-collapse sidebar on mobile clicks
     if (window.innerWidth < 768) {
       setIsLeftSidebarCollapsed(true);

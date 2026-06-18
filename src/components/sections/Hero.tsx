@@ -127,9 +127,11 @@ export default function Hero() {
                   Start Free <ArrowRight size={16} strokeWidth={2} />
                 </Button>
               </Link>
-              <Button variant="secondary" className="px-6 py-3 text-[15px]">
-                <Play size={15} strokeWidth={2} /> Watch Demo
-              </Button>
+              <Link href="/demo">
+                <Button variant="secondary" className="px-6 py-3 text-[15px]">
+                  <Play size={15} strokeWidth={2} /> Try Demo
+                </Button>
+              </Link>
             </div>
           </Reveal>
         </div>

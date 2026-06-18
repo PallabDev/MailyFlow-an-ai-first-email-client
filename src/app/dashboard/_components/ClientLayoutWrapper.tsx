@@ -5,7 +5,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import AIAssistant from './AIAssistant';
 import { useChatStore } from '@/store/chatStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 type ClientLayoutWrapperProps = {
   user: {
@@ -26,6 +26,7 @@ export default function ClientLayoutWrapper({
 }: ClientLayoutWrapperProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -50,35 +51,36 @@ export default function ClientLayoutWrapper({
       if (!e.ctrlKey || !e.altKey) return;
 
       const key = e.key.toLowerCase();
+      const base = pathname?.startsWith('/demo') ? '/demo' : '/dashboard';
       let routeTarget = '';
 
       switch (key) {
         case 'i':
-          routeTarget = '/dashboard/inbox';
+          routeTarget = `${base}/inbox`;
           break;
         case 's':
-          routeTarget = '/dashboard/starred';
+          routeTarget = `${base}/starred`;
           break;
         case 'd':
-          routeTarget = '/dashboard/draft';
+          routeTarget = `${base}/draft`;
           break;
         case 't':
-          routeTarget = '/dashboard/sent';
+          routeTarget = `${base}/sent`;
           break;
         case 'p':
-          routeTarget = '/dashboard/spam';
+          routeTarget = `${base}/spam`;
           break;
         case 'x':
-          routeTarget = '/dashboard/trash';
+          routeTarget = `${base}/trash`;
           break;
         case 'c':
-          routeTarget = '/dashboard/calendar';
+          routeTarget = `${base}/calendar`;
           break;
         case 'g':
-          routeTarget = '/dashboard/integrations';
+          routeTarget = `${base}/integrations`;
           break;
         case 'b':
-          routeTarget = '/dashboard/billing';
+          routeTarget = `${base}/billing`;
           break;
         default:
           break;

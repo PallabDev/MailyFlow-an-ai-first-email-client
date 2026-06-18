@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { CreditCard, Sparkles, Mail, Calendar as CalendarIcon, CheckCircle2, XCircle, RefreshCw, ArrowUpRight } from 'lucide-react';
 
 type SubscriptionData = {
@@ -70,6 +71,9 @@ const loadRazorpayScript = () => {
 };
 
 export default function BillingPage() {
+  const pathname = usePathname();
+  const isDemo = pathname?.startsWith('/demo');
+
   const [loading, setLoading] = useState(true);
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -113,16 +117,23 @@ export default function BillingPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const res = await fetch('/api/billing/cancel', {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSuccessMsg(data.message);
+      if (isDemo) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        localStorage.setItem('mailyflow_demo_billing_status', 'cancelled');
+        setSuccessMsg('Successfully cancelled subscription.');
         await fetchBillingStatus();
       } else {
-        const data = await res.json().catch(() => ({}));
-        setErrorMsg(data.error || 'Failed to cancel plan subscription.');
+        const res = await fetch('/api/billing/cancel', {
+          method: 'POST',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSuccessMsg(data.message);
+          await fetchBillingStatus();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setErrorMsg(data.error || 'Failed to cancel plan subscription.');
+        }
       }
     } catch (err) {
       console.error('Error cancelling plan:', err);
@@ -138,6 +149,22 @@ export default function BillingPage() {
     setUpgradingPlan(planName);
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (isDemo) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        localStorage.setItem('mailyflow_demo_billing_plan', planName);
+        localStorage.setItem('mailyflow_demo_billing_status', 'active');
+        setSuccessMsg(`Successfully subscribed to the ${planName} plan!`);
+        await fetchBillingStatus();
+      } catch (err) {
+        console.error('Upgrade mock error:', err);
+        setErrorMsg('An error occurred during upgrade.');
+      } finally {
+        setUpgradingPlan(null);
+      }
+      return;
+    }
 
     try {
       // 1. Load Razorpay script

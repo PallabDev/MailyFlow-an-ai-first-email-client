@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Mail, Calendar as CalendarIcon, Link2, CheckCircle2, XCircle, ArrowRight, RefreshCw, Trash2, CalendarRange, Clock, MapPin, AlertCircle } from 'lucide-react';
 import { disconnectPlugin } from '../../onboarding/actions';
 
@@ -25,6 +26,9 @@ export default function IntegrationsClient({
   isCalendarConnected,
   dbError,
 }: IntegrationsClientProps) {
+  const pathname = usePathname();
+  const isDemo = pathname?.startsWith('/demo');
+
   const [gmailLoading, setGmailLoading] = useState(false);
   const [_calendarLoading, _setCalendarLoading] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -60,15 +64,35 @@ export default function IntegrationsClient({
     fetchEvents();
   }, [isCalendarConnected]);
 
+  const handleConnectDemo = async () => {
+    setGmailLoading(true);
+    _setCalendarLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const connections = { gmail: true, calendar: true };
+    localStorage.setItem('mailyflow_demo_connections', JSON.stringify(connections));
+    window.dispatchEvent(new CustomEvent('refresh-labels'));
+    setGmailLoading(false);
+    _setCalendarLoading(false);
+  };
+
   const handleDisconnect = async (plugin: 'gmail' | 'googlecalendar') => {
     if (plugin === 'gmail') setGmailLoading(true);
     if (plugin === 'googlecalendar') _setCalendarLoading(true);
 
     try {
-      await disconnectPlugin(plugin);
-      // Refresh counts and connections in layout
-      window.dispatchEvent(new CustomEvent('refresh-labels'));
-      window.location.reload();
+      if (isDemo) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        const connections = {
+          gmail: plugin === 'gmail' ? false : isGmailConnected,
+          calendar: plugin === 'googlecalendar' ? false : isCalendarConnected,
+        };
+        localStorage.setItem('mailyflow_demo_connections', JSON.stringify(connections));
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
+      } else {
+        await disconnectPlugin(plugin);
+        window.dispatchEvent(new CustomEvent('refresh-labels'));
+        window.location.reload();
+      }
     } catch (err) {
       console.error(`Failed to disconnect ${plugin}:`, err);
     } finally {
@@ -174,6 +198,14 @@ export default function IntegrationsClient({
                             <span>Disconnect</span>
                           </button>
                         </div>
+                      ) : isDemo ? (
+                        <button
+                          onClick={handleConnectDemo}
+                          className="inline-flex items-center space-x-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/90 hover:shadow-sm active:scale-95 cursor-pointer"
+                        >
+                          <span>Connect Google Account</span>
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
                       ) : (
                         <a
                           href="/api/auth/connect?plugin=gmail"
