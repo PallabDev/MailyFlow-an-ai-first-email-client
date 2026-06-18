@@ -231,15 +231,11 @@ export async function GET(req: NextRequest) {
       internalDate: full.internalDate || undefined,
     });
   } catch (error: unknown) {
-    console.error('Error in /api/emails/detail:', error);
+    logger.error('Error in /api/emails/detail:', error);
     if (is429Error(error)) {
-      console.warn('[Emails Detail API] Outer handler caught 429. Setting 20-minute cooldown.');
       if (userId) await setGmailCooldown(userId);
+      return NextResponse.json({ error: 'Gmail rate limit is active. Please wait a few minutes.' }, { status: 429 });
     }
-    let errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    if (errorMessage.includes('unauthorized_client') || errorMessage.includes('invalid_grant')) {
-      errorMessage = 'Your Google connection has expired or been revoked. Please reconnect your account.';
-    }
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong while loading this email. Please try again.' }, { status: 500 });
   }
 }

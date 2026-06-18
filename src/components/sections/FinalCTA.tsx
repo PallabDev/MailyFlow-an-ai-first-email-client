@@ -1,8 +1,12 @@
+"use client";
+
+import { useState, useCallback } from "react";
 import { ArrowRight, Play } from "lucide-react";
 import Link from "next/link";
 import Container from "../ui/Container";
 import Reveal from "../ui/Reveal";
 import Button from "../ui/Button";
+import VideoModal from "../ui/VideoModal";
 
 // Small floating particle dot
 function Particle({
@@ -36,6 +40,10 @@ function GlowBlob({
   );
 }
 export default function FinalCTA() {
+  const [videoOpen, setVideoOpen] = useState(false);
+  const openVideo = useCallback(() => setVideoOpen(true), []);
+  const closeVideo = useCallback(() => setVideoOpen(false), []);
+
   return (
     <section className="relative overflow-hidden py-28 md:py-40">
       {/* corner glow blobs — placed at edges so they never sit behind headline text */}
@@ -140,7 +148,12 @@ export default function FinalCTA() {
                 Start Free
               </Button>
             </Link>
-            <Button variant="secondary" magnetic className="px-6 py-3 text-sm">
+            <Button
+              variant="secondary"
+              magnetic
+              className="px-6 py-3 text-sm"
+              onClick={openVideo}
+            >
               <Play size={15} strokeWidth={1.8} />
               Watch Demo
             </Button>
@@ -153,6 +166,8 @@ export default function FinalCTA() {
           </p>
         </Reveal>
       </Container>
+
+      <VideoModal open={videoOpen} onClose={closeVideo} />
     </section>
   );
 }
