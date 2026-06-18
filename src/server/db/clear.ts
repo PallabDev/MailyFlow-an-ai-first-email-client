@@ -23,6 +23,8 @@ async function clearDatabase() {
     await client.query('DELETE FROM health_logs');
     await client.query('DELETE FROM user_subscriptions');
     await client.query('DELETE FROM user_usage');
+    await client.query('DELETE FROM email_priorities');
+    await client.query('DELETE FROM webhook_dedup');
     
     logger.info("✅ Database tables cleared successfully!");
   } catch (err) {

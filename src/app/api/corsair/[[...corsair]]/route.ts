@@ -41,7 +41,17 @@ export async function POST(request: Request) {
       headersObj[key] = value;
     });
 
-    body = await request.json();
+    const rawBody = await request.text();
+    if (!rawBody || rawBody.trim().length === 0) {
+      if (isGmailPubSub) {
+        return new Response(JSON.stringify({ success: true, message: 'Empty body' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return defaultPost(clonedRequest);
+    }
+    body = JSON.parse(rawBody);
     isGmailPubSub = !!(body.message && body.subscription);
 
     // DB-backed Pub/Sub message dedup

@@ -1,4 +1,4 @@
-import { pgTable, text, jsonb, timestamp, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, jsonb, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const corsairIntegrations = pgTable('corsair_integrations', {
     id: text('id').primaryKey(),
@@ -112,7 +112,7 @@ export const webhookDedup = pgTable('webhook_dedup', {
   seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => {
   return [
-    index('webhook_dedup_tenant_idx').on(table.tenantId),
+    uniqueIndex('webhook_dedup_tenant_msg_idx').on(table.tenantId, table.messageId),
     index('webhook_dedup_seen_at_idx').on(table.seenAt),
   ];
 });
