@@ -6,6 +6,9 @@ import Header from './Header';
 import AIAssistant from './AIAssistant';
 import { useChatStore } from '@/store/chatStore';
 import { useRouter, usePathname } from 'next/navigation';
+import { useEmailSocket } from '@/hooks/useEmailSocket';
+import { useNotificationStore } from '@/store/notificationStore';
+import ComposeModal from './ComposeModal';
 
 type ClientLayoutWrapperProps = {
   user: {
@@ -27,6 +30,41 @@ export default function ClientLayoutWrapper({
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Centralized new email notification handler
+  const handleNewEmailReceived = async (emailId: string) => {
+    try {
+      const res = await fetch(`/api/emails/detail?id=${emailId}`);
+      if (res.ok) {
+        const data = await res.json();
+        // Add to notifications store
+        useNotificationStore.getState().addNotification(data);
+        // Propagate prepend event to FolderPageClient
+        window.dispatchEvent(
+          new CustomEvent('mailyflow-new-email-prepend', { detail: { email: data } })
+        );
+      }
+    } catch (err) {
+      console.error('Error handling global new email event:', err);
+    }
+  };
+
+  // 1. Listen for real-time socket updates
+  useEmailSocket({ onNewEmail: handleNewEmailReceived });
+
+  // 2. Listen for demo sandbox mock emails
+  useEffect(() => {
+    const handleDemoEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.emailId) {
+        handleNewEmailReceived(customEvent.detail.emailId);
+      }
+    };
+    window.addEventListener('mailyflow-demo-new-email', handleDemoEvent);
+    return () => {
+      window.removeEventListener('mailyflow-demo-new-email', handleDemoEvent);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,6 +178,9 @@ export default function ClientLayoutWrapper({
 
       {/* 3. RIGHT PANEL (AI ASSISTANT CHAT) */}
       <AIAssistant user={user} projectName={projectName} />
+
+      {/* 4. GLOBAL DRAGGABLE/MINIMIZABLE COMPOSE PANEL */}
+      <ComposeModal />
     </div>
   );
 }

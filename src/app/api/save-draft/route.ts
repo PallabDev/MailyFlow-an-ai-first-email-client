@@ -6,6 +6,55 @@ interface SaveDraftRequest {
   to: string;
   subject: string;
   body: string;
+  attachments?: Array<{
+    name: string;
+    type: string;
+    base64: string;
+  }>;
+}
+
+function buildRawMimeMessage({
+  to,
+  subject,
+  body,
+  attachments,
+}: {
+  to: string;
+  subject: string;
+  body: string;
+  attachments?: Array<{ name: string; type: string; base64: string }>;
+}) {
+  if (!attachments || attachments.length === 0) {
+    return Buffer.from(
+      `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
+    ).toString('base64url');
+  }
+
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  let mime = `To: ${to}\r\n`;
+  mime += `Subject: ${subject}\r\n`;
+  mime += `MIME-Version: 1.0\r\n`;
+  mime += `Content-Type: multipart/mixed; boundary="${boundary}"\r\n\r\n`;
+
+  // Message body part
+  mime += `--${boundary}\r\n`;
+  mime += `Content-Type: text/plain; charset=utf-8\r\n\r\n`;
+  mime += `${body}\r\n\r\n`;
+
+  // Attachments parts
+  for (const file of attachments) {
+    mime += `--${boundary}\r\n`;
+    mime += `Content-Type: ${file.type || 'application/octet-stream'}\r\n`;
+    mime += `Content-Disposition: attachment; filename="${file.name}"\r\n`;
+    mime += `Content-Transfer-Encoding: base64\r\n\r\n`;
+    
+    // Remove base64 data prefix if present (e.g. data:image/png;base64,...)
+    const base64Data = file.base64.includes(',') ? file.base64.split(',')[1] : file.base64;
+    mime += `${base64Data}\r\n\r\n`;
+  }
+
+  mime += `--${boundary}--`;
+  return Buffer.from(mime).toString('base64url');
 }
 
 export async function POST(req: NextRequest) {
@@ -15,7 +64,7 @@ export async function POST(req: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const { to, subject, body } = (await req.json()) as SaveDraftRequest;
+    const { to, subject, body, attachments } = (await req.json()) as SaveDraftRequest;
     if (!to || !subject || !body) {
       return NextResponse.json({ error: 'Missing fields: to, subject, and body are required' }, { status: 400 });
     }
@@ -43,9 +92,7 @@ export async function POST(req: NextRequest) {
     const client = corsair.withTenant(userId);
 
     // Encode standard email as base64url-encoded RFC 2822
-    const raw = Buffer.from(
-      `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
-    ).toString('base64url');
+    const raw = buildRawMimeMessage({ to, subject, body, attachments });
 
     // Call Gmail draft creation API via Corsair integration client
     await client.gmail.api.drafts.create({

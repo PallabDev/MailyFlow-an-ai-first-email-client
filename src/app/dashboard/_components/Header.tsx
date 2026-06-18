@@ -2,10 +2,12 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun, MessageSquare, Menu } from 'lucide-react';
+import { Search, Moon, Sun, MessageSquare, Menu, Bell, Check, Trash } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { useChatStore } from '@/store/chatStore';
+import { useNotificationStore } from '@/store/notificationStore';
+import { formatEmailDate } from '@/utils/emailHelper';
 
 type HeaderProps = {
   user: {
@@ -33,6 +35,31 @@ export default function Header({
   const searchInputRef = useRef<HTMLInputElement>(null);
   
   const { theme, setTheme, isRightSidebarCollapsed, setIsRightSidebarCollapsed } = useChatStore();
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const { notifications, markAsRead, markAllAsRead, clearNotifications } = useNotificationStore();
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleNotificationClick = (item: any) => {
+    markAsRead(item.id);
+    setShowNotifications(false);
+    
+    // Redirect to inbox and open the email
+    const base = pathname?.startsWith('/demo') ? '/demo' : '/dashboard';
+    router.push(`${base}/inbox?openEmailId=${item.emailId}`);
+  };
 
   const toggleAIChat = () => {
     setIsRightSidebarCollapsed(!isRightSidebarCollapsed);
@@ -124,6 +151,87 @@ export default function Header({
         >
           {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5" />}
         </button>
+
+        {/* Notifications Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center hover:bg-sidebar-hover hover:text-foreground relative ${
+              showNotifications ? 'text-text-primary bg-sidebar-hover' : 'text-slate-500'
+            }`}
+            title="Notifications"
+          >
+            <Bell className="h-4.5 w-4.5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-danger animate-pulse"></span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 md:w-[360px] bg-card border border-border rounded-2xl shadow-2xl z-50 py-2 text-text-primary animate-zoom-in">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                <span className="font-bold text-xs uppercase tracking-wider text-text-muted">Notifications</span>
+                <div className="flex space-x-2 text-[10px] font-bold">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-success hover:underline cursor-pointer"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={clearNotifications}
+                      className="text-text-muted hover:text-danger hover:underline cursor-pointer"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-[300px] overflow-y-auto divide-y divide-border-row">
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-xs font-semibold text-text-muted">
+                    No new notifications
+                  </div>
+                ) : (
+                  notifications.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleNotificationClick(item)}
+                      className={`p-3 hover:bg-hover-row cursor-pointer transition-colors flex items-start space-x-2 ${
+                        !item.read ? 'bg-mail-unread-bg/40 font-medium' : ''
+                      }`}
+                    >
+                      {!item.read && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-success shrink-0 mt-2" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-xs font-bold text-text-primary truncate">
+                            {item.senderName}
+                          </span>
+                          <span className="text-[10px] text-text-muted shrink-0 pl-2">
+                            {formatEmailDate(item.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-text-secondary truncate mt-0.5">
+                          {item.subject}
+                        </p>
+                        <p className="text-[10px] text-text-muted truncate mt-0.5">
+                          {item.snippet}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-center h-8 w-8">
           {pathname?.startsWith('/demo') ? (
             <div className="h-8 w-8 rounded-full bg-success/15 text-success font-semibold flex items-center justify-center text-xs border border-success/25 cursor-pointer select-none" title="Demo Mode Profile">

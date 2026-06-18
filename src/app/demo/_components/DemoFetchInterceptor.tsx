@@ -286,6 +286,7 @@ export function setupDemoFetchInterceptor() {
         body: emailBody,
         labelIds: ['SENT'],
         internalDate: String(Date.now()),
+        attachments: body.attachments || [],
       };
 
       const updated = [newEmail, ...emails];
@@ -336,6 +337,7 @@ export function setupDemoFetchInterceptor() {
         body: emailBody,
         labelIds: ['DRAFT'],
         internalDate: String(Date.now()),
+        attachments: body.attachments || [],
       };
 
       const updated = [newDraft, ...emails];

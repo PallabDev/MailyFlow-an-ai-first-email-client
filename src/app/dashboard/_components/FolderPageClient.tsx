@@ -18,8 +18,7 @@ import {
 } from 'lucide-react';
 import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
-import ComposeModal from './ComposeModal';
-import { useEmailSocket } from '@/hooks/useEmailSocket';
+import { useComposeStore } from '@/store/composeStore';
 
 type Email = {
   id: string;
@@ -221,7 +220,7 @@ export default function FolderPageClient({
   const [refreshing, setRefreshing] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const openCompose = useComposeStore((state) => state.openCompose);
   const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
   const pendingEmailFetchesRef = useRef(new Set<string>());
 
@@ -309,76 +308,70 @@ export default function FolderPageClient({
     }
   }, [folder, debouncedSearch]);
 
-  const handleNewEmailEvent = useCallback(async (emailId: string) => {
-    if (pendingEmailFetchesRef.current.has(emailId)) {
-      console.log('📱 [Socket] Prepend skipped: fetch already in progress for ID:', emailId);
-      return;
-    }
-
+  const handlePrependEmail = useCallback((newEmail: any) => {
     let alreadyExists = false;
     setEmailsState((prev) => {
-      alreadyExists = prev.some((e) => e.id === emailId);
+      alreadyExists = prev.some((e) => e.id === newEmail.id);
       return prev;
     });
-    if (alreadyExists) {
-      console.log('📱 [Socket] Prepend skipped: Email ID already in list:', emailId);
-      return;
-    }
+    if (alreadyExists) return;
 
-    pendingEmailFetchesRef.current.add(emailId);
-    console.log('📱 [Socket] Fetching email details from backend for ID:', emailId);
-    try {
-      const res = await fetch(`/api/emails/detail?id=${emailId}`);
-      console.log('📱 [Socket] Fetch email details response status:', res.status);
-
-      if (res.ok) {
-        const newEmail = await res.json();
-        console.log('📱 [Socket] Successfully fetched details for new email:', newEmail);
-
-        setEmailsState((prev) => {
-          if (prev.some((e) => e.id === newEmail.id)) {
-            console.log('📱 [Socket] Prepend skipped (race condition: already exists in state):', newEmail.id);
-            return prev;
-          }
-
-          if (!emailMatchesFolder(newEmail, folder)) {
-            console.log('📱 [Socket] Prepend skipped: Email does not match folder. Labels:', newEmail.labelIds, 'folder:', folder);
-            return prev;
-          }
-
-          console.log('📱 [Socket] Prepended new email successfully:', newEmail.id, `Subject: "${newEmail.subject}"`);
-          const updated = sortEmailsByDate([newEmail, ...prev]);
-          if (emailCache[folder]) {
-            emailCache[folder].emails = updated;
-          }
-          return updated;
-        });
-
-        window.dispatchEvent(new CustomEvent('refresh-labels'));
-      } else {
-        console.error('📱 [Socket] ❌ Failed to fetch details for email ID:', emailId);
+    setEmailsState((prev) => {
+      if (prev.some((e) => e.id === newEmail.id)) {
+        return prev;
       }
-    } catch (err) {
-      console.error('📱 [Socket] ❌ Error handling new-email event:', err);
-    } finally {
-      pendingEmailFetchesRef.current.delete(emailId);
-    }
+
+      if (!emailMatchesFolder(newEmail, folder)) {
+        return prev;
+      }
+
+      const updated = sortEmailsByDate([newEmail, ...prev]);
+      if (emailCache[folder]) {
+        emailCache[folder].emails = updated;
+      }
+      return updated;
+    });
+
+    window.dispatchEvent(new CustomEvent('refresh-labels'));
   }, [folder]);
 
-  useEmailSocket({ onNewEmail: handleNewEmailEvent });
-
+  // Subscribe to layout-level prepend events
   useEffect(() => {
-    const handleDemoPrepend = (e: Event) => {
+    const handlePrepend = (e: Event) => {
       const customEvent = e as CustomEvent;
-      if (customEvent.detail?.emailId) {
-        handleNewEmailEvent(customEvent.detail.emailId);
+      if (customEvent.detail?.email) {
+        handlePrependEmail(customEvent.detail.email);
       }
     };
-    window.addEventListener('mailyflow-demo-new-email', handleDemoPrepend);
+    window.addEventListener('mailyflow-new-email-prepend', handlePrepend);
     return () => {
-      window.removeEventListener('mailyflow-demo-new-email', handleDemoPrepend);
+      window.removeEventListener('mailyflow-new-email-prepend', handlePrepend);
     };
-  }, [handleNewEmailEvent]);
+  }, [handlePrependEmail]);
+
+  // Read openEmailId search parameter to display notification mail detail directly
+  const openEmailId = searchParams.get('openEmailId');
+  useEffect(() => {
+    if (openEmailId) {
+      const email = emailsState.find((e) => e.id === openEmailId);
+      if (email) {
+        setSelectedEmail(email);
+      } else {
+        const fetchAndSelect = async () => {
+          try {
+            const res = await fetch(`/api/emails/detail?id=${openEmailId}`);
+            if (res.ok) {
+              const data = await res.json();
+              setSelectedEmail(data);
+            }
+          } catch (err) {
+            console.error('Error fetching email for openEmailId query:', err);
+          }
+        };
+        fetchAndSelect();
+      }
+    }
+  }, [openEmailId, emailsState]);
 
   const loadMoreEmails = async () => {
     if (loadingMore || !nextPageToken) return;
@@ -787,7 +780,7 @@ export default function FolderPageClient({
 
             {folder !== 'trash' && (
               <button
-                onClick={() => setIsComposeOpen(true)}
+                onClick={() => openCompose()}
                 className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
               >
                 <PenSquare className="h-4 w-4" />
@@ -1048,8 +1041,6 @@ export default function FolderPageClient({
         </div>
       )}
 
-      {/* Compose modal */}
-      <ComposeModal isOpen={isComposeOpen} onClose={() => setIsComposeOpen(false)} />
     </div>
   );
 }

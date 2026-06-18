@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, AlertCircle, CornerUpLeft, Send } from 'lucide-react';
+import { RefreshCw, AlertCircle, CornerUpLeft, Send, Paperclip } from 'lucide-react';
 import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import toast from 'react-hot-toast';
 
@@ -13,6 +13,12 @@ type Email = {
   snippet: string;
   body: string;
   labelIds?: string[];
+  attachments?: Array<{
+    name: string;
+    type: string;
+    base64: string;
+    size?: number;
+  }>;
 };
 
 type EmailDetailProps = {
@@ -203,6 +209,31 @@ export default function EmailDetail({
                   sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
                 />
               </div>
+
+              {/* Attachments Section */}
+              {detailEmail.attachments && detailEmail.attachments.length > 0 && (
+                <div className="border-t border-border pt-4 mt-4 select-none">
+                  <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-2.5">Attachments ({detailEmail.attachments.length})</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {detailEmail.attachments.map((file, idx) => (
+                      <a
+                        key={`detail-file-${idx}`}
+                        href={file.base64}
+                        download={file.name}
+                        className="flex items-center space-x-2 bg-surface-subtle hover:bg-hover-row text-text-primary px-3.5 py-2 rounded-xl border border-border text-xs font-semibold cursor-pointer transition-all decoration-none active:scale-95"
+                      >
+                        <Paperclip className="h-4 w-4 text-slate-500 shrink-0" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate max-w-[180px] leading-tight text-text-primary font-bold">{file.name}</span>
+                          {file.size && (
+                            <span className="text-[9px] text-text-muted font-normal mt-0.5">({(file.size / 1024).toFixed(1)} KB)</span>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Inline Reply Form */}
               <div className="border-t border-border pt-4 md:pt-6 mt-6">
