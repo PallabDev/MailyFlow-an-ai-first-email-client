@@ -573,12 +573,12 @@ export const summarizeEmail = inngest.createFunction(
 
 Sender: ${message.payload?.headers?.find((h: any) => h.name === 'From')?.value || 'Unknown'}
 Subject: ${message.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || '(No Subject)'}
-Content: ${bodyText.slice(0, 4000)}`;
+Content: ${bodyText.slice(0, 1500)}`;
 
         const response = await openai.chat.completions.create({
           model: AI_MODEL,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 300,
+          max_tokens: 2500,
         });
 
         return response.choices[0].message.content || 'Failed to generate summary.';
@@ -657,12 +657,12 @@ Instructions:
 Original Email details:
 Sender: ${sender}
 Subject: ${subject}
-Content: ${bodyText.slice(0, 3000)}`;
+Content: ${bodyText.slice(0, 1500)}`;
 
         const response = await openai.chat.completions.create({
           model: AI_MODEL,
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 400,
+          max_tokens: 2500,
         });
 
         return response.choices[0].message.content || 'Failed to generate AI response draft.';

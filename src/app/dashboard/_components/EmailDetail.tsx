@@ -2,684 +2,709 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, AlertCircle, CornerUpLeft, Send, Paperclip, X, Sparkles } from 'lucide-react';
-import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
+import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 import { usePathname, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 type Email = {
-  id: string;
-  from: string;
-  date: string;
-  subject: string;
-  snippet: string;
-  body: string;
-  labelIds?: string[];
-  attachments?: Array<{
-    name: string;
-    type: string;
-    base64: string;
-    size?: number;
-  }>;
+    id: string;
+    from: string;
+    date: string;
+    subject: string;
+    snippet: string;
+    body: string;
+    labelIds?: string[];
+    attachments?: Array<{
+        name: string;
+        type: string;
+        base64: string;
+        size?: number;
+    }>;
 };
 
 type EmailDetailProps = {
-  email: Email;
-  onBack: () => void;
-  onTrash: (id: string) => void;
-  onStar?: (id: string) => void;
+    email: Email;
+    onBack: () => void;
+    onTrash: (id: string) => void;
+    onStar?: (id: string) => void;
 };
 
 // Custom AI Sparkle icon provided by user
 const AISvg = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className}>
-    <path fillRule="evenodd" clipRule="evenodd" d="M18.5004 10.5254C18.1904 10.5254 17.9004 10.3254 17.8004 10.0354L17.5404 9.33539C17.2304 8.49539 17.0804 8.11539 16.8704 7.89539C16.8704 7.89539 16.8704 7.89539 16.8704 7.89539C16.6704 7.69539 16.3104 7.55541 15.4404 7.23541L14.7504 6.98541C14.4504 6.87541 14.2604 6.5954 14.2504 6.2854C14.2404 5.9754 14.4404 5.68538 14.7404 5.57538L15.4404 5.31537C16.3104 4.99537 16.6704 4.85539 16.8804 4.64539C17.0904 4.43539 17.2304 4.05538 17.5404 3.20538L17.8004 2.51538C17.9104 2.22538 18.1904 2.02539 18.5004 2.02539C18.8104 2.02539 19.0904 2.21538 19.2004 2.51538L19.4604 3.20538C19.7704 4.05538 19.9204 4.4354 20.1304 4.6554C20.3304 4.8554 20.6904 4.99537 21.5604 5.31537L22.2604 5.57538C22.5504 5.68538 22.7504 5.9654 22.7504 6.2854C22.7504 6.6054 22.5504 6.87541 22.2504 6.98541L21.5504 7.23541C20.6904 7.55541 20.3304 7.6954 20.1204 7.9054C19.9104 8.1154 19.7704 8.4954 19.4604 9.3454L19.2004 10.0454C19.0904 10.3354 18.8104 10.5354 18.5004 10.5354V10.5254ZM17.0804 6.26538C17.4204 6.42538 17.6904 6.59538 17.9204 6.82538C18.1604 7.06538 18.3304 7.34536 18.4904 7.68536C18.6504 7.34536 18.8204 7.07539 19.0504 6.83539C19.2904 6.59539 19.5604 6.42538 19.9004 6.26538C19.5604 6.10538 19.2904 5.93538 19.0604 5.70538C18.8204 5.45538 18.6504 5.1854 18.4904 4.8454C18.3304 5.1854 18.1604 5.45537 17.9304 5.69537C17.6904 5.93537 17.4204 6.10538 17.0804 6.26538ZM11.5 23.5254H11.4998C6.83995 23.5254 4.50999 23.5254 2.91 22.1654C1.25 20.7754 1.25 18.6454 1.25 14.7754C1.25 10.9054 1.25 8.76537 2.91 7.37537C4.50997 6.02539 6.84992 6.02539 11.4997 6.02539H11.5C11.91 6.02539 12.25 6.36539 12.25 6.77539C12.25 7.18539 11.91 7.52539 11.5 7.52539H11.4999C7.20996 7.52539 5.05999 7.52539 3.87 8.51538C2.79 9.42538 2.75 10.9954 2.75 14.7754C2.75 18.5554 2.79 20.1154 3.87 21.0254C5.05 22.0254 7.21 22.0254 11.5 22.0254C15.79 22.0254 17.94 22.0254 19.12 21.0254C20.2 20.1154 20.25 18.5454 20.25 14.7754C20.25 13.6254 20.25 12.6354 20.21 11.8154C20.19 11.4054 20.51 11.0454 20.92 11.0254C21.34 11.0054 21.69 11.3254 21.71 11.7354C21.75 12.5954 21.75 13.6054 21.75 14.7754C21.75 18.6454 21.75 20.7754 20.09 22.1654C18.49 23.5254 16.1501 23.5254 11.5002 23.5254H11.5ZM11.25 18.7754C11.25 19.1854 11.59 19.5254 12 19.5254C12.41 19.5254 12.75 19.1854 12.75 18.7754V10.7754C12.75 10.3654 12.41 10.0254 12 10.0254C11.59 10.0254 11.25 10.3654 11.25 10.7754V18.7754ZM9 17.5254C8.59 17.5254 8.25 17.1854 8.25 16.7754V12.7754C8.25 12.3654 8.59 12.0254 9 12.0254C9.41 12.0254 9.75 12.3654 9.75 12.7754V16.7754C9.75 17.1854 9.41 17.5254 9 17.5254ZM5.25 15.7754C5.25 16.1854 5.59 16.5254 6 16.5254C6.41 16.5254 6.75 16.1854 6.75 15.7754V13.7754C6.75 13.3654 6.41 13.0254 6 13.0254C5.59 13.0254 5.25 13.3654 5.25 13.7754V15.7754ZM15 17.5254C14.59 17.5254 14.25 17.1854 14.25 16.7754V12.7754C14.25 12.3654 14.59 12.0254 15 12.0254C15.41 12.0254 15.75 12.3654 15.75 12.7754V16.7754C15.75 17.1854 15.41 17.5254 15 17.5254ZM17.25 15.7754C17.25 16.1854 17.59 16.5254 18 16.5254C18.41 16.5254 18.75 16.1854 18.75 15.7754V13.7754C18.75 13.3654 18.41 13.0254 18 13.0254C17.59 13.0254 17.25 13.3654 17.25 13.7754V15.7754Z" fill="currentColor" />
-  </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={className}>
+        <path fillRule="evenodd" clipRule="evenodd" d="M18.5004 10.5254C18.1904 10.5254 17.9004 10.3254 17.8004 10.0354L17.5404 9.33539C17.2304 8.49539 17.0804 8.11539 16.8704 7.89539C16.8704 7.89539 16.8704 7.89539 16.8704 7.89539C16.6704 7.69539 16.3104 7.55541 15.4404 7.23541L14.7504 6.98541C14.4504 6.87541 14.2604 6.5954 14.2504 6.2854C14.2404 5.9754 14.4404 5.68538 14.7404 5.57538L15.4404 5.31537C16.3104 4.99537 16.6704 4.85539 16.8804 4.64539C17.0904 4.43539 17.2304 4.05538 17.5404 3.20538L17.8004 2.51538C17.9104 2.22538 18.1904 2.02539 18.5004 2.02539C18.8104 2.02539 19.0904 2.21538 19.2004 2.51538L19.4604 3.20538C19.7704 4.05538 19.9204 4.4354 20.1304 4.6554C20.3304 4.8554 20.6904 4.99537 21.5604 5.31537L22.2604 5.57538C22.5504 5.68538 22.7504 5.9654 22.7504 6.2854C22.7504 6.6054 22.5504 6.87541 22.2504 6.98541L21.5504 7.23541C20.6904 7.55541 20.3304 7.6954 20.1204 7.9054C19.9104 8.1154 19.7704 8.4954 19.4604 9.3454L19.2004 10.0454C19.0904 10.3354 18.8104 10.5354 18.5004 10.5354V10.5254ZM17.0804 6.26538C17.4204 6.42538 17.6904 6.59538 17.9204 6.82538C18.1604 7.06538 18.3304 7.34536 18.4904 7.68536C18.6504 7.34536 18.8204 7.07539 19.0504 6.83539C19.2904 6.59539 19.5604 6.42538 19.9004 6.26538C19.5604 6.10538 19.2904 5.93538 19.0604 5.70538C18.8204 5.45538 18.6504 5.1854 18.4904 4.8454C18.3304 5.1854 18.1604 5.45537 17.9304 5.69537C17.6904 5.93537 17.4204 6.10538 17.0804 6.26538ZM11.5 23.5254H11.4998C6.83995 23.5254 4.50999 23.5254 2.91 22.1654C1.25 20.7754 1.25 18.6454 1.25 14.7754C1.25 10.9054 1.25 8.76537 2.91 7.37537C4.50997 6.02539 6.84992 6.02539 11.4997 6.02539H11.5C11.91 6.02539 12.25 6.36539 12.25 6.77539C12.25 7.18539 11.91 7.52539 11.5 7.52539H11.4999C7.20996 7.52539 5.05999 7.52539 3.87 8.51538C2.79 9.42538 2.75 10.9954 2.75 14.7754C2.75 18.5554 2.79 20.1154 3.87 21.0254C5.05 22.0254 7.21 22.0254 11.5 22.0254C15.79 22.0254 17.94 22.0254 19.12 21.0254C20.2 20.1154 20.25 18.5454 20.25 14.7754C20.25 13.6254 20.25 12.6354 20.21 11.8154C20.19 11.4054 20.51 11.0454 20.92 11.0254C21.34 11.0054 21.69 11.3254 21.71 11.7354C21.75 12.5954 21.75 13.6054 21.75 14.7754C21.75 18.6454 21.75 20.7754 20.09 22.1654C18.49 23.5254 16.1501 23.5254 11.5002 23.5254H11.5ZM11.25 18.7754C11.25 19.1854 11.59 19.5254 12 19.5254C12.41 19.5254 12.75 19.1854 12.75 18.7754V10.7754C12.75 10.3654 12.41 10.0254 12 10.0254C11.59 10.0254 11.25 10.3654 11.25 10.7754V18.7754ZM9 17.5254C8.59 17.5254 8.25 17.1854 8.25 16.7754V12.7754C8.25 12.3654 8.59 12.0254 9 12.0254C9.41 12.0254 9.75 12.3654 9.75 12.7754V16.7754C9.75 17.1854 9.41 17.5254 9 17.5254ZM5.25 15.7754C5.25 16.1854 5.59 16.5254 6 16.5254C6.41 16.5254 6.75 16.1854 6.75 15.7754V13.7754C6.75 13.3654 6.41 13.0254 6 13.0254C5.59 13.0254 5.25 13.3654 5.25 13.7754V15.7754ZM15 17.5254C14.59 17.5254 14.25 17.1854 14.25 16.7754V12.7754C14.25 12.3654 14.59 12.0254 15 12.0254C15.41 12.0254 15.75 12.3654 15.75 12.7754V16.7754C15.75 17.1854 15.41 17.5254 15 17.5254ZM17.25 15.7754C17.25 16.1854 17.59 16.5254 18 16.5254C18.41 16.5254 18.75 16.1854 18.75 15.7754V13.7754C18.75 13.3654 18.41 13.0254 18 13.0254C17.59 13.0254 17.25 13.3654 17.25 13.7754V15.7754Z" fill="currentColor" />
+    </svg>
 );
 
 export default function EmailDetail({
-  email,
-  onBack,
-  onTrash,
-  onStar,
+    email,
 }: EmailDetailProps) {
-  const [detailEmail, setDetailEmail] = useState<Email | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [iframeHeight, setIframeHeight] = useState('500px');
-  
-  // Reply Form states
-  const [replyText, setReplyText] = useState('');
-  const [sendingReply, setSendingReply] = useState(false);
-  const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; type: string; base64: string; size: number }>>([]);
-  const replyFileInputRef = useRef<HTMLInputElement>(null);
+    const [detailEmail, setDetailEmail] = useState<Email | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [iframeHeight, setIframeHeight] = useState('500px');
 
-  // Billing & Plan checks
-  const pathname = usePathname();
-  const router = useRouter();
-  const [checkingPlan, setCheckingPlan] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    // Reply Form states
+    const [replyText, setReplyText] = useState('');
+    const [sendingReply, setSendingReply] = useState(false);
+    const [replyAttachments, setReplyAttachments] = useState<Array<{ name: string; type: string; base64: string; size: number }>>([]);
+    const replyFileInputRef = useRef<HTMLInputElement>(null);
 
-  // AI Summary state
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryContent, setSummaryContent] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryDragPosition, setSummaryDragPosition] = useState({ x: 0, y: 0 });
-  const [summaryDragging, setSummaryDragging] = useState(false);
-  const [summaryDragStart, setSummaryDragStart] = useState({ x: 0, y: 0 });
+    // Billing & Plan checks
+    const pathname = usePathname();
+    const router = useRouter();
+    const [checkingPlan, setCheckingPlan] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  // AI Reply state
-  const [draftingReply, setDraftingReply] = useState(false);
+    // AI Summary state
+    const [summaryOpen, setSummaryOpen] = useState(false);
+    const [summaryContent, setSummaryContent] = useState('');
+    const [summaryLoading, setSummaryLoading] = useState(false);
+    const [summaryDragPosition, setSummaryDragPosition] = useState({ x: 0, y: 0 });
+    const [summaryDragging, setSummaryDragging] = useState(false);
+    const [summaryDragStart, setSummaryDragStart] = useState({ x: 0, y: 0 });
 
-  const { theme } = useChatStore();
+    // AI Reply state
+    const [draftingReply, setDraftingReply] = useState(false);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (window.innerWidth < 768) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button')) return;
+    const { theme } = useChatStore();
 
-    setSummaryDragging(true);
-    setSummaryDragStart({
-      x: e.clientX - summaryDragPosition.x,
-      y: e.clientY - summaryDragPosition.y,
-    });
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
+    const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (window.innerWidth < 768) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('button')) return;
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!summaryDragging) return;
-    const newX = e.clientX - summaryDragStart.x;
-    const newY = e.clientY - summaryDragStart.y;
-    setSummaryDragPosition({ x: newX, y: newY });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!summaryDragging) return;
-    setSummaryDragging(false);
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-  };
-
-  // Reply Attachments handling
-  const handleReplyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      filesArray.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result as string;
-          setReplyAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              type: file.type,
-              base64: base64,
-              size: file.size,
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      });
-      e.target.value = '';
-    }
-  };
-
-  const triggerReplyFileInput = () => {
-    replyFileInputRef.current?.click();
-  };
-
-  const removeReplyAttachment = (idx: number) => {
-    setReplyAttachments((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  // Send Reply
-  const handleSendReply = async () => {
-    if (!replyText.trim()) return;
-    setSendingReply(true);
-    try {
-      const recipient = parseSender(email.from).email || email.from;
-      const cleanSubject = email.subject.toLowerCase().startsWith('re:') 
-        ? email.subject 
-        : `Re: ${email.subject}`;
-
-      const res = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: recipient,
-          subject: cleanSubject,
-          body: replyText,
-          attachments: replyAttachments,
-        }),
-      });
-
-      if (res.ok) {
-        toast.success('Reply sent successfully!', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-          icon: null,
+        setSummaryDragging(true);
+        setSummaryDragStart({
+            x: e.clientX - summaryDragPosition.x,
+            y: e.clientY - summaryDragPosition.y,
         });
-        setReplyText('');
-        setReplyAttachments([]);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to send reply.', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-          icon: null,
-        });
-      }
-    } catch {
-      toast.error('Failed to send reply due to network error.', {
-        className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        icon: null,
-      });
-    } finally {
-      setSendingReply(false);
-    }
-  };
-
-  // Fetch plan status
-  const getSubscriptionPlan = async (): Promise<'Starter' | 'Professional' | 'Business'> => {
-    try {
-      const res = await fetch('/api/billing/status');
-      if (res.ok) {
-        const data = await res.json();
-        return data.subscription?.planName || 'Starter';
-      }
-    } catch (err) {
-      console.error('Failed to fetch plan:', err);
-    }
-    return 'Starter';
-  };
-
-  // AI Summary execution
-  const handleSummarize = async () => {
-    setCheckingPlan(true);
-    const plan = await getSubscriptionPlan();
-    setCheckingPlan(false);
-
-    if (plan === 'Starter') {
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    setSummaryOpen(true);
-    setSummaryContent('');
-    setSummaryLoading(true);
-    setSummaryDragPosition({ x: 0, y: 0 });
-
-    try {
-      const res = await fetch('/api/emails/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailId: email.id }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setSummaryContent(`⚠️ ${data.error || 'Failed to initiate summarization.'}`);
-        setSummaryLoading(false);
-      }
-    } catch (err) {
-      console.error(err);
-      setSummaryContent('⚠️ Connection error. Summarization failed.');
-      setSummaryLoading(false);
-    }
-  };
-
-  // AI Auto-Reply Generation
-  const handleAIDraftReply = async () => {
-    setCheckingPlan(true);
-    const plan = await getSubscriptionPlan();
-    setCheckingPlan(false);
-
-    if (plan === 'Starter') {
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    setDraftingReply(true);
-    try {
-      const res = await fetch('/api/emails/draft-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailId: email.id }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Failed to generate AI response draft.', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        });
-        setDraftingReply(false);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Connection error generating AI draft.', {
-        className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-      });
-      setDraftingReply(false);
-    }
-  };
-
-  // Socket listeners for summaries (emitted via global sockets or simulated in demo)
-  useEffect(() => {
-    const handleSummaryReady = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.emailId === email.id) {
-        setSummaryContent(customEvent.detail.summary || '');
-        setSummaryLoading(false);
-      }
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
     };
 
-    const handleSummaryFailed = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.emailId === email.id) {
-        setSummaryContent(`⚠️ ${customEvent.detail.error || 'Failed to generate summary.'}`);
-        setSummaryLoading(false);
-      }
+    const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!summaryDragging) return;
+        const newX = e.clientX - summaryDragStart.x;
+        const newY = e.clientY - summaryDragStart.y;
+        setSummaryDragPosition({ x: newX, y: newY });
     };
 
-    window.addEventListener('mailyflow-summary-ready', handleSummaryReady);
-    window.addEventListener('mailyflow-summary-failed', handleSummaryFailed);
-    window.addEventListener('mailyflow-demo-summary-ready', handleSummaryReady);
-
-    return () => {
-      window.removeEventListener('mailyflow-summary-ready', handleSummaryReady);
-      window.removeEventListener('mailyflow-summary-failed', handleSummaryFailed);
-      window.removeEventListener('mailyflow-demo-summary-ready', handleSummaryReady);
-    };
-  }, [email.id]);
-
-  // Socket listeners for reply drafts
-  useEffect(() => {
-    const handleDraftReady = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.emailId === email.id) {
-        setReplyText(customEvent.detail.text || '');
-        setDraftingReply(false);
-        toast.success('AI response draft ready!', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        });
-      }
+    const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!summaryDragging) return;
+        setSummaryDragging(false);
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     };
 
-    const handleDraftFailed = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail?.emailId === email.id) {
-        toast.error(customEvent.detail.error || 'Failed to generate AI response draft.', {
-          className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
-        });
-        setDraftingReply(false);
-      }
-    };
-
-    window.addEventListener('mailyflow-draft-ready', handleDraftReady);
-    window.addEventListener('mailyflow-draft-failed', handleDraftFailed);
-    window.addEventListener('mailyflow-demo-draft-ready', handleDraftReady);
-
-    return () => {
-      window.removeEventListener('mailyflow-draft-ready', handleDraftReady);
-      window.removeEventListener('mailyflow-draft-failed', handleDraftFailed);
-      window.removeEventListener('mailyflow-demo-draft-ready', handleDraftReady);
-    };
-  }, [email.id]);
-
-  useEffect(() => {
-    if (!email) return;
-
-    if (email.body) {
-      setDetailEmail(email);
-      setLoading(false);
-      return;
-    }
-
-    const fetchDetail = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/emails/detail?id=${email.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setDetailEmail(data);
-        } else {
-          const data = await res.json();
-          setError(data.error || 'Failed to load email body.');
+    // Reply Attachments handling
+    const handleReplyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            filesArray.forEach((file) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = reader.result as string;
+                    setReplyAttachments((prev) => [
+                        ...prev,
+                        {
+                            name: file.name,
+                            type: file.type,
+                            base64: base64,
+                            size: file.size,
+                        },
+                    ]);
+                };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
         }
-      } catch (err) {
-        console.error('Error fetching email details:', err);
-        setError('Connection error loading email.');
-      } finally {
-        setLoading(false);
-      }
     };
 
-    fetchDetail();
-  }, [email.id]);
-
-  useEffect(() => {
-    if (detailEmail && email && email.id === detailEmail.id) {
-      setDetailEmail((prev) => prev ? { ...prev, labelIds: email.labelIds } : null);
-    }
-  }, [email.labelIds]);
-
-  const iframeRef = React.useRef<HTMLIFrameElement>(null);
-
-  useEffect(() => {
-    const handleMessage = (e: MessageEvent) => {
-      if (iframeRef.current && e.source === iframeRef.current.contentWindow) {
-        if (e.data && e.data.type === 'resize-iframe') {
-          setIframeHeight(`${e.data.height}px`);
-        }
-      }
+    const triggerReplyFileInput = () => {
+        replyFileInputRef.current?.click();
     };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [detailEmail]);
 
-  const emailHtml = useMemo(() => {
-    if (!detailEmail) return '';
-    return getEmailHtml(detailEmail, true, theme);
-  }, [detailEmail?.id, detailEmail?.body, theme]);
+    const removeReplyAttachment = (idx: number) => {
+        setReplyAttachments((prev) => prev.filter((_, i) => i !== idx));
+    };
 
-  const sender = parseSender(email.from);
+    // Send Reply
+    const handleSendReply = async () => {
+        if (!replyText.trim()) return;
+        setSendingReply(true);
+        try {
+            const recipient = parseSender(email.from).email || email.from;
+            const cleanSubject = email.subject.toLowerCase().startsWith('re:')
+                ? email.subject
+                : `Re: ${email.subject}`;
 
-  return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary relative">
-      
-      {/* 1. UPGRADE PLAN MODAL POPUP */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-[110] bg-black/45 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl p-6 text-text-primary space-y-4 animate-zoom-in">
-            <div className="flex items-center space-x-2.5 text-warning">
-              <AISvg className="h-6 w-6 text-warning" />
-              <span className="font-bold text-base">Premium AI Feature</span>
-            </div>
-            <p className="text-sm text-text-secondary leading-relaxed font-semibold">
-              AI Summaries and replies generation are paid features. Upgrade your plan to get unlimited smart tools, schedule syncs, and AI assistants.
-            </p>
-            <div className="flex items-center justify-end space-x-3 pt-2">
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="px-4 py-2 border border-border rounded-xl text-xs font-bold text-text-secondary hover:bg-hover-row transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowUpgradeModal(false);
-                  const base = pathname?.startsWith('/demo') ? '/demo' : '/dashboard';
-                  router.push(`${base}/billing`);
-                }}
-                className="px-5 py-2 bg-success text-white rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
-              >
-                Upgrade Plan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            const res = await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: recipient,
+                    subject: cleanSubject,
+                    body: replyText,
+                    attachments: replyAttachments,
+                }),
+            });
 
-      {/* 2. DRAGGABLE SUMMARY POPUP WINDOW */}
-      {summaryOpen && (
-        <div className="fixed md:pointer-events-none inset-0 z-[95] flex items-center justify-center p-4 md:p-0 md:bg-transparent md:backdrop-blur-none bg-black/35 backdrop-blur-xs">
-          <div
-            style={
-              window.innerWidth >= 768
-                ? {
-                    transform: `translate(${summaryDragPosition.x}px, ${summaryDragPosition.y}px)`,
-                    position: 'fixed',
-                    top: '90px',
-                    right: '24px',
-                  }
-                : undefined
+            if (res.ok) {
+                toast.success('Reply sent successfully!', {
+                    className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                    icon: null,
+                });
+                setReplyText('');
+                setReplyAttachments([]);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || 'Failed to send reply.', {
+                    className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                    icon: null,
+                });
             }
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="bg-card border border-border rounded-2xl w-full max-w-sm md:w-[350px] shadow-2xl pointer-events-auto select-text text-text-primary flex flex-col overflow-hidden animate-zoom-in"
-          >
-            {/* Header (Draggable on Desktop) */}
-            <div className="h-12 border-b border-border px-4 flex items-center justify-between bg-surface-subtle md:cursor-move select-none">
-              <div className="flex items-center space-x-1.5 font-bold text-xs uppercase tracking-wider text-text-primary">
-                <AISvg className="h-4.5 w-4.5 text-success" />
-                <span>AI Summary</span>
-              </div>
-              <button
-                onClick={() => setSummaryOpen(false)}
-                className="p-1 rounded-lg hover:bg-sidebar-hover text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
-            </div>
+        } catch {
+            toast.error('Failed to send reply due to network error.', {
+                className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                icon: null,
+            });
+        } finally {
+            setSendingReply(false);
+        }
+    };
 
-            {/* Content body */}
-            <div className="p-4 text-sm leading-relaxed max-h-[300px] overflow-y-auto space-y-3 font-semibold select-text">
-              {summaryLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-3 select-none">
-                  <div className="h-5 w-5 rounded-full border-2 border-success/30 border-t-success animate-spin"></div>
-                  <span className="text-xs text-text-secondary font-bold animate-pulse">Summarizing...</span>
-                </div>
-              ) : (
-                <div className="whitespace-pre-line text-text-secondary">
-                  {summaryContent || 'No summary text generated.'}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+    // Fetch plan status
+    const getSubscriptionPlan = async (): Promise<'Starter' | 'Professional' | 'Business'> => {
+        try {
+            const res = await fetch('/api/billing/status');
+            if (res.ok) {
+                const data = await res.json();
+                return data.subscription?.planName || 'Starter';
+            }
+        } catch (err) {
+            console.error('Failed to fetch plan:', err);
+        }
+        return 'Starter';
+    };
 
-      {/* 3. EMAIL DETAIL PAGE HEADER */}
-      <div className="flex-1 overflow-y-auto px-[2.5%] py-3 md:p-6 space-y-4 md:space-y-6">
-        <div className="space-y-4 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <h2 className="text-xl font-extrabold text-text-primary leading-snug break-words [word-break:break-word] flex-1">
-              {email.subject}
-            </h2>
-            
-            {/* SUMMARIZE AI BUTTON IN HEADER */}
-            <button
-              onClick={handleSummarize}
-              disabled={checkingPlan}
-              className="shrink-0 inline-flex items-center space-x-1 px-3.5 py-1.5 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
-            >
-              {checkingPlan ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <AISvg className="h-4 w-4" />
-              )}
-              <span>Summarize</span>
-            </button>
-          </div>
+    // AI Summary execution
+    const handleSummarize = async () => {
+        setCheckingPlan(true);
+        const plan = await getSubscriptionPlan();
+        setCheckingPlan(false);
 
-          <div className="flex items-center space-x-3 bg-surface-subtle p-2 md:p-4 rounded-xl border border-border">
-            <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(email.from)}`}>
-              {getInitials(email.from)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-text-secondary font-semibold leading-none">From</p>
-              <p className="text-sm font-bold text-text-primary truncate leading-none mt-1">
-                {sender.name}
-              </p>
-              <p className="text-[10px] text-text-muted dark:text-text-secondary break-all mt-1">
-                {sender.email}
-              </p>
-            </div>
-          </div>
+        if (plan === 'Starter') {
+            setShowUpgradeModal(true);
+            return;
+        }
 
-          <div className="text-xs text-text-muted font-medium">
-            Date: <span className="font-semibold text-text-secondary">{formatEmailDate(email.date)}</span>
-          </div>
-        </div>
+        setSummaryOpen(true);
+        setSummaryContent('');
+        setSummaryLoading(true);
+        setSummaryDragPosition({ x: 0, y: 0 });
 
-        {/* Message Details with Rich Text Render */}
-        <div className="border-t border-border pt-6">
-          <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3">Message Body</h4>
+        try {
+            const res = await fetch('/api/emails/summarize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emailId: email.id }),
+            });
 
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-12 space-y-3">
-              <div className="flex items-center space-x-1.5">
-                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce"></div>
-              </div>
-              <span className="text-xs text-text-secondary">Loading email body...</span>
-            </div>
-          )}
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                setSummaryContent(`⚠️ ${data.error || 'Failed to initiate summarization.'}`);
+                setSummaryLoading(false);
+            }
+        } catch (err) {
+            console.error(err);
+            setSummaryContent('⚠️ Connection error. Summarization failed.');
+            setSummaryLoading(false);
+        }
+    };
 
-          {error && (
-            <div className="flex items-start space-x-2 p-4 rounded-xl border border-red-200 bg-red-50 text-red-700">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              <span className="text-sm">{error}</span>
-            </div>
-          )}
+    // AI Auto-Reply Generation
+    const handleAIDraftReply = async () => {
+        setCheckingPlan(true);
+        const plan = await getSubscriptionPlan();
+        setCheckingPlan(false);
 
-          {!loading && !error && detailEmail && (
-            <>
-              <div className="bg-white text-black rounded-xl border border-border p-1 md:p-4">
-                <iframe
-                  ref={iframeRef}
-                  srcDoc={emailHtml}
-                  style={{ height: iframeHeight, colorScheme: 'light only' }}
-                  className="w-full border-0 overflow-hidden bg-white"
-                  scrolling="no"
-                  title="Email Body Content"
-                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-                />
-              </div>
+        if (plan === 'Starter') {
+            setShowUpgradeModal(true);
+            return;
+        }
 
-              {/* Attachments Section */}
-              {detailEmail.attachments && detailEmail.attachments.length > 0 && (
-                <div className="border-t border-border pt-4 mt-4 select-none">
-                  <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-2.5">Attachments ({detailEmail.attachments.length})</h4>
-                  <div className="flex flex-wrap gap-3">
-                    {detailEmail.attachments.map((file, idx) => (
-                      <a
-                        key={`detail-file-${idx}`}
-                        href={file.base64}
-                        download={file.name}
-                        className="flex items-center space-x-2 bg-surface-subtle hover:bg-hover-row text-text-primary px-3.5 py-2 rounded-xl border border-border text-xs font-semibold cursor-pointer transition-all decoration-none active:scale-95"
-                      >
-                        <Paperclip className="h-4 w-4 text-slate-500 shrink-0" />
-                        <div className="flex flex-col min-w-0">
-                          <span className="truncate max-w-[180px] leading-tight text-text-primary font-bold">{file.name}</span>
-                          {file.size && (
-                            <span className="text-[9px] text-text-muted font-normal mt-0.5">({(file.size / 1024).toFixed(1)} KB)</span>
-                          )}
+        setDraftingReply(true);
+        try {
+            const res = await fetch('/api/emails/draft-reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emailId: email.id }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.error || 'Failed to generate AI response draft.', {
+                    className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                });
+                setDraftingReply(false);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Connection error generating AI draft.', {
+                className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+            });
+            setDraftingReply(false);
+        }
+    };
+
+    // Socket listeners for summaries (emitted via global sockets or simulated in demo)
+    useEffect(() => {
+        const handleSummaryReady = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.emailId === email.id) {
+                setSummaryContent(customEvent.detail.summary || '');
+                setSummaryLoading(false);
+            }
+        };
+
+        const handleSummaryFailed = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.emailId === email.id) {
+                setSummaryContent(`⚠️ ${customEvent.detail.error || 'Failed to generate summary.'}`);
+                setSummaryLoading(false);
+            }
+        };
+
+        window.addEventListener('mailyflow-summary-ready', handleSummaryReady);
+        window.addEventListener('mailyflow-summary-failed', handleSummaryFailed);
+        window.addEventListener('mailyflow-demo-summary-ready', handleSummaryReady);
+
+        return () => {
+            window.removeEventListener('mailyflow-summary-ready', handleSummaryReady);
+            window.removeEventListener('mailyflow-summary-failed', handleSummaryFailed);
+            window.removeEventListener('mailyflow-demo-summary-ready', handleSummaryReady);
+        };
+    }, [email.id]);
+
+    // Socket listeners for reply drafts
+    useEffect(() => {
+        const handleDraftReady = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.emailId === email.id) {
+                setReplyText(customEvent.detail.text || '');
+                setDraftingReply(false);
+                toast.success('AI response draft ready!', {
+                    className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                });
+            }
+        };
+
+        const handleDraftFailed = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.emailId === email.id) {
+                toast.error(customEvent.detail.error || 'Failed to generate AI response draft.', {
+                    className: 'bg-card text-text-primary border border-border shadow-md rounded-xl text-sm font-medium',
+                });
+                setDraftingReply(false);
+            }
+        };
+
+        window.addEventListener('mailyflow-draft-ready', handleDraftReady);
+        window.addEventListener('mailyflow-draft-failed', handleDraftFailed);
+        window.addEventListener('mailyflow-demo-draft-ready', handleDraftReady);
+
+        return () => {
+            window.removeEventListener('mailyflow-draft-ready', handleDraftReady);
+            window.removeEventListener('mailyflow-draft-failed', handleDraftFailed);
+            window.removeEventListener('mailyflow-demo-draft-ready', handleDraftReady);
+        };
+    }, [email.id]);
+
+    useEffect(() => {
+        if (!email) return;
+
+        if (email.body) {
+            setDetailEmail(email);
+            setLoading(false);
+            return;
+        }
+
+        const fetchDetail = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const res = await fetch(`/api/emails/detail?id=${email.id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setDetailEmail(data);
+                } else {
+                    const data = await res.json();
+                    setError(data.error || 'Failed to load email body.');
+                }
+            } catch (err) {
+                console.error('Error fetching email details:', err);
+                setError('Connection error loading email.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDetail();
+    }, [email.id]);
+
+    useEffect(() => {
+        if (detailEmail && email && email.id === detailEmail.id) {
+            setDetailEmail((prev) => prev ? { ...prev, labelIds: email.labelIds } : null);
+        }
+    }, [email.labelIds]);
+
+    const iframeRef = React.useRef<HTMLIFrameElement>(null);
+
+    useEffect(() => {
+        const handleMessage = (e: MessageEvent) => {
+            if (iframeRef.current && e.source === iframeRef.current.contentWindow) {
+                if (e.data && e.data.type === 'resize-iframe') {
+                    setIframeHeight(`${e.data.height}px`);
+                }
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, [detailEmail]);
+
+    const emailHtml = useMemo(() => {
+        if (!detailEmail) return '';
+        return getEmailHtml(detailEmail, true, theme);
+    }, [detailEmail?.id, detailEmail?.body, theme]);
+
+    const isHtmlEmail = useMemo(() => {
+        if (!detailEmail) return false;
+        return isHtml(detailEmail.body);
+    }, [detailEmail?.body]);
+
+    const containerClassName = useMemo(() => {
+        return isHtmlEmail
+            ? "bg-white text-black rounded-xl border border-border p-1 md:p-4"
+            : theme === 'dark'
+                ? "bg-card text-text-primary rounded-xl border border-[#3e3e3a] p-1 md:p-4"
+                : "bg-white text-text-primary rounded-xl border border-border p-1 md:p-4";
+    }, [isHtmlEmail, theme]);
+
+    const iframeClassName = useMemo(() => {
+        return isHtmlEmail
+            ? "w-full border-0 overflow-hidden bg-white"
+            : theme === 'dark'
+                ? "w-full border-0 overflow-hidden bg-[#161613]"
+                : "w-full border-0 overflow-hidden bg-white";
+    }, [isHtmlEmail, theme]);
+
+    const iframeStyle = useMemo(() => {
+        return {
+            height: iframeHeight,
+            colorScheme: isHtmlEmail ? 'light only' : (theme === 'dark' ? 'dark only' : 'light only')
+        };
+    }, [isHtmlEmail, theme, iframeHeight]);
+
+    const sender = parseSender(email.from);
+
+    return (
+        <div className="flex-1 flex flex-col min-h-0 bg-background text-text-primary relative">
+
+            {/* 1. UPGRADE PLAN MODAL POPUP */}
+            {showUpgradeModal && (
+                <div className="fixed inset-0 z-[110] bg-black/45 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl p-6 text-text-primary space-y-4 animate-zoom-in">
+                        <div className="flex items-center space-x-2.5 text-warning">
+                            <AISvg className="h-6 w-6 text-warning" />
+                            <span className="font-bold text-base">Premium AI Feature</span>
                         </div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Inline Reply Form */}
-              <div className="border-t border-border pt-4 md:pt-6 mt-6">
-                <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3 flex items-center space-x-1">
-                  <CornerUpLeft className="h-3.5 w-3.5 text-text-muted" />
-                  <span>Reply</span>
-                </h4>
-                <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-4">
-                  <div className="flex items-center justify-between text-xs text-text-secondary">
-                    <span>Replying to: <strong>{sender.email || email.from}</strong></span>
-                  </div>
-                  
-                  {/* Reply Input */}
-                  <textarea
-                    rows={4}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Type your reply here..."
-                    disabled={sendingReply || draftingReply}
-                    className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none"
-                  />
-
-                  {/* Hidden input for reply attachments */}
-                  <input
-                    type="file"
-                    ref={replyFileInputRef}
-                    onChange={handleReplyFileChange}
-                    multiple
-                    className="hidden"
-                  />
-
-                  {/* Reply Attachments List */}
-                  {replyAttachments.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Attachments ({replyAttachments.length})</span>
-                      <div className="flex flex-wrap gap-2 pr-1 max-h-20 overflow-y-auto select-none">
-                        {replyAttachments.map((file, idx) => (
-                          <div
-                            key={`reply-file-${idx}`}
-                            className="flex items-center space-x-1.5 bg-sidebar-hover text-text-primary px-2.5 py-1 rounded-lg border border-border text-xs font-semibold animate-zoom-in"
-                          >
-                            <span className="truncate max-w-[150px]">{file.name}</span>
-                            <span className="text-text-muted text-[10px] font-normal">({(file.size / 1024).toFixed(1)} KB)</span>
+                        <p className="text-sm text-text-secondary leading-relaxed font-semibold">
+                            AI Summaries and replies generation are paid features. Upgrade your plan to get unlimited smart tools, schedule syncs, and AI assistants.
+                        </p>
+                        <div className="flex items-center justify-end space-x-3 pt-2">
                             <button
-                              type="button"
-                              onClick={() => removeReplyAttachment(idx)}
-                              className="text-text-muted hover:text-danger p-0.5 rounded cursor-pointer transition-colors"
+                                onClick={() => setShowUpgradeModal(false)}
+                                className="px-4 py-2 border border-border rounded-xl text-xs font-bold text-text-secondary hover:bg-hover-row transition-all cursor-pointer"
                             >
-                              <X className="h-3 w-3" />
+                                Cancel
                             </button>
-                          </div>
-                        ))}
-                      </div>
+                            <button
+                                onClick={() => {
+                                    setShowUpgradeModal(false);
+                                    const base = pathname?.startsWith('/demo') ? '/demo' : '/dashboard';
+                                    router.push(`${base}/billing`);
+                                }}
+                                className="px-5 py-2 bg-success text-white rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-sm"
+                            >
+                                Upgrade Plan
+                            </button>
+                        </div>
                     </div>
-                  )}
-
-                  <div className="flex justify-between items-center">
-                    {/* Left: Attach file in reply */}
-                    <button
-                      onClick={triggerReplyFileInput}
-                      disabled={sendingReply || draftingReply}
-                      className="inline-flex items-center space-x-1 px-3 py-2 border border-border rounded-xl text-xs font-bold text-text-secondary hover:bg-hover-row transition-all cursor-pointer bg-card disabled:opacity-50"
-                    >
-                      <Paperclip className="h-4 w-4 text-slate-500" />
-                      <span>Attach files</span>
-                    </button>
-
-                    {/* Right: Send reply & AI draft buttons */}
-                    <div className="flex items-center space-x-3">
-                      {/* AI REPLY DRAFT BUTTON (Paid plans only) */}
-                      <button
-                        onClick={handleAIDraftReply}
-                        disabled={sendingReply || draftingReply || checkingPlan}
-                        className="inline-flex items-center space-x-1 px-3.5 py-2 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
-                        title="Draft reply using AI"
-                      >
-                        {draftingReply ? (
-                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <AISvg className="h-3.5 w-3.5" />
-                        )}
-                        <span>AI Draft</span>
-                      </button>
-
-                      <button
-                        onClick={handleSendReply}
-                        disabled={sendingReply || draftingReply || !replyText.trim()}
-                        className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {sendingReply ? (
-                          <>
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                            <span>Sending...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="h-3 w-3" />
-                            <span>Send Reply</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            </>
-          )}
+            )}
+
+            {/* 2. DRAGGABLE SUMMARY POPUP WINDOW */}
+            {summaryOpen && (
+                <div className="fixed md:pointer-events-none inset-0 z-[95] flex items-center justify-center p-4 md:p-0 md:bg-transparent md:backdrop-blur-none bg-black/35 backdrop-blur-xs">
+                    <div
+                        style={
+                            window.innerWidth >= 768
+                                ? {
+                                    transform: `translate(${summaryDragPosition.x}px, ${summaryDragPosition.y}px)`,
+                                    position: 'fixed',
+                                    top: '90px',
+                                    right: '24px',
+                                }
+                                : undefined
+                        }
+                        onPointerDown={handlePointerDown}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        className="bg-card border border-border rounded-2xl w-full max-w-sm md:w-[350px] shadow-2xl pointer-events-auto select-text text-text-primary flex flex-col overflow-hidden animate-zoom-in"
+                    >
+                        {/* Header (Draggable on Desktop) */}
+                        <div className="h-12 border-b border-border px-4 flex items-center justify-between bg-surface-subtle md:cursor-move select-none">
+                            <div className="flex items-center space-x-1.5 font-bold text-xs uppercase tracking-wider text-text-primary">
+                                <AISvg className="h-4.5 w-4.5 text-success" />
+                                <span>AI Summary</span>
+                            </div>
+                            <button
+                                onClick={() => setSummaryOpen(false)}
+                                className="p-1 rounded-lg hover:bg-sidebar-hover text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                            >
+                                <X className="h-4.5 w-4.5" />
+                            </button>
+                        </div>
+
+                        {/* Content body */}
+                        <div className="p-4 text-sm leading-relaxed max-h-[300px] overflow-y-auto space-y-3 font-semibold select-text">
+                            {summaryLoading ? (
+                                <div className="flex flex-col items-center justify-center py-12 space-y-3 select-none">
+                                    <div className="h-5 w-5 rounded-full border-2 border-success/30 border-t-success animate-spin"></div>
+                                    <span className="text-xs text-text-secondary font-bold animate-pulse">Summarizing...</span>
+                                </div>
+                            ) : (
+                                <div className="whitespace-pre-line text-text-secondary">
+                                    {summaryContent || 'No summary text generated.'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 3. EMAIL DETAIL PAGE HEADER */}
+            <div className="flex-1 overflow-y-auto px-[2.5%] py-3 md:p-6 space-y-4 md:space-y-6">
+                <div className="space-y-4 shrink-0">
+                    <div className="flex items-start justify-between gap-4">
+                        <h2 className="text-xl font-extrabold text-text-primary leading-snug break-words [word-break:break-word] flex-1">
+                            {email.subject}
+                        </h2>
+
+                        {/* SUMMARIZE AI BUTTON IN HEADER */}
+                        <button
+                            onClick={handleSummarize}
+                            disabled={checkingPlan}
+                            className="shrink-0 inline-flex items-center space-x-1 px-3.5 py-1.5 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+                        >
+                            {checkingPlan ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <AISvg className="h-4 w-4" />
+                            )}
+                            <span>Summarize</span>
+                        </button>
+                    </div>
+
+                    <div className="flex items-center space-x-3 bg-surface-subtle p-2 md:p-4 rounded-xl border border-border">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${getAvatarColor(email.from)}`}>
+                            {getInitials(email.from)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs text-text-secondary font-semibold leading-none">From</p>
+                            <p className="text-sm font-bold text-text-primary truncate leading-none mt-1">
+                                {sender.name}
+                            </p>
+                            <p className="text-[10px] text-text-muted dark:text-text-secondary break-all mt-1">
+                                {sender.email}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="text-xs text-text-muted font-medium">
+                        Date: <span className="font-semibold text-text-secondary">{formatEmailDate(email.date)}</span>
+                    </div>
+                </div>
+
+                {/* Message Details with Rich Text Render */}
+                <div className="border-t border-border pt-6">
+                    <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3">Message Body</h4>
+
+                    {loading && (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                            <div className="flex items-center space-x-1.5">
+                                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.3s]"></div>
+                                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce [animation-delay:-0.15s]"></div>
+                                <div className="h-2.5 w-2.5 rounded-full bg-success animate-bounce"></div>
+                            </div>
+                            <span className="text-xs text-text-secondary">Loading email body...</span>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="flex items-start space-x-2 p-4 rounded-xl border border-red-200 bg-red-50 text-red-700">
+                            <AlertCircle className="h-5 w-5 shrink-0" />
+                            <span className="text-sm">{error}</span>
+                        </div>
+                    )}
+
+                    {!loading && !error && detailEmail && (
+                        <>
+                            <div className={containerClassName}>
+                                <iframe
+                                    ref={iframeRef}
+                                    srcDoc={emailHtml}
+                                    style={iframeStyle}
+                                    className={iframeClassName}
+                                    scrolling="no"
+                                    title="Email Body Content"
+                                    sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+                                />
+                            </div>
+
+                            {/* Attachments Section */}
+                            {detailEmail.attachments && detailEmail.attachments.length > 0 && (
+                                <div className="border-t border-border pt-4 mt-4 select-none">
+                                    <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-2.5">Attachments ({detailEmail.attachments.length})</h4>
+                                    <div className="flex flex-wrap gap-3">
+                                        {detailEmail.attachments.map((file, idx) => (
+                                            <a
+                                                key={`detail-file-${idx}`}
+                                                href={file.base64}
+                                                download={file.name}
+                                                className="flex items-center space-x-2 bg-surface-subtle hover:bg-hover-row text-text-primary px-3.5 py-2 rounded-xl border border-border text-xs font-semibold cursor-pointer transition-all decoration-none active:scale-95"
+                                            >
+                                                <Paperclip className="h-4 w-4 text-slate-500 shrink-0" />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="truncate max-w-[180px] leading-tight text-text-primary font-bold">{file.name}</span>
+                                                    {file.size && (
+                                                        <span className="text-[9px] text-text-muted font-normal mt-0.5">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                    )}
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Inline Reply Form */}
+                            <div className="border-t border-border pt-4 md:pt-6 mt-6">
+                                <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-muted mb-3 flex items-center space-x-1">
+                                    <CornerUpLeft className="h-3.5 w-3.5 text-text-muted" />
+                                    <span>Reply</span>
+                                </h4>
+                                <div className="bg-card border border-border rounded-xl p-3 md:p-4 space-y-4">
+                                    <div className="flex items-center justify-between text-xs text-text-secondary">
+                                        <span>Replying to: <strong>{sender.email || email.from}</strong></span>
+                                    </div>
+
+                                    {/* Reply Input */}
+                                    <textarea
+                                        rows={4}
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        placeholder="Type your reply here..."
+                                        disabled={sendingReply || draftingReply}
+                                        className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:outline-none focus:border-slate-500 transition-all shadow-inner resize-none"
+                                    />
+
+                                    {/* Hidden input for reply attachments */}
+                                    <input
+                                        type="file"
+                                        ref={replyFileInputRef}
+                                        onChange={handleReplyFileChange}
+                                        multiple
+                                        className="hidden"
+                                    />
+
+                                    {/* Reply Attachments List */}
+                                    {replyAttachments.length > 0 && (
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Attachments ({replyAttachments.length})</span>
+                                            <div className="flex flex-wrap gap-2 pr-1 max-h-20 overflow-y-auto select-none">
+                                                {replyAttachments.map((file, idx) => (
+                                                    <div
+                                                        key={`reply-file-${idx}`}
+                                                        className="flex items-center space-x-1.5 bg-sidebar-hover text-text-primary px-2.5 py-1 rounded-lg border border-border text-xs font-semibold animate-zoom-in"
+                                                    >
+                                                        <span className="truncate max-w-[150px]">{file.name}</span>
+                                                        <span className="text-text-muted text-[10px] font-normal">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeReplyAttachment(idx)}
+                                                            className="text-text-muted hover:text-danger p-0.5 rounded cursor-pointer transition-colors"
+                                                        >
+                                                            <X className="h-3 w-3" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-center">
+                                        {/* Left: Attach file in reply */}
+                                        <button
+                                            onClick={triggerReplyFileInput}
+                                            disabled={sendingReply || draftingReply}
+                                            className="inline-flex items-center space-x-1 px-3 py-2 border border-border rounded-xl text-xs font-bold text-text-secondary hover:bg-hover-row transition-all cursor-pointer bg-card disabled:opacity-50"
+                                        >
+                                            <Paperclip className="h-4 w-4 text-slate-500" />
+                                            <span>Attach files</span>
+                                        </button>
+
+                                        {/* Right: Send reply & AI draft buttons */}
+                                        <div className="flex items-center space-x-3">
+                                            {/* AI REPLY DRAFT BUTTON (Paid plans only) */}
+                                            <button
+                                                onClick={handleAIDraftReply}
+                                                disabled={sendingReply || draftingReply || checkingPlan}
+                                                className="inline-flex items-center space-x-1 px-3.5 py-2 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm disabled:opacity-50"
+                                                title="Draft reply using AI"
+                                            >
+                                                {draftingReply ? (
+                                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                    <AISvg className="h-3.5 w-3.5" />
+                                                )}
+                                                <span>AI Draft</span>
+                                            </button>
+
+                                            <button
+                                                onClick={handleSendReply}
+                                                disabled={sendingReply || draftingReply || !replyText.trim()}
+                                                className="inline-flex items-center space-x-1.5 rounded-xl bg-success px-4 py-2 text-xs font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {sendingReply ? (
+                                                    <>
+                                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                                        <span>Sending...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Send className="h-3 w-3" />
+                                                        <span>Send Reply</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
