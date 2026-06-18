@@ -136,11 +136,11 @@ export default function Header({
         {isRightSidebarCollapsed && (
           <button
             onClick={() => setIsRightSidebarCollapsed(false)}
-            className="flex items-center space-x-1.5 px-3 py-1.5 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm shrink-0"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 md:px-3 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm shrink-0"
             title="Open AI Assistant"
           >
             <AISvg className="h-4.5 w-4.5 shrink-0" />
-            <span>AI Assistant</span>
+            <span className="hidden md:inline">AI Assistant</span>
           </button>
         )}
 

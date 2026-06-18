@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Send, CheckCircle2, AlertCircle, Info as InfoIcon, Minus, Paperclip } from 'lucide-react';
 import { useComposeStore } from '@/store/composeStore';
-import { motion } from 'motion/react';
+import { motion, useDragControls } from 'motion/react';
 
 export default function ComposeModal() {
   const {
@@ -28,10 +28,8 @@ export default function ComposeModal() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // Position and drag states for desktop floating modal
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const dragControls = useDragControls();
+  const constraintsRef = useRef<HTMLDivElement>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -40,35 +38,6 @@ export default function ComposeModal() {
     setTimeout(() => {
       setToast(null);
     }, 3500);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Only drag on desktop and when clicking the header, not button elements
-    if (window.innerWidth < 768) return;
-
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('textarea')) return;
-
-    setDragging(true);
-    setDragStart({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    });
-    
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging) return;
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
-    setPosition({ x: newX, y: newY });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging) return;
-    setDragging(false);
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,13 +165,23 @@ export default function ComposeModal() {
         On Mobile (<768px): fixed centered modal with backdrop grey blur
         On Desktop (>=768px): floating draggable popup at the bottom-right, NO backdrop background or blur (unless active/not minimized)
       */}
-      <div className={`fixed inset-0 z-[100] ${
-        isMinimized
-          ? "pointer-events-none bg-transparent"
-          : "md:pointer-events-none md:bg-transparent md:backdrop-blur-none bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 md:p-0"
-      }`}>
+      <div
+        ref={constraintsRef}
+        className={`fixed inset-0 z-[100] ${
+          isMinimized
+            ? "pointer-events-none bg-transparent"
+            : "md:pointer-events-none md:bg-transparent md:backdrop-blur-none bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 md:p-0"
+        }`}
+      >
         <motion.div
           layout
+          drag={!isMinimized}
+          dragControls={dragControls}
+          dragListener={false}
+          dragConstraints={constraintsRef}
+          dragElastic={0.05}
+          dragMomentum={false}
+          animate={isMinimized ? { x: 0, y: 0 } : undefined}
           transition={{ type: 'spring', stiffness: 320, damping: 32 }}
           style={
             window.innerWidth >= 768
@@ -217,7 +196,6 @@ export default function ComposeModal() {
                     position: 'fixed',
                     bottom: '16px',
                     right: '16px',
-                    transform: `translate(${position.x}px, ${position.y}px)`,
                   }
               : undefined
           }
@@ -230,9 +208,15 @@ export default function ComposeModal() {
         >
           {/* Header Bar */}
           <div
-            onPointerDown={!isMinimized ? handlePointerDown : undefined}
-            onPointerMove={!isMinimized ? handlePointerMove : undefined}
-            onPointerUp={!isMinimized ? handlePointerUp : undefined}
+            onPointerDown={
+              !isMinimized
+                ? (e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button') || target.closest('input') || target.closest('textarea')) return;
+                    dragControls.start(e);
+                  }
+                : undefined
+            }
             className={`px-6 border-b border-border flex items-center justify-between bg-surface-subtle select-none ${
               isMinimized ? 'h-12 rounded-t-xl cursor-pointer' : 'h-14 rounded-t-2xl md:cursor-move'
             }`}

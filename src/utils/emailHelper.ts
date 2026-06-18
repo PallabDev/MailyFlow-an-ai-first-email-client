@@ -156,6 +156,41 @@ export const getEmailHtml = (
                 head.insertBefore(baseTag, head.firstChild);
             }
             baseTag.setAttribute('target', '_blank');
+
+            // Viewport scaling meta tag
+            let viewportMeta = doc.querySelector('meta[name="viewport"]');
+            if (!viewportMeta) {
+                viewportMeta = doc.createElement('meta');
+                viewportMeta.setAttribute('name', 'viewport');
+                viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+                head.appendChild(viewportMeta);
+            }
+
+            // Inject responsive layout styling to fit narrow mobile viewports
+            const styleTag = doc.createElement('style');
+            styleTag.textContent = `
+              html, body {
+                width: 100% !important;
+                max-width: 100% !important;
+                overflow-x: hidden !important;
+                box-sizing: border-box !important;
+                margin: 0;
+                padding: 0;
+              }
+              table, tr, td, img, div, p, span {
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+              }
+              img {
+                height: auto !important;
+              }
+              * {
+                box-sizing: border-box !important;
+              }
+            `;
+            head.appendChild(styleTag);
         }
 
         // 4. Inject iframe auto-resize script

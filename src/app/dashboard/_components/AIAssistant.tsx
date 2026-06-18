@@ -511,7 +511,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
                                 {/* Close Button */}
                                 <button
                                     onClick={() => setIsRightSidebarCollapsed(true)}
-                                    className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
+                                    className="p-1.5 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer md:hidden flex items-center justify-center"
                                     title="Close AI Assistant"
                                 >
                                     <X className="h-4 w-4" />
