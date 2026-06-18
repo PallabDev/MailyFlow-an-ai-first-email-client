@@ -314,6 +314,17 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+
+  // Handle scroll events to update isAtBottomRef
+  const handleScroll = () => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // A threshold of 30px is safe and accounts for subpixel discrepancies or zoom
+    const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 30;
+    isAtBottomRef.current = atBottom;
+  };
 
   // Load chat messages history on mount
   useEffect(() => {
@@ -322,21 +333,48 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
     return () => clearPolling();
   }, [user.id, fetchHistory, setMessages, clearPolling]);
 
-  // Smart Auto-Scroll to bottom (only scroll if user is already at the bottom or sent a message)
+  // Handle user messages scroll-to-bottom
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'user') {
+      isAtBottomRef.current = true;
+      const container = chatContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [messages]);
+
+  // Handle view switching: reset scroll to bottom when entering chat view
+  useEffect(() => {
+    if (activeView === 'chat') {
+      isAtBottomRef.current = true;
+      const container = chatContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }, [activeView]);
+
+  // Use MutationObserver to scroll to bottom when container contents change
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
 
-    const threshold = 150;
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    const observer = new MutationObserver(() => {
+      if (isAtBottomRef.current) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
 
-    const lastMessage = messages[messages.length - 1];
-    const isLastMessageUser = lastMessage?.role === 'user';
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
 
-    if (isNearBottom || isLastMessageUser) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, chatLoading]);
+    return () => observer.disconnect();
+  }, []);
 
   // Handle manual cancel/pause of pending AI request
   const handleCancel = () => {
@@ -489,7 +527,7 @@ export default function AIAssistant({ user, projectName: _projectName }: AIAssis
             </div>
 
             {/* Scrollable Chat Area */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarGutter: 'stable' }}>
+            <div ref={chatContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ scrollbarGutter: 'stable' }}>
               {activeView === 'history' ? (
                 <div className="space-y-3">
                   {groupMessagesIntoSessions(historyMessages).length === 0 ? (
