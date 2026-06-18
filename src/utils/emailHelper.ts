@@ -1,5 +1,27 @@
 export const isHtml = (str: string) => {
+    if (typeof str !== 'string') return false;
     return /<[a-z][\s\S]*>/i.test(str);
+};
+
+export const isRichHtml = (str: string): boolean => {
+    if (typeof str !== 'string') return false;
+    if (!isHtml(str)) return false;
+
+    const hasTable = /<table/i.test(str);
+    const hasStyleTag = /<style/i.test(str);
+    const hasImage = /<img/i.test(str);
+    const hasLinkTag = /<link/i.test(str);
+
+    if (hasTable || hasStyleTag || hasImage || hasLinkTag) {
+        return true;
+    }
+
+    const hasColorStyle = /style=["'][^"']*(background|color)[^"']*["']/i.test(str);
+    if (hasColorStyle) {
+        return true;
+    }
+
+    return false;
 };
 
 export const formatPlainTextInput = (text: string) => {
@@ -36,6 +58,7 @@ export const getEmailHtml = (
 ) => {
     let rawHtml = email.body;
     const isHtmlEmail = isHtml(rawHtml);
+    const isRich = isRichHtml(rawHtml);
 
     if (!isHtmlEmail) {
         rawHtml = formatPlainTextInput(rawHtml);
@@ -77,9 +100,9 @@ export const getEmailHtml = (
         }
 
         // 3. Conditional theming:
-        // Plain text: adapt to system light/dark theme.
-        // HTML: load as-is (do not enforce custom color scheme or background styles).
-        if (!isHtmlEmail) {
+        // Plain text / Simple HTML: adapt to system light/dark theme.
+        // Rich HTML: load as-is (do not enforce custom color scheme or background styles).
+        if (!isRich) {
             let colorSchemeMeta = doc.querySelector('meta[name="color-scheme"]');
             if (!colorSchemeMeta) {
                 colorSchemeMeta = doc.createElement('meta');

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, AlertCircle, CornerUpLeft, Send, Paperclip, X, Sparkles } from 'lucide-react';
-import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isHtml } from '@/utils/emailHelper';
+import { getEmailHtml, parseSender, getInitials, getAvatarColor, formatEmailDate, isRichHtml } from '@/utils/emailHelper';
 import { useChatStore } from '@/store/chatStore';
 import { usePathname, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -379,7 +379,7 @@ export default function EmailDetail({
 
     const isHtmlEmail = useMemo(() => {
         if (!detailEmail) return false;
-        return isHtml(detailEmail.body);
+        return isRichHtml(detailEmail.body);
     }, [detailEmail?.body]);
 
     const containerClassName = useMemo(() => {
