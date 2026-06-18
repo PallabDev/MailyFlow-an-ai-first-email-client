@@ -3,6 +3,9 @@ import { corsair } from '@/lib/corsair';
 import logger from '@/lib/logger';
 import { createClerkClient } from '@clerk/nextjs/server';
 import { inngest } from '@/server/inngest/client';
+import { db } from '@/lib/corsair';
+import { webhookDedup } from '@/server/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',
@@ -24,8 +27,9 @@ const is429Error = (err: any): boolean => {
   );
 };
 
+const PUBSUB_DEDUP_PREFIX = 'pubsub:';
+
 export async function POST(request: Request) {
-  // Clone request to avoid consuming body stream if we need to fallback
   const clonedRequest = request.clone();
   let isGmailPubSub = false;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,7 +44,45 @@ export async function POST(request: Request) {
     body = await request.json();
     isGmailPubSub = !!(body.message && body.subscription);
 
-    // Log incoming webhook event info
+    // DB-backed Pub/Sub message dedup
+    if (isGmailPubSub && body.message?.messageId) {
+      const dedupId = `${PUBSUB_DEDUP_PREFIX}${body.message.messageId}`;
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+      const existing = await db
+        .select({ messageId: webhookDedup.messageId })
+        .from(webhookDedup)
+        .where(
+          and(
+            eq(webhookDedup.tenantId, '__pubsub__'),
+            eq(webhookDedup.messageId, dedupId),
+            sql`${webhookDedup.seenAt} > ${fiveMinAgo}`
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        logger.info(`[Webhook POST] Skipping duplicate Pub/Sub message: ${body.message.messageId}`);
+        return new Response(JSON.stringify({ success: true, message: 'Duplicate skipped' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Mark as seen
+      await db
+        .insert(webhookDedup)
+        .values({
+          tenantId: '__pubsub__',
+          messageId: dedupId,
+          seenAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [webhookDedup.tenantId, webhookDedup.messageId],
+          set: { seenAt: new Date() },
+        });
+    }
+
     const eventInfo = {
       messageId: body.message?.messageId,
       publishTime: body.message?.publishTime,
@@ -48,7 +90,6 @@ export async function POST(request: Request) {
     };
     logger.info(`[Webhook POST] Handled event: ${JSON.stringify(eventInfo)}`);
 
-    // Force requiring tenantId to prevent cross-tenant message processing or misrouting
     const url = new URL(request.url);
     let activeTenantId = url.searchParams.get('tenantId');
 
@@ -61,18 +102,13 @@ export async function POST(request: Request) {
     }
 
     if (!activeTenantId && isGmailPubSub) {
-      // Decode the payload to resolve the emailAddress
       let gmailEmail: string | null = null;
       if (body.message?.data) {
         try {
           const decoded = Buffer.from(body.message.data, 'base64').toString('utf-8');
           const parsed = JSON.parse(decoded);
           if (parsed && typeof parsed.emailAddress === 'string') {
-            const emailStr = parsed.emailAddress;
-            gmailEmail = emailStr;
-            const [local, domain] = emailStr.split('@');
-            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
-            logger.info(`[Webhook POST] Decoded Gmail email address: ${maskedLocal}@${domain || 'unknown'}`);
+            gmailEmail = parsed.emailAddress;
           }
         } catch (err) {
           logger.error('[Webhook POST] Failed to parse Gmail Pub/Sub message data:', err);
@@ -90,14 +126,7 @@ export async function POST(request: Request) {
           const user = response.data[0];
           if (user) {
             activeTenantId = user.id;
-            const [local, domain] = gmailEmail.split('@');
-            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
-            logger.info(`[Webhook POST] Resolved tenantId from email ${maskedLocal}@${domain || 'unknown'}: ${activeTenantId}`);
           } else {
-            const [local, domain] = gmailEmail.split('@');
-            const maskedLocal = local ? (local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : `${local[0]}*`) : '***';
-            logger.error(`[Webhook POST] No user found in Clerk for email: ${maskedLocal}@${domain || 'unknown'}`);
-            // Acknowledge the Pub/Sub message to prevent retries for non-existent users
             return new Response(JSON.stringify({ success: true, message: 'No user found in Clerk' }), {
               status: 200,
               headers: { 'Content-Type': 'application/json' },
@@ -107,7 +136,6 @@ export async function POST(request: Request) {
           logger.error('[Webhook POST] Clerk user lookup failed:', err);
         }
       } else {
-        logger.error('[Webhook POST] Gmail Pub/Sub message did not contain a valid email address');
         return new Response(JSON.stringify({ success: true, message: 'Invalid Gmail Pub/Sub email' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -116,22 +144,19 @@ export async function POST(request: Request) {
     }
 
     if (activeTenantId) {
-      // Check if there is an active Gmail API 429 rate limit cooldown
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cooldownExpiry = (global as any)._gmailCooldownExpiration;
       if (cooldownExpiry && Date.now() < cooldownExpiry) {
         const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
-        logger.warn(`⏳ [Webhook POST] Skipping Gmail API calls for tenant ${activeTenantId} due to active 429 cooldown. Cooldown active for another ${remainingSeconds} seconds.`);
-        
-        return new Response(JSON.stringify({ success: true, message: 'Skipped due to active 429 cooldown' }), {
+        logger.warn(`⏳ [Webhook POST] Skipping for tenant ${activeTenantId} due to 429 cooldown. Remaining: ${remainingSeconds}s.`);
+        return new Response(JSON.stringify({ success: true, message: 'Skipped due to 429 cooldown' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
       logger.info(`[Webhook POST] Dispatching async sync event to Inngest for tenant: ${activeTenantId}`);
-      
-      // Dispatch sync event to Inngest background queue
+
       try {
         await inngest.send({
           name: 'gmail.webhook.received',
@@ -145,16 +170,13 @@ export async function POST(request: Request) {
         logger.error('[Webhook POST] Failed to dispatch Inngest event:', inngestErr);
       }
 
-      // Immediately return 200 OK to stop Google retry storms
-      return new Response(JSON.stringify({ success: true, message: 'Webhook enqueued successfully' }), {
+      return new Response(JSON.stringify({ success: true, message: 'Webhook enqueued' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    // Acknowledge all other processed Gmail Pub/Sub webhook events to prevent Pub/Sub retry storms
     if (isGmailPubSub) {
-      logger.info('[Webhook POST] Gmail Pub/Sub webhook processing complete, acknowledging with 200 OK');
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -163,12 +185,11 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.error('Error parsing or processing webhook payload:', error);
     if (is429Error(error)) {
-      logger.warn(`[Webhook POST] Outer handler caught 429 Rate Limit error. Setting 20-minute cooldown.`);
+      logger.warn(`[Webhook POST] Outer handler caught 429. Setting 20-minute cooldown.`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (global as any)._gmailCooldownExpiration = Date.now() + 20 * 60 * 1000;
     }
     if (isGmailPubSub) {
-      logger.info('[Webhook POST] Error occurred during Gmail Pub/Sub processing, acknowledging with 200 OK to stop retries');
       return new Response(JSON.stringify({ success: true, warning: 'Error during processing' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -176,6 +197,5 @@ export async function POST(request: Request) {
     }
   }
 
-  // Fallback to default Corsair management handler with the cloned unconsumed request
   return defaultPost(clonedRequest);
 }

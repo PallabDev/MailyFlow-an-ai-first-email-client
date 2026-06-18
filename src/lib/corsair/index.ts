@@ -173,6 +173,6 @@ export function ensureGoogleCredentialsSynced(): Promise<void> {
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     ensureGoogleCredentialsSynced().catch((err) => {
-        console.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
+        logger.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
     });
 }

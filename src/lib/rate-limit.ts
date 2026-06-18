@@ -1,6 +1,7 @@
 import { db } from './corsair';
 import { userSubscriptions, userUsage } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
+import logger from '@/lib/logger';
 
 export interface PlanLimits {
   aiLimit: number;
@@ -140,7 +141,7 @@ export async function checkRateLimit(
       }
     });
   } catch (error) {
-    console.error('Rate limit verification failed (failing closed):', error);
+    logger.error('Rate limit verification failed (failing closed):', error);
     return {
       allowed: false,
       current: 0,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import logger from '@/lib/logger';
 
 export const chatMessageSchema = z.object({
   messages: z.array(
@@ -34,7 +35,7 @@ export function validateEnv() {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     const details = JSON.stringify(result.error.format(), null, 2);
-    console.error('❌ Environment validation failed:', details);
+    logger.error('Environment validation failed:', details);
     if (process.env.NODE_ENV === 'production') {
       throw new Error(`Invalid environment configuration: ${details}`);
     }

@@ -47,7 +47,7 @@ export const processAICall = inngest.createFunction(
                         .limit(1);
                     return existing.length > 0 && existing[0].status === 'cancelled';
                 } catch (err) {
-                    console.error('Failed to check cancel status:', err);
+                        logger.error('Failed to check cancel status:', err);
                     return false;
                 }
             };
@@ -91,7 +91,7 @@ export const processAICall = inngest.createFunction(
                     userPlan = sub.planName as 'Starter' | 'Professional' | 'Business';
                 }
             } catch (dbErr) {
-                console.error('Failed to load user plan, defaulting to Starter:', dbErr);
+                logger.error('Failed to load user plan, defaulting to Starter:', dbErr);
             }
 
             // Build system instructions using system promts helper
@@ -133,7 +133,7 @@ export const processAICall = inngest.createFunction(
 
                 dbHistory = [...dbHistoryDesc].reverse();
             } catch (dbErr) {
-                console.error('Failed to load chat history from DB, running with single prompt context:', dbErr);
+                logger.error('Failed to load chat history from DB:', dbErr);
                 // Fallback to the latest user message in history
                 const latestUserMsg = messages && messages.length > 0 ? (messages[messages.length - 1] as { role: string; content: string }) : { role: 'user', content: 'Hello' };
                 dbHistory = [latestUserMsg];
@@ -190,7 +190,7 @@ export const processAICall = inngest.createFunction(
                             })
                             .where(eq(chatMessages.id, assistantMessageId));
                     } catch (err) {
-                        console.error('Failed to update progress status:', err);
+                        logger.error('Failed to update progress status:', err);
                     }
                 } else {
                     clearInterval(progressInterval);
@@ -259,7 +259,7 @@ export const processAICall = inngest.createFunction(
                     })
                     .where(eq(chatMessages.id, assistantMessageId));
             } catch (dbErr) {
-                console.error('Failed to update assistant message in DB:', dbErr);
+                logger.error('Failed to update assistant message in DB:', dbErr);
             }
         });
 
@@ -276,7 +276,7 @@ export const trackFailedAICalls = inngest.createFunction(
     },
     async ({ event, step }) => {
         const errorPayload = event.data;
-        console.error('Inngest function processing failed:', errorPayload);
+        logger.error('Inngest function processing failed:', errorPayload);
 
         // Attempt to parse out assistantMessageId and set its status to failed
         const funcEvent = errorPayload.event;
@@ -292,7 +292,7 @@ export const trackFailedAICalls = inngest.createFunction(
                         })
                         .where(eq(chatMessages.id, funcEvent.data.assistantMessageId));
                 } catch (dbErr) {
-                    console.error('Failed to update status to failed in DB:', dbErr);
+                    logger.error('Failed to update status to failed in DB:', dbErr);
                 }
             });
         }
@@ -336,17 +336,17 @@ export const syncGmailWebhook = inngest.createFunction(
         const cooldownExpiry = await getGmailCooldownExpiration(activeTenantId);
         if (cooldownExpiry && Date.now() < cooldownExpiry) {
             const remainingSeconds = Math.ceil((cooldownExpiry - Date.now()) / 1000);
-            console.warn(`⏳ [Inngest Sync] Skipping sync for tenant ${activeTenantId} due to active 429 cooldown. Remaining: ${remainingSeconds}s.`);
+            logger.warn(`⏳ [Inngest Sync] Skipping sync for tenant ${activeTenantId} due to active 429 cooldown. Remaining: ${remainingSeconds}s.`);
             return { skipped: true, reason: 'active 429 cooldown' };
         }
 
-        // 1. Run processWebhook
+        // 1. Run processWebhook — this is the only Gmail API call we allow per webhook
         let result: unknown = null;
         const syncStartedAtStr = await step.run('get-sync-start-time', () => new Date().toISOString());
         const syncStartedAt = new Date(syncStartedAtStr);
 
         // Update last sync time for dedup tracking
-        setLastSyncTime(activeTenantId, syncStartedAt);
+        await setLastSyncTime(activeTenantId, syncStartedAt);
 
         try {
             result = await step.run('run-process-webhook', async () => {
@@ -359,17 +359,18 @@ export const syncGmailWebhook = inngest.createFunction(
             const errObj = err as Record<string, unknown>;
             const errMsg = String(errObj?.message || err).toLowerCase();
             if (errMsg.includes('account not found') || errMsg.includes('make sure to create the account first')) {
-                console.warn(`⚠️ [Inngest Sync] Account not found for tenant ${activeTenantId}. User may have disconnected Gmail. Skipping.`);
+                logger.warn(`⚠️ [Inngest Sync] Account not found for tenant ${activeTenantId}. Skipping.`);
                 return { success: false, skipped: true, reason: 'account_not_found' };
             }
             if (isGmail429Error(err)) {
-                console.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
+                logger.warn(`[Inngest Sync] processWebhook threw 429. Setting 20-minute cooldown.`);
                 await setGmailCooldown(activeTenantId);
             }
             throw err;
         }
 
         // 2. Publish Socket.IO events for messages synced during processWebhook
+        //    Only send classification events for paid users (avoid wasted Inngest triggers)
         await step.run('publish-realtime-events', async () => {
             const gmailAccount = await db
                 .select({ id: corsairAccounts.id })
@@ -385,7 +386,7 @@ export const syncGmailWebhook = inngest.createFunction(
                 .then((rows) => rows[0]);
 
             if (!gmailAccount) {
-                console.warn(`⚠️ [Inngest Sync] No Gmail account for tenant ${activeTenantId}. Skipping realtime publish.`);
+                logger.warn(`⚠️ [Inngest Sync] No Gmail account for tenant ${activeTenantId}. Skipping.`);
                 return;
             }
 
@@ -400,6 +401,19 @@ export const syncGmailWebhook = inngest.createFunction(
                     )
                 );
 
+            // Check if user is on paid plan (once, not per email)
+            let isPaidUser = false;
+            try {
+                const [sub] = await db
+                    .select({ planName: userSubscriptions.planName, status: userSubscriptions.status })
+                    .from(userSubscriptions)
+                    .where(eq(userSubscriptions.userId, activeTenantId))
+                    .limit(1);
+                isPaidUser = sub?.status === 'active' && (sub?.planName === 'Professional' || sub?.planName === 'Business');
+            } catch {
+                // Default to false
+            }
+
             const publishedIds = new Set<string>();
             for (const row of syncedEntities) {
                 const msg = row.data as { id?: string; labelIds?: string[]; internalDate?: string };
@@ -408,175 +422,35 @@ export const syncGmailWebhook = inngest.createFunction(
                 const labels = msg.labelIds ?? [];
                 if (labels.length > 0 && !labels.includes('INBOX')) continue;
 
-                // Dedup: only publish if this is a truly new message
-                if (!shouldPublishEvent(activeTenantId, msg.id, msg.internalDate)) continue;
+                if (!(await shouldPublishEvent(activeTenantId, msg.id, msg.internalDate))) continue;
 
                 publishedIds.add(msg.id);
                 await publishNewEmailEvent(msg.id, activeTenantId);
                 logger.info(`✉️ [Inngest Sync] Published realtime event for email ${msg.id}, tenant ${activeTenantId}`);
 
-                // Trigger priority classification for paid users
-                try {
-                    const msgData = row.data as { subject?: string; from?: string; snippet?: string };
-                    await inngest.send({
-                        name: 'email.classify.requested',
-                        data: {
-                            userId: activeTenantId,
-                            emailId: msg.id,
-                            subject: msgData?.subject || '',
-                            sender: msgData?.from || '',
-                            snippet: msgData?.snippet || '',
-                        },
-                    });
-                } catch (classifyErr) {
-                    console.error(`Failed to trigger classification for email ${msg.id}:`, classifyErr);
+                // Only trigger classification for paid users
+                if (isPaidUser) {
+                    try {
+                        const msgData = row.data as { subject?: string; from?: string; snippet?: string };
+                        await inngest.send({
+                            name: 'email.classify.requested',
+                            data: {
+                                userId: activeTenantId,
+                                emailId: msg.id,
+                                subject: msgData?.subject || '',
+                                sender: msgData?.from || '',
+                                snippet: msgData?.snippet || '',
+                            },
+                        });
+                    } catch (classifyErr) {
+                        logger.error(`Failed to trigger classification for email ${msg.id}:`, classifyErr);
+                    }
                 }
             }
         });
 
-        // 3. Fallback: list inbox and notify for messages not yet in DB cache
-        const isGmailWebhook = !!body.message?.data;
-        if (isGmailWebhook) {
-            try {
-                await step.run('run-custom-sync', async () => {
-                    const gmailConnected = await hasActiveConnection(activeTenantId, 'gmail');
-                    if (!gmailConnected) {
-                        console.warn(`⚠️ [Inngest Sync] No active Gmail connection for tenant ${activeTenantId}. Skipping custom sync.`);
-                        return;
-                    }
-
-                    const gmailAccount = await db
-                        .select({ id: corsairAccounts.id })
-                        .from(corsairAccounts)
-                        .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-                        .where(
-                            and(
-                                eq(corsairAccounts.tenantId, activeTenantId),
-                                eq(corsairIntegrations.name, 'gmail')
-                            )
-                        )
-                        .limit(1)
-                        .then((rows) => rows[0]);
-
-                    if (!gmailAccount) return;
-
-                    const cachedRows = await db
-                        .select({ entityId: corsairEntities.entityId })
-                        .from(corsairEntities)
-                        .where(
-                            and(
-                                eq(corsairEntities.accountId, gmailAccount.id),
-                                eq(corsairEntities.entityType, 'messages')
-                            )
-                        );
-
-                    const cachedIds = new Set(cachedRows.map((r) => r.entityId));
-
-                    const client = corsair.withTenant(activeTenantId);
-                    const listRes = await client.gmail.api.messages.list({
-                        maxResults: 5,
-                        labelIds: ['INBOX'],
-                    });
-
-                    if (!listRes.messages?.length) return;
-
-                    for (const msg of listRes.messages) {
-                        if (msg.id && !cachedIds.has(msg.id)) {
-                            // Dedup: only publish if this is a truly new message
-                            if (!shouldPublishEvent(activeTenantId, msg.id)) continue;
-
-                            await publishNewEmailEvent(msg.id, activeTenantId);
-                            logger.info(`✉️ [Inngest Sync] Fallback published realtime event for email ${msg.id}`);
-
-                            // Trigger priority classification for fallback emails
-                            try {
-                                await inngest.send({
-                                    name: 'email.classify.requested',
-                                    data: {
-                                        userId: activeTenantId,
-                                        emailId: msg.id,
-                                        subject: msg.snippet || '',
-                                        sender: '',
-                                        snippet: msg.snippet || '',
-                                    },
-                                });
-                            } catch {
-                                // Silently ignore classification failures for fallback emails
-                            }
-                        }
-                    }
-                });
-            } catch (err) {
-                console.error('Error in custom Gmail sync inside Inngest:', err);
-                if (isGmail429Error(err)) {
-                    console.warn(`[Inngest Sync] Custom sync returned 429. Setting 20-minute cooldown.`);
-                    await setGmailCooldown(activeTenantId);
-                }
-            }
-        }
-
-        // 4. Background Sync for Label Counts
-        try {
-            await step.run('sync-label-counts', async () => {
-                const gmailConnected = await hasActiveConnection(activeTenantId, 'gmail');
-                if (!gmailConnected) return;
-
-                const gmailAccount = await db
-                    .select({ id: corsairAccounts.id })
-                    .from(corsairAccounts)
-                    .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
-                    .where(
-                        and(
-                            eq(corsairAccounts.tenantId, activeTenantId),
-                            eq(corsairIntegrations.name, 'gmail')
-                        )
-                    )
-                    .limit(1)
-                    .then((rows) => rows[0]);
-
-                if (!gmailAccount) return;
-
-                const client = corsair.withTenant(activeTenantId);
-                const [inbox, drafts, spam, promotions] = await Promise.all([
-                    client.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null),
-                    client.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null),
-                    client.gmail.api.labels.get({ id: 'SPAM' }).catch(() => null),
-                    client.gmail.api.labels.get({ id: 'CATEGORY_PROMOTIONS' }).catch(() => null),
-                ]);
-
-                const labelsToSave = [
-                    { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
-                    { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
-                    { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } },
-                    { id: 'CATEGORY_PROMOTIONS', data: { messagesTotal: promotions?.messagesTotal ?? 0 } }
-                ];
-
-                for (const label of labelsToSave) {
-                    await db
-                        .insert(corsairEntities)
-                        .values({
-                            id: `e_labels_${label.id}_a_${gmailAccount.id}`,
-                            accountId: gmailAccount.id,
-                            entityId: label.id,
-                            entityType: 'labels',
-                            version: '1',
-                            data: label.data,
-                        })
-                        .onConflictDoUpdate({
-                            target: corsairEntities.id,
-                            set: {
-                                data: label.data,
-                                updatedAt: new Date()
-                            }
-                        });
-                }
-            });
-        } catch (err) {
-            console.error('Error in background label sync inside Inngest:', err);
-            if (isGmail429Error(err)) {
-                await setGmailCooldown(activeTenantId);
-            }
-        }
+        // REMOVED: run-custom-sync — redundant, processWebhook already fetched the email
+        // REMOVED: sync-label-counts — moved to hourly cron job (see syncLabelCounts)
 
         return { success: true, result };
     }
@@ -656,7 +530,7 @@ Content: ${bodyText.slice(0, 1500)}`;
 
             return { success: true };
         } catch (err) {
-            console.error('Error in Inngest email summary workflow:', err);
+            logger.error('Error in Inngest email summary workflow:', err);
             // Emit failure event
             const io = getSocketIO();
             if (io) {
@@ -744,7 +618,7 @@ Content: ${bodyText.slice(0, 1500)}`;
 
             return { success: true };
         } catch (err) {
-            console.error('Error in Inngest email reply draft workflow:', err);
+            logger.error('Error in Inngest email reply draft workflow:', err);
             // Emit failure event
             const io = getSocketIO();
             if (io) {
@@ -847,7 +721,7 @@ Return ONLY valid JSON, no markdown fences, no extra text.`;
                         },
                     });
             } catch (dbErr) {
-                console.error('Failed to save email priority:', dbErr);
+                logger.error('Failed to save email priority:', dbErr);
             }
         });
 
@@ -865,5 +739,84 @@ Return ONLY valid JSON, no markdown fences, no extra text.`;
         });
 
         return { success: true, priority: result.priority, category: result.category };
+    }
+);
+
+export const syncLabelCounts = inngest.createFunction(
+    {
+        id: 'sync-label-counts',
+        name: 'Sync Label Counts',
+        concurrency: {
+            limit: 5,
+        },
+        triggers: [{ cron: '0 * * * *' }], // every hour
+    },
+    async ({ step }) => {
+        // Get all active Gmail accounts
+        const accounts = await step.run('get-active-accounts', async () => {
+            return db
+                .select({
+                    id: corsairAccounts.id,
+                    tenantId: corsairAccounts.tenantId,
+                })
+                .from(corsairAccounts)
+                .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+                .where(eq(corsairIntegrations.name, 'gmail'));
+        });
+
+        if (accounts.length === 0) return { synced: 0 };
+
+        let synced = 0;
+        for (const account of accounts) {
+            try {
+                await step.run(`sync-labels-${account.id}`, async () => {
+                    const gmailConnected = await hasActiveConnection(account.tenantId, 'gmail');
+                    if (!gmailConnected) return;
+
+                    const client = corsair.withTenant(account.tenantId);
+                    const [inbox, drafts, spam, promotions] = await Promise.all([
+                        client.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null),
+                        client.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null),
+                        client.gmail.api.labels.get({ id: 'SPAM' }).catch(() => null),
+                        client.gmail.api.labels.get({ id: 'CATEGORY_PROMOTIONS' }).catch(() => null),
+                    ]);
+
+                    const labelsToSave = [
+                        { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
+                        { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
+                        { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } },
+                        { id: 'CATEGORY_PROMOTIONS', data: { messagesTotal: promotions?.messagesTotal ?? 0 } },
+                    ];
+
+                    for (const label of labelsToSave) {
+                        await db
+                            .insert(corsairEntities)
+                            .values({
+                                id: `e_labels_${label.id}_a_${account.id}`,
+                                accountId: account.id,
+                                entityId: label.id,
+                                entityType: 'labels',
+                                version: '1',
+                                data: label.data,
+                            })
+                            .onConflictDoUpdate({
+                                target: corsairEntities.id,
+                                set: {
+                                    data: label.data,
+                                    updatedAt: new Date(),
+                                },
+                            });
+                    }
+                    synced++;
+                });
+            } catch (err) {
+                logger.error(`Error syncing labels for account ${account.id}:`, err);
+                if (isGmail429Error(err)) {
+                    await setGmailCooldown(account.tenantId);
+                }
+            }
+        }
+
+        return { synced };
     }
 );
