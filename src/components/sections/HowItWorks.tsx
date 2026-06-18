@@ -60,10 +60,9 @@ function SecureKeyhandshakeAnimation() {
       <circle cx="80" cy="46" r="2.5" fill="var(--accent)" />
       <polygon points="78.5,46 81.5,46 82.5,53 77.5,53" fill="var(--accent)" />
 
-      {/* Slide & turn key group */}
       <motion.g
         animate={{
-          x: [20, 64, 64, 64, 20],
+          x: [-40, 0, 0, 0, -40],
           rotate: [0, 0, 90, 0, 0]
         }}
         transition={{
@@ -72,7 +71,7 @@ function SecureKeyhandshakeAnimation() {
           times: [0, 0.25, 0.45, 0.65, 0.95],
           ease: "easeInOut"
         }}
-        style={{ transformOrigin: "79px 46px" }}
+        style={{ transformOrigin: "80px 46px" }}
       >
         {/* Key illustration */}
         <circle cx="67" cy="46" r="4" stroke="var(--success)" strokeWidth="1.5" fill="var(--card)" />
