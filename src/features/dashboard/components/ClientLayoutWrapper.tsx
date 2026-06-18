@@ -178,7 +178,6 @@ export default function ClientLayoutWrapper({
           projectName={projectName}
           isLeftSidebarCollapsed={isLeftSidebarCollapsed}
           setIsLeftSidebarCollapsed={setIsLeftSidebarCollapsed}
-          isAdvancedSearchOpen={isAdvancedSearchOpen}
           setIsAdvancedSearchOpen={setIsAdvancedSearchOpen}
         />
         <AdvancedSearchPanel isOpen={isAdvancedSearchOpen} onClose={() => setIsAdvancedSearchOpen(false)} />

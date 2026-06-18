@@ -277,10 +277,11 @@ export async function GET(req: NextRequest) {
         const gmailPageToken = (pageToken && !pageToken.startsWith('db_offset:')) ? pageToken : undefined;
         const hasLabelFilter = q ? /\b(in|label|is|category):/i.test(q) : false;
 
+        // When searching (q present), search across ALL labels, not just the current folder
         const listRes = await client.gmail.api.messages.list({
           maxResults: limit,
           pageToken: gmailPageToken,
-          labelIds: hasLabelFilter ? undefined : labelIds,
+          labelIds: q ? undefined : (hasLabelFilter ? undefined : labelIds),
           q: q || undefined,
         });
 

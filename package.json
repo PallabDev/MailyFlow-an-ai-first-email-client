@@ -11,7 +11,7 @@
         "typecheck": "tsc --noEmit",
         "check": "npm run lint && npm run typecheck",
         "db:push": "npx drizzle-kit push",
-        "db:clear": "tsx src/db/clear.ts",
+        "db:clear": "tsx src/server/db/clear.ts",
         "db:studio": "drizzle-kit studio",
         "pay-access": "cd pay-access && npm install && npm start"
     },
