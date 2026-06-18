@@ -6,7 +6,10 @@
         "dev": "tsx watch server.ts",
         "build": "next build",
         "start": "tsx server.ts",
-        "lint": "eslint",
+        "lint": "eslint src --ext .ts,.tsx",
+        "lint:fix": "eslint src --ext .ts,.tsx --fix",
+        "typecheck": "tsc --noEmit",
+        "check": "npm run lint && npm run typecheck",
         "db:push": "npx drizzle-kit push",
         "db:clear": "tsx src/db/clear.ts",
         "db:studio": "drizzle-kit studio",
@@ -50,7 +53,14 @@
         "drizzle-kit": "^0.31.10",
         "eslint": "^9",
         "eslint-config-next": "16.2.9",
+        "lint-staged": "^15.2.0",
         "tailwindcss": "^4",
         "typescript": "^5"
+    },
+    "lint-staged": {
+        "*.{ts,tsx}": [
+            "eslint --fix --max-warnings=0",
+            "bash -c 'tsc --noEmit'"
+        ]
     }
 }

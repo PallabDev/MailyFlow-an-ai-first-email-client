@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair, ensureGoogleCredentialsSynced } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import { db, corsair, ensureGoogleCredentialsSynced } from '@/lib/corsair';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { ConnectedAccount, CalendarConfig, CreateEventRequest, UpdateEventRequest, DeleteEventRequest } from './_types';
-import { checkRateLimit } from '@/utils/rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 async function getCalendarClient(userId: string) {
   let connectedAccounts: ConnectedAccount[] = [];

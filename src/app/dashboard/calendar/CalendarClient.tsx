@@ -11,7 +11,7 @@ import {
   AlertCircle,
   RefreshCw
 } from 'lucide-react';
-import EventModal from '../_components/EventModal';
+import EventModal from '@/features/calendar/components/EventModal';
 
 type CalendarEvent = {
   id?: string;
@@ -100,6 +100,7 @@ export default function CalendarClient({
   // Fetch events when the current month changes
   useEffect(() => {
     fetchEvents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonthDate]);
 
   const getEventsForDate = (date: Date) => {

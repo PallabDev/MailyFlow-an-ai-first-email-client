@@ -1,4 +1,4 @@
-import FolderPageClient from '../_components/FolderPageClient';
+import FolderPageClient from '@/features/email/components/FolderPageClient';
 
 export default function TrashPage() {
   return (

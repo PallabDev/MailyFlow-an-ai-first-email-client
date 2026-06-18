@@ -16,11 +16,10 @@ const eslintConfig = defineConfig([
       "react-hooks/refs": "off",
       "react/no-unescaped-entities": "off",
       "prefer-const": "warn",
+      "no-console": ["warn", { allow: ["warn", "error"] }],
     }
   },
-  // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",

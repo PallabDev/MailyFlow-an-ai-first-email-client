@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
-import { userSubscriptions } from '@/db/schema';
+import { currentUser } from '@clerk/nextjs/server';
+import { db } from '@/lib/corsair';
+import { userSubscriptions } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { inngest } from '@/server/inngest/client';
 
 export async function POST(req: NextRequest) {
     try {

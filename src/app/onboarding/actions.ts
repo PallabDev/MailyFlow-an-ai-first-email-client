@@ -1,8 +1,9 @@
 'use server';
 
 import { auth } from '@clerk/nextjs/server';
-import { db, stopWatchesForTenant } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations, corsairEntities, corsairEvents } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { stopWatchesForTenant } from '@/lib/corsair/utils';
+import { corsairAccounts, corsairIntegrations, corsairEntities, corsairEvents } from '@/server/db/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 

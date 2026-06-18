@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { db } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import IntegrationsClient from './IntegrationsClient';
 

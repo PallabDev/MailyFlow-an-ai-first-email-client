@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import crypto from 'crypto';
-import { db } from '@/utils/corsair';
-import { userSubscriptions } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { userSubscriptions } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { Resend } from 'resend';
+import logger from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       crypto.timingSafeEqual(expectedBuffer, actualBuffer);
 
     if (!isVerified) {
-      console.error('Invalid payment signature computed');
+      logger.error('Invalid payment signature computed');
       return NextResponse.json({ error: 'Payment signature verification failed' }, { status: 400 });
     }
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     if (!razorpayRes.ok) {
       const errText = await razorpayRes.text();
-      console.error('Failed to retrieve order from Razorpay API:', errText);
+      logger.error('Failed to retrieve order from Razorpay API:', errText);
       return NextResponse.json({ error: 'Failed to verify order details with payment gateway' }, { status: 400 });
     }
 
@@ -192,15 +193,15 @@ export async function POST(req: NextRequest) {
         });
 
         if (emailError) {
-          console.error('Failed to send Resend confirmation email:', emailError);
+          logger.error('Failed to send Resend confirmation email:', emailError);
         } else {
-          console.log(`Resend confirmation email sent to ${userEmail} successfully. Msg ID: ${data?.id}`);
+          logger.info(`Resend confirmation email sent to ${userEmail} successfully. Msg ID: ${data?.id}`);
         }
       } else {
-        console.warn('Skipping Resend email: userEmail or RESEND_API_KEY is not defined', { userEmail, hasKey: !!process.env.RESEND_API_KEY });
+        logger.warn('Skipping Resend email: userEmail or RESEND_API_KEY is not defined', { userEmail, hasKey: !!process.env.RESEND_API_KEY });
       }
     } catch (emailErr) {
-      console.error('Error occurred while sending Resend confirmation email:', emailErr);
+      logger.error('Error occurred while sending Resend confirmation email:', emailErr);
     }
 
     return NextResponse.json({
@@ -208,7 +209,7 @@ export async function POST(req: NextRequest) {
       message: `Successfully subscribed to the ${planName} plan!`,
     });
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    logger.error('Error verifying payment:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

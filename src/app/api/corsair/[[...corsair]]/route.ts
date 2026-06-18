@@ -1,8 +1,8 @@
 import { toNextJsHandler } from 'corsair';
-import { corsair } from '@/utils/corsair';
-import logger from '@/utils/logger';
+import { corsair } from '@/lib/corsair';
+import logger from '@/lib/logger';
 import { createClerkClient } from '@clerk/nextjs/server';
-import { inngest } from '@/inngest/client';
+import { inngest } from '@/server/inngest/client';
 
 const { GET, POST: defaultPost } = toNextJsHandler(corsair, {
   basePath: '/api/corsair',

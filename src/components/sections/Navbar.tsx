@@ -44,6 +44,7 @@ export default function Navbar() {
           style={{ height: scrolled ? 56 : 68 }}
         >
           <Link href="/" className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.png" alt="MailyFlow Logo" className="h-7 w-7 object-contain shrink-0" />
             <span className="font-display text-[17px] font-semibold tracking-tight text-text">MailyFlow</span>
           </Link>

@@ -1,5 +1,34 @@
 'use client';
 
+interface MockEmail {
+  id: string;
+  from: string;
+  date: string;
+  subject: string;
+  snippet: string;
+  body: string;
+  labelIds: string[];
+  internalDate: string;
+  attachments?: Array<{ name: string; type: string; base64: string; size?: number }>;
+}
+
+interface MockEvent {
+  id: string;
+  summary: string;
+  description: string;
+  location: string;
+  start: { dateTime?: string; date?: string };
+  end: { dateTime?: string; date?: string };
+}
+
+interface MockChatMessage {
+  id: string;
+  role: string;
+  content: string;
+  status: string;
+  createdAt: string;
+}
+
 export function setupDemoFetchInterceptor() {
   if (typeof window === 'undefined') return () => {};
 
@@ -82,7 +111,7 @@ export function setupDemoFetchInterceptor() {
     return initial;
   };
 
-  const saveMockEmails = (emails: any[]) => {
+  const saveMockEmails = (emails: MockEmail[]) => {
     localStorage.setItem('mailyflow_demo_emails', JSON.stringify(emails));
   };
 
@@ -133,7 +162,7 @@ export function setupDemoFetchInterceptor() {
     return initial;
   };
 
-  const saveMockEvents = (events: any[]) => {
+  const saveMockEvents = (events: MockEvent[]) => {
     localStorage.setItem('mailyflow_demo_events', JSON.stringify(events));
   };
 
@@ -157,11 +186,11 @@ export function setupDemoFetchInterceptor() {
     return initial;
   };
 
-  const saveMockChatHistory = (history: any[]) => {
+  const saveMockChatHistory = (history: MockChatMessage[]) => {
     localStorage.setItem('mailyflow_demo_chat', JSON.stringify(history));
   };
 
-  const filterEmails = (emails: any[], folder: string) => {
+  const filterEmails = (emails: MockEmail[], folder: string) => {
     return emails.filter((email) => {
       const labels = email.labelIds || [];
       if (folder === 'inbox') return labels.includes('INBOX');
@@ -180,7 +209,8 @@ export function setupDemoFetchInterceptor() {
     const url = new URL(urlStr, window.location.origin);
     const path = url.pathname;
 
-    const jsonResponse = (data: any, status = 200) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsonResponse = (data: any, status = 200) => {
       return new Response(JSON.stringify(data), {
         status,
         headers: { 'Content-Type': 'application/json' },
@@ -205,7 +235,7 @@ export function setupDemoFetchInterceptor() {
       if (q.trim()) {
         const query = q.toLowerCase();
         filtered = filtered.filter(
-          (e: any) =>
+          (e: MockEmail) =>
             e.subject.toLowerCase().includes(query) ||
             e.from.toLowerCase().includes(query) ||
             e.body.toLowerCase().includes(query)
@@ -222,7 +252,7 @@ export function setupDemoFetchInterceptor() {
     if (path === '/api/emails/detail') {
       const id = url.searchParams.get('id');
       const emails = getMockEmails();
-      const email = emails.find((e: any) => e.id === id);
+      const email = emails.find((e: MockEmail) => e.id === id);
       if (email) {
         return jsonResponse(email);
       }
@@ -234,7 +264,7 @@ export function setupDemoFetchInterceptor() {
       const body = JSON.parse((init?.body as string) || '{}');
       const { id, starred } = body;
       const emails = getMockEmails();
-      const updated = emails.map((e: any) => {
+      const updated = emails.map((e: MockEmail) => {
         if (e.id === id) {
           const currentLabels = e.labelIds || [];
           const nextLabels = starred
@@ -256,9 +286,9 @@ export function setupDemoFetchInterceptor() {
 
       let updated;
       if (permanently) {
-        updated = emails.filter((e: any) => e.id !== id);
+        updated = emails.filter((e: MockEmail) => e.id !== id);
       } else {
-        updated = emails.map((e: any) => {
+        updated = emails.map((e: MockEmail) => {
           if (e.id === id) {
             const nextLabels = (e.labelIds || []).filter((l: string) => l !== 'INBOX' && l !== 'DRAFT' && l !== 'SENT');
             if (!nextLabels.includes('TRASH')) nextLabels.push('TRASH');
@@ -324,17 +354,17 @@ export function setupDemoFetchInterceptor() {
 
     // 7. POST /api/save-draft
     if (path === '/api/save-draft') {
-      const body = JSON.parse((init?.body as string) || '{}');
-      const { to, subject, body: emailBody } = body;
+      const body = JSON.parse((init?.body as string) || '{}') as { to?: string; subject: string; body: string; attachments?: Array<{ name: string; type: string; base64: string; size?: number }> };
+      const _to = body.to;
       const emails = getMockEmails();
 
       const newDraft = {
         id: `mock-email-draft-${Date.now()}`,
         from: 'Demo User <demo@mailyflow.in>',
         date: new Date().toISOString(),
-        subject,
-        snippet: emailBody.substring(0, 60),
-        body: emailBody,
+        subject: body.subject,
+        snippet: body.body.substring(0, 60),
+        body: body.body,
         labelIds: ['DRAFT'],
         internalDate: String(Date.now()),
         attachments: body.attachments || [],
@@ -380,7 +410,7 @@ export function setupDemoFetchInterceptor() {
       const { id, event: eventPayload } = body;
       const events = getMockEvents();
 
-      const updated = events.map((ev: any) => (ev.id === id ? { ...ev, ...eventPayload } : ev));
+      const updated = events.map((ev: MockEvent) => (ev.id === id ? { ...ev, ...eventPayload } : ev));
       saveMockEvents(updated);
       return jsonResponse({ success: true });
     }
@@ -389,7 +419,7 @@ export function setupDemoFetchInterceptor() {
     if (path === '/api/calendar' && init?.method === 'DELETE') {
       const id = url.searchParams.get('id');
       const events = getMockEvents();
-      const updated = events.filter((ev: any) => ev.id !== id);
+      const updated = events.filter((ev: MockEvent) => ev.id !== id);
       saveMockEvents(updated);
       return jsonResponse({ success: true });
     }
@@ -453,7 +483,7 @@ export function setupDemoFetchInterceptor() {
       // Step 1: Thinking progress content updates after 1 second
       setTimeout(() => {
         const history = getMockChatHistory();
-        const updatedHistory = history.map((m: any) => {
+        const updatedHistory = history.map((m: MockChatMessage) => {
           if (m.id === assistantMessageId) {
             return {
               ...m,
@@ -468,8 +498,8 @@ export function setupDemoFetchInterceptor() {
       // Step 2: Final reply resolves and updates status after 3.2 seconds
       setTimeout(() => {
         const history = getMockChatHistory();
-        const updatedHistory = history.map((m: any) => {
-          if (m.id === assistantMessageId) {
+        const updatedHistory = history.map((m: MockChatMessage) => {
+            if (m.id === assistantMessageId) {
             const prompt = userMsg.content.toLowerCase();
             let finalReply = '';
 
@@ -534,7 +564,7 @@ export function setupDemoFetchInterceptor() {
       const body = JSON.parse((init?.body as string) || '{}');
       const { messageId } = body;
       const history = getMockChatHistory();
-      const updated = history.map((m: any) =>
+      const updated = history.map((m: MockChatMessage) =>
         m.id === messageId
           ? {
               ...m,

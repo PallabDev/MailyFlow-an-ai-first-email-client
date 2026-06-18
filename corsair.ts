@@ -7,9 +7,9 @@ import { googlecalendar } from '@corsair-dev/googlecalendar';
 import { createIntegrationKeyManager } from 'corsair/core';
 import crypto from 'crypto';
 
-import { liveEmailsEmitter } from './src/utils/emitter';
-import logger from './src/utils/logger';
-import { publishNewEmailEvent } from './src/utils/publish-new-email';
+import { liveEmailsEmitter } from './src/lib/emitter';
+import logger from './src/lib/logger';
+import { publishNewEmailEvent } from './src/lib/publish-new-email';
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool); // your app tables
@@ -25,7 +25,7 @@ async function startPgListener() {
         pgListenerClient = client;
 
         await client.query('LISTEN new_email');
-        console.log('🔊 [PG Listener] Successfully listening to new_email Postgres channel');
+        logger.info('🔊 [PG Listener] Successfully listening to new_email Postgres channel');
 
         client.on('notification', (msg) => {
             if (msg.channel === 'new_email' && msg.payload) {
@@ -36,19 +36,19 @@ async function startPgListener() {
                         liveEmailsEmitter.emit('new-email', { emailId: data.emailId, tenantId: data.tenantId });
                     }
                 } catch (e) {
-                    console.error('[PG Listener] Failed to parse notification payload:', e);
+                    logger.error('[PG Listener] Failed to parse notification payload:', e);
                 }
             }
         });
 
         client.on('error', (err) => {
-            console.error('[PG Listener] DB client error, reconnecting...', err);
+            logger.error('[PG Listener] DB client error, reconnecting...', err);
             pgListenerClient = null;
             client.release();
             setTimeout(startPgListener, 5000);
         });
     } catch (err) {
-        console.error('[PG Listener] Failed to start listening to Postgres notifications:', err);
+        logger.error('[PG Listener] Failed to start listening to Postgres notifications:', err);
         pgListenerClient = null;
         setTimeout(startPgListener, 5000);
     }
@@ -56,7 +56,7 @@ async function startPgListener() {
 
 // Start the listener
 if (process.env.DATABASE_URL) {
-    startPgListener().catch(err => console.error('[PG Listener] Error in startup:', err));
+    startPgListener().catch(err => logger.error('[PG Listener] Error in startup:', err));
 }
 
 export const corsair = createCorsair({
@@ -109,7 +109,7 @@ export async function syncGoogleCredentialsFromEnv() {
             .executeTakeFirst();
 
         if (!integration) {
-            console.log(`[Corsair Init] Seeding integration database record for: ${pluginType}`);
+            logger.info(`[Corsair Init] Seeding integration database record for: ${pluginType}`);
             const id = crypto.randomUUID();
             await database.db
                 .insertInto("corsair_integrations")
@@ -144,11 +144,11 @@ export async function syncGoogleCredentialsFromEnv() {
 
         await integrationKm.set_client_id(clientId);
         await integrationKm.set_client_secret(clientSecret);
-        console.log(`[Corsair Init] Synced OAuth credentials for ${pluginType} from environment.`);
+        logger.info(`[Corsair Init] Synced OAuth credentials for ${pluginType} from environment.`);
 
         if (pluginType === 'gmail' && process.env.TOPIC_ID) {
             await (integrationKm as unknown as { set_topic_id: (id: string) => Promise<void> }).set_topic_id(process.env.TOPIC_ID.trim());
-            console.log(`[Corsair Init] Synced topic_id for gmail from environment.`);
+            logger.info(`[Corsair Init] Synced topic_id for gmail from environment.`);
         }
     }
 }
@@ -173,6 +173,6 @@ export function ensureGoogleCredentialsSynced(): Promise<void> {
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     ensureGoogleCredentialsSynced().catch((err) => {
-        console.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
+        logger.error('[Corsair Init] Error synchronizing environment credentials to database:', err);
     });
 }

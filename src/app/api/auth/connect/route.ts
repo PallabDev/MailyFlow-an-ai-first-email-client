@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { corsair, syncGoogleCredentialsFromEnv } from '@/utils/corsair';
+import { corsair, syncGoogleCredentialsFromEnv } from '@/lib/corsair';
 import { generateOAuthUrl } from 'corsair/oauth';
 
 export async function GET(req: NextRequest) {

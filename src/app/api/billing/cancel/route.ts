@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
-import { userSubscriptions } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { userSubscriptions } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function POST() {

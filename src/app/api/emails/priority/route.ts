@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
-import { emailPriorities } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { emailPriorities } from '@/server/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {

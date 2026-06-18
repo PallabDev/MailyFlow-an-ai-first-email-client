@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { db, corsair } from '@/lib/corsair';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
+import { getGmailCooldownExpiration, setGmailCooldown } from '@/lib/cooldown';
 import { ConnectedAccount, GmailConfig, GmailHeader, GmailPart } from './_types';
+import logger from '@/lib/logger';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
         .then(rows => rows[0]);
 
       if (cacheRow) {
-        const cachedData = cacheRow.data as any;
+        const cachedData = cacheRow.data as Record<string, unknown> & { body?: string; id?: string; from?: string; date?: string; subject?: string; snippet?: string; labelIds?: string[]; internalDate?: string };
         if (cachedData && cachedData.body && cachedData.body !== '(no body)' && cachedData.body !== '(Offline/Cooldown: Email body not cached)') {
           return NextResponse.json({
             id: cachedData.id,
@@ -213,7 +214,7 @@ export async function GET(req: NextRequest) {
               updatedAt: new Date(),
             }
           });
-        console.log(`💾 [Emails Detail API] Successfully cached email details in DB: ${full.id}`);
+        logger.info(`[Emails Detail API] Successfully cached email details in DB: ${full.id}`);
       } catch (cacheErr) {
         console.error('Failed to cache fetched email details in DB:', cacheErr);
       }

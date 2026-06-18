@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair, ensureGoogleCredentialsSynced, hasActiveConnection } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations, corsairEntities, emailPriorities } from '@/db/schema';
+import { db, corsair, ensureGoogleCredentialsSynced } from '@/lib/corsair';
+import { hasActiveConnection } from '@/lib/corsair/utils';
+import { corsairAccounts, corsairIntegrations, corsairEntities, emailPriorities } from '@/server/db/schema';
 import { eq, and, desc, sql, inArray } from 'drizzle-orm';
-import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
+import { getGmailCooldownExpiration, setGmailCooldown } from '@/lib/cooldown';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
-import { checkRateLimit } from '@/utils/rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const is429Error = (err: any): boolean => {

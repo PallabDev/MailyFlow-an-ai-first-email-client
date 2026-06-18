@@ -163,7 +163,7 @@ export function DecryptText({
       return;
     }
 
-    let timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       let currentIteration = 0;
       
       if (intervalRef.current) clearInterval(intervalRef.current);

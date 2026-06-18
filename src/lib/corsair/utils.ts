@@ -1,0 +1,331 @@
+import { createAccountKeyManager, createIntegrationKeyManager } from 'corsair/core';
+import { createCorsairDatabase } from 'corsair/db';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
+import { and, eq } from 'drizzle-orm';
+import crypto from 'crypto';
+import { pool, db } from '@/lib/corsair';
+import logger from '@/lib/logger';
+
+export { pool, db };
+export * from '@/lib/corsair';
+
+export async function hasActiveConnection(userId: string, plugin: 'gmail' | 'googlecalendar'): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({
+        config: corsairAccounts.config,
+      })
+      .from(corsairAccounts)
+      .innerJoin(corsairIntegrations, eq(corsairAccounts.integrationId, corsairIntegrations.id))
+      .where(
+        and(
+          eq(corsairAccounts.tenantId, userId),
+          eq(corsairIntegrations.name, plugin)
+        )
+      )
+      .limit(1);
+
+    if (rows.length === 0) return false;
+    const config = rows[0].config as Record<string, unknown> | null;
+    return !!(config?.refresh_token || config?.access_token);
+  } catch (error) {
+    logger.error(`Error checking connection for ${plugin}:`, error);
+    return false;
+  }
+}
+
+export async function renewWatchesIfNeeded(tenantId: string) {
+  try {
+    const kek = process.env.CORSAIR_KEK;
+    if (!kek) return;
+
+    const database = createCorsairDatabase(pool);
+
+    // Check Gmail watch renewal
+    const gmailConnected = await hasActiveConnection(tenantId, 'gmail');
+    if (gmailConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'gmail',
+        tenantId,
+        kek,
+        database,
+        extraAccountFields: ['gmail_watch_expiration']
+      });
+
+      const expiration = await (accountKm as unknown as { get_gmail_watch_expiration: () => Promise<string | number | null> }).get_gmail_watch_expiration();
+      const now = Date.now();
+      // Renew if expiration is missing, or expires in less than 2 days
+      const shouldRenew = !expiration || (Number(expiration) - now) < 2 * 24 * 60 * 60 * 1000;
+
+      if (shouldRenew) {
+        logger.info(`[Watch Renewal] Gmail watch needs renewal for tenant: ${tenantId}`);
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'gmail',
+          kek,
+          database,
+          extraIntegrationFields: ["topic_id"]
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+        const topicId = (await (integrationKm as unknown as { get_topic_id: () => Promise<string | null> }).get_topic_id()) || process.env.TOPIC_ID;
+
+        if (clientId && clientSecret && refreshToken && topicId) {
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json() as { access_token: string };
+            const accessToken = tokenData.access_token;
+
+            const watchRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                topicName: topicId,
+                labelIds: ["INBOX"]
+              })
+            });
+
+            if (watchRes.ok) {
+              const watchData = await watchRes.json() as { expiration: string | number };
+              const newExpiration = watchData.expiration;
+              await (accountKm as unknown as { set_gmail_watch_expiration: (val: string) => Promise<void> }).set_gmail_watch_expiration(String(newExpiration));
+              logger.info(`[Watch Renewal] Gmail watch successfully renewed for tenant: ${tenantId}`);
+            }
+          }
+        }
+      }
+    }
+
+    // Check Calendar watch renewal
+    const calendarConnected = await hasActiveConnection(tenantId, 'googlecalendar');
+    if (calendarConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'googlecalendar',
+        tenantId,
+        kek,
+        database,
+        extraAccountFields: ['calendar_watch_expiration']
+      });
+
+      const expiration = await (accountKm as unknown as { get_calendar_watch_expiration: () => Promise<string | number | null> }).get_calendar_watch_expiration();
+      const now = Date.now();
+      const shouldRenew = !expiration || (Number(expiration) - now) < 2 * 24 * 60 * 60 * 1000;
+
+      if (shouldRenew) {
+        logger.info(`[Watch Renewal] Calendar watch needs renewal for tenant: ${tenantId}`);
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'googlecalendar',
+          kek,
+          database
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+
+        if (clientId && clientSecret && refreshToken) {
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json() as { access_token: string };
+            const accessToken = tokenData.access_token;
+            const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const webhookUrl = `${origin}/api/corsair?tenantId=${tenantId}`;
+            const channelId = crypto.randomUUID();
+
+            const watchRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/watch", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                id: channelId,
+                type: "web_hook",
+                address: webhookUrl
+              })
+            });
+
+            if (watchRes.ok) {
+              const watchData = await watchRes.json() as { expiration: string | number; resourceId?: string };
+              const newExpiration = watchData.expiration;
+              await (accountKm as unknown as { set_calendar_watch_expiration: (val: string) => Promise<void> }).set_calendar_watch_expiration(String(newExpiration));
+              
+              // Save channel ID and resource ID for cancellation
+              await (accountKm as unknown as { set_calendar_watch_channel_id: (val: string) => Promise<void> }).set_calendar_watch_channel_id(channelId);
+              if (watchData.resourceId) {
+                await (accountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
+              }
+              
+              logger.info(`[Watch Renewal] Calendar watch successfully renewed for tenant: ${tenantId}`);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[Watch Renewal] Error checking/renewing watches:', err);
+  }
+}
+
+export async function stopWatchesForTenant(tenantId: string) {
+  try {
+    const kek = process.env.CORSAIR_KEK;
+    if (!kek) return;
+
+    const database = createCorsairDatabase(pool);
+
+    // 1. Stop Gmail watch
+    const gmailConnected = await hasActiveConnection(tenantId, 'gmail');
+    if (gmailConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'gmail',
+        tenantId,
+        kek,
+        database
+      });
+
+      const integrationKm = createIntegrationKeyManager({
+        authType: "oauth_2",
+        integrationName: 'gmail',
+        kek,
+        database
+      });
+
+      const clientId = await integrationKm.get_client_id();
+      const clientSecret = await integrationKm.get_client_secret();
+      const refreshToken = await accountKm.get_refresh_token();
+
+      if (clientId && clientSecret && refreshToken) {
+        logger.info(`[Watch Disconnect] Stopping Gmail watch for tenant: ${tenantId}`);
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+          })
+        });
+
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json() as { access_token: string };
+          const accessToken = tokenData.access_token;
+
+          const stopRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/stop", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            }
+          });
+
+          if (stopRes.ok) {
+            logger.info(`[Watch Disconnect] Gmail watch successfully stopped for tenant: ${tenantId}`);
+          } else {
+            const errText = await stopRes.text();
+            logger.error(`[Watch Disconnect] Gmail watch stop API failed: ${errText}`);
+          }
+        }
+      }
+    }
+
+    // 2. Stop Calendar watch
+    const calendarConnected = await hasActiveConnection(tenantId, 'googlecalendar');
+    if (calendarConnected) {
+      const accountKm = createAccountKeyManager({
+        authType: "oauth_2",
+        integrationName: 'googlecalendar',
+        tenantId,
+        kek,
+        database,
+        extraAccountFields: ['calendar_watch_channel_id', 'calendar_watch_resource_id']
+      });
+
+      const channelId = await (accountKm as unknown as { get_calendar_watch_channel_id: () => Promise<string | null> }).get_calendar_watch_channel_id();
+      const resourceId = await (accountKm as unknown as { get_calendar_watch_resource_id: () => Promise<string | null> }).get_calendar_watch_resource_id();
+
+      if (channelId && resourceId) {
+        const integrationKm = createIntegrationKeyManager({
+          authType: "oauth_2",
+          integrationName: 'googlecalendar',
+          kek,
+          database
+        });
+
+        const clientId = await integrationKm.get_client_id();
+        const clientSecret = await integrationKm.get_client_secret();
+        const refreshToken = await accountKm.get_refresh_token();
+
+        if (clientId && clientSecret && refreshToken) {
+          logger.info(`[Watch Disconnect] Stopping Calendar watch for tenant: ${tenantId}`);
+          const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: refreshToken,
+              grant_type: "refresh_token"
+            })
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json() as { access_token: string };
+            const accessToken = tokenData.access_token;
+
+            const stopRes = await fetch("https://www.googleapis.com/calendar/v3/channels/stop", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                id: channelId,
+                resourceId: resourceId
+              })
+            });
+
+            if (stopRes.ok) {
+              logger.info(`[Watch Disconnect] Calendar watch successfully stopped for tenant: ${tenantId}`);
+            } else {
+              const errText = await stopRes.text();
+              logger.error(`[Watch Disconnect] Calendar watch stop API failed: ${errText}`);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    logger.error('[Watch Disconnect] Error stopping watches on disconnect:', err);
+  }
+}

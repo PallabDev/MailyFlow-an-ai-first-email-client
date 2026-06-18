@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, corsair, hasActiveConnection } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
+import { db, corsair } from '@/lib/corsair';
+import { hasActiveConnection } from '@/lib/corsair/utils';
+import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {

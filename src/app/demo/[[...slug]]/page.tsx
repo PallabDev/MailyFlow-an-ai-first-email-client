@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import ClientLayoutWrapper from '../../dashboard/_components/ClientLayoutWrapper';
-import FolderPageClient from '../../dashboard/_components/FolderPageClient';
+import ClientLayoutWrapper from '@/features/dashboard/components/ClientLayoutWrapper';
+import FolderPageClient from '@/features/email/components/FolderPageClient';
 import CalendarClient from '../../dashboard/calendar/CalendarClient';
 import IntegrationsClient from '../../dashboard/integrations/IntegrationsClient';
 import BillingPage from '../../dashboard/billing/page';

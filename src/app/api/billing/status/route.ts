@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/utils/corsair';
-import { userSubscriptions, userUsage } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { userSubscriptions, userUsage } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { PLAN_LIMITS } from '@/utils/rate-limit';
+import { PLAN_LIMITS } from '@/lib/rate-limit';
 
 export async function GET() {
   try {

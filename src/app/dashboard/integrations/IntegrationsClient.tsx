@@ -63,6 +63,7 @@ export default function IntegrationsClient({
 
   useEffect(() => {
     fetchEvents();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCalendarConnected]);
 
   const handleConnectDemo = async () => {

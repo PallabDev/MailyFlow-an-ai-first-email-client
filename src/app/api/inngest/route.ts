@@ -1,6 +1,6 @@
 import { serve } from 'inngest/next';
-import { inngest } from '@/inngest/client';
-import { processAICall, trackFailedAICalls, syncGmailWebhook, summarizeEmail, draftEmailReply } from '@/inngest/functions';
+import { inngest } from '@/server/inngest/client';
+import { processAICall, trackFailedAICalls, syncGmailWebhook, summarizeEmail, draftEmailReply } from '@/server/inngest/functions';
 
 export const maxDuration = 300; // Allow functions to run up to 5 minutes on serverless hosts
 

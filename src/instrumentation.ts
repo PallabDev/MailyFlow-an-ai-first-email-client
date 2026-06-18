@@ -3,13 +3,15 @@ export async function register() {
     return;
   }
 
+  const logger = (await import('./lib/logger')).default;
+
   // Validate environment variables on startup
   try {
-    const { validateEnv } = await import('./utils/validation');
+    const { validateEnv } = await import('./lib/validation');
     validateEnv();
-    console.log('✅ [Startup] Environment variables validated successfully.');
+    logger.info('✅ [Startup] Environment variables validated successfully.');
   } catch (err) {
-    console.error('❌ [Startup] Environment validation crashed:', err);
+    logger.error('❌ [Startup] Environment validation crashed:', err);
     throw err;
   }
 
@@ -21,8 +23,8 @@ export async function register() {
 
   try {
     await ensureGoogleCredentialsSynced();
-    console.log('[Corsair Init] Google OAuth credentials synced from env on server startup');
+    logger.info('[Corsair Init] Google OAuth credentials synced from env on server startup');
   } catch (err) {
-    console.error('[Corsair Init] Failed to sync Google OAuth credentials on startup:', err);
+    logger.error('[Corsair Init] Failed to sync Google OAuth credentials on startup:', err);
   }
 }

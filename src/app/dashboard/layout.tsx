@@ -1,9 +1,10 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import React from 'react';
-import ClientLayoutWrapper from './_components/ClientLayoutWrapper';
-import { db, renewWatchesIfNeeded } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import ClientLayoutWrapper from '@/features/dashboard/components/ClientLayoutWrapper';
+import { db } from '@/lib/corsair';
+import { renewWatchesIfNeeded } from '@/lib/corsair/utils';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 
 export default async function DashboardLayout({

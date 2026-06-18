@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { corsair, hasActiveConnection } from '@/utils/corsair';
+import { corsair } from '@/lib/corsair';
+import { hasActiveConnection } from '@/lib/corsair/utils';
 
 interface SaveDraftRequest {
   to: string;

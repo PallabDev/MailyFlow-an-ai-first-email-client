@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/utils/corsair';
-import { healthLogs } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { healthLogs } from '@/server/db/schema';
 import crypto from 'crypto';
 import { HealthCheckResponse } from './_types';
 

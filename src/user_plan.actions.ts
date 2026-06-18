@@ -1,7 +1,7 @@
 'use server';
 
-import { db } from '@/utils/corsair';
-import { userSubscriptions } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { userSubscriptions } from '@/server/db/schema';
 import { createClerkClient } from '@clerk/nextjs/server';
 
 const CLERK_SECRET_KEY = process.env.PROD_CLERK_SECRET_KEY || process.env.CLERK_SECRET_KEY;

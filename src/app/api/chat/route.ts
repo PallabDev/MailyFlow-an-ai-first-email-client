@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { db, hasActiveConnection } from '@/utils/corsair';
-import { chatMessages } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { hasActiveConnection } from '@/lib/corsair/utils';
+import { chatMessages } from '@/server/db/schema';
 import { eq, asc, and } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
-import { chatMessageSchema } from '@/utils/validation';
+import { inngest } from '@/server/inngest/client';
+import { chatMessageSchema } from '@/lib/validation';
 import crypto from 'crypto';
 import { ChatRequestBody } from './_types';
-import { checkRateLimit } from '@/utils/rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // GET: Retrieve all chat messages for authenticated user
 export async function GET() {

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { corsair, pool, syncGoogleCredentialsFromEnv, db } from '@/utils/corsair';
+import { corsair, pool, syncGoogleCredentialsFromEnv, db } from '@/lib/corsair';
 import { processOAuthCallback } from 'corsair/oauth';
 import { createIntegrationKeyManager, createAccountKeyManager } from 'corsair/core';
 import crypto from 'crypto';
 import { GoogleTokenResponse, GoogleWatchResponse } from './_types';
 import { createCorsairDatabase, type CorsairDatabase } from 'corsair/db';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { and, eq } from 'drizzle-orm';
+import logger from '@/lib/logger';
 
 export async function GET(req: NextRequest) {
   const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
         const topicId = (await (integrationKm as unknown as { get_topic_id: () => Promise<string | null> }).get_topic_id()) || process.env.TOPIC_ID;
 
         if (clientId && clientSecret && refreshToken && topicId) {
-          console.log(`[OAuth Callback] Refreshing Gmail access token for tenant: ${tenantId}`);
+          logger.info(`[OAuth Callback] Refreshing Gmail access token for tenant: ${tenantId}`);
           
           // 1. Refresh Google access token
           const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
             const tokenData = (await tokenRes.json()) as GoogleTokenResponse;
             const accessToken = tokenData.access_token;
 
-            console.log(`[OAuth Callback] Registering Gmail watch for tenant: ${tenantId} on topic: ${topicId}`);
+            logger.info(`[OAuth Callback] Registering Gmail watch for tenant: ${tenantId} on topic: ${topicId}`);
             
             // 2. Call Gmail Watch API
             const watchRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/watch", {
@@ -92,17 +93,17 @@ export async function GET(req: NextRequest) {
 
             if (watchRes.ok) {
               const watchData = (await watchRes.json()) as GoogleWatchResponse;
-              console.log(`[OAuth Callback] Gmail watch registered successfully for user ${tenantId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
+              logger.info(`[OAuth Callback] Gmail watch registered successfully for user ${tenantId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {
               const errText = await watchRes.text();
-              console.error(`[OAuth Callback] Gmail watch API call failed: ${errText}`);
+              logger.error(`[OAuth Callback] Gmail watch API call failed: ${errText}`);
             }
           } else {
             const errText = await tokenRes.text();
-            console.error(`[OAuth Callback] Failed to refresh access token for Gmail watch: ${errText}`);
+            logger.error(`[OAuth Callback] Failed to refresh access token for Gmail watch: ${errText}`);
           }
         } else {
-          console.warn(`[OAuth Callback] Missing credentials for Gmail watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken}, topicId: ${!!topicId})`);
+          logger.warn(`[OAuth Callback] Missing credentials for Gmail watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken}, topicId: ${!!topicId})`);
         }
 
         // --- DUPLICATE TO GOOGLE CALENDAR ---
@@ -153,7 +154,7 @@ export async function GET(req: NextRequest) {
                   dek: gmailAccount.dek,
                 });
               } catch (insertErr) {
-                console.warn('[OAuth Callback] Calendar account insert race warning:', insertErr);
+                logger.warn('[OAuth Callback] Calendar account insert race warning:', insertErr);
               }
             }
           }
@@ -183,7 +184,7 @@ export async function GET(req: NextRequest) {
           if (gRefreshToken) await calendarAccountKm.set_refresh_token(gRefreshToken);
           if (gExpiresAt) await calendarAccountKm.set_expires_at(gExpiresAt);
 
-          console.log(`[OAuth Callback] Successfully duplicated Google tokens from Gmail account to Google Calendar account for tenant: ${tenantId}`);
+          logger.info(`[OAuth Callback] Successfully duplicated Google tokens from Gmail account to Google Calendar account for tenant: ${tenantId}`);
 
           // --- REGISTER GOOGLE CALENDAR WEBHOOK WATCH ---
           try {
@@ -198,7 +199,7 @@ export async function GET(req: NextRequest) {
             const calendarClientSecret = await calendarIntegrationKm.get_client_secret();
 
             if (calendarClientId && calendarClientSecret && gRefreshToken) {
-              console.log(`[OAuth Callback] Registering Calendar watch for tenant: ${tenantId} directly from Gmail flow`);
+              logger.info(`[OAuth Callback] Registering Calendar watch for tenant: ${tenantId} directly from Gmail flow`);
               
               const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
                 method: "POST",
@@ -237,22 +238,22 @@ export async function GET(req: NextRequest) {
                   if (watchData.resourceId) {
                     await (calendarAccountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
                   }
-                  console.log(`[OAuth Callback] Calendar watch registered successfully from Gmail flow for tenant: ${tenantId}. Channel: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
+                  logger.info(`[OAuth Callback] Calendar watch registered successfully from Gmail flow for tenant: ${tenantId}. Channel: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
                 } else {
                   const errText = await watchRes.text();
-                  console.error(`[OAuth Callback] Calendar watch API call failed in Gmail flow: ${errText}`);
+                  logger.error(`[OAuth Callback] Calendar watch API call failed in Gmail flow: ${errText}`);
                 }
               } else {
                 const errText = await tokenRes.text();
-                console.error(`[OAuth Callback] Failed to refresh Calendar access token in Gmail flow: ${errText}`);
+                logger.error(`[OAuth Callback] Failed to refresh Calendar access token in Gmail flow: ${errText}`);
               }
             }
           } catch (calWatchErr) {
-            console.error('[OAuth Callback] Error registering Calendar watch inside Gmail callback flow:', calWatchErr);
+            logger.error('[OAuth Callback] Error registering Calendar watch inside Gmail callback flow:', calWatchErr);
           }
         }
       } catch (watchErr) {
-        console.error('[OAuth Callback] Error during automated Gmail watch/Calendar sync registration:', watchErr);
+        logger.error('[OAuth Callback] Error during automated Gmail watch/Calendar sync registration:', watchErr);
       }
     }
 
@@ -283,7 +284,7 @@ export async function GET(req: NextRequest) {
         const refreshToken = await accountKm.get_refresh_token();
 
         if (clientId && clientSecret && refreshToken) {
-          console.log(`[OAuth Callback] Refreshing Calendar access token for tenant: ${tenantId}`);
+          logger.info(`[OAuth Callback] Refreshing Calendar access token for tenant: ${tenantId}`);
           
           // 1. Refresh Google access token
           const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -305,7 +306,7 @@ export async function GET(req: NextRequest) {
             const webhookUrl = `${originUrl}/api/corsair?tenantId=${tenantId}`;
             const channelId = crypto.randomUUID();
 
-            console.log(`[OAuth Callback] Registering Calendar watch for tenant: ${tenantId} on webhook: ${webhookUrl}`);
+            logger.info(`[OAuth Callback] Registering Calendar watch for tenant: ${tenantId} on webhook: ${webhookUrl}`);
             
             // 2. Call Google Calendar Watch API
             const watchRes = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/watch", {
@@ -328,26 +329,26 @@ export async function GET(req: NextRequest) {
               if (watchData.resourceId) {
                 await (accountKm as unknown as { set_calendar_watch_resource_id: (val: string) => Promise<void> }).set_calendar_watch_resource_id(watchData.resourceId);
               }
-              console.log(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
+              logger.info(`[OAuth Callback] Calendar watch registered successfully for user ${tenantId}. Channel ID: ${channelId}. Expiration: ${new Date(Number(watchData.expiration)).toISOString()}`);
             } else {
               const errText = await watchRes.text();
-              console.error(`[OAuth Callback] Calendar watch API call failed: ${errText}`);
+              logger.error(`[OAuth Callback] Calendar watch API call failed: ${errText}`);
             }
           } else {
             const errText = await tokenRes.text();
-            console.error(`[OAuth Callback] Failed to refresh access token for Calendar watch: ${errText}`);
+            logger.error(`[OAuth Callback] Failed to refresh access token for Calendar watch: ${errText}`);
           }
         } else {
-          console.warn(`[OAuth Callback] Missing credentials for Calendar watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken})`);
+          logger.warn(`[OAuth Callback] Missing credentials for Calendar watch setup (clientId: ${!!clientId}, clientSecret: ${!!clientSecret}, refreshToken: ${!!refreshToken})`);
         }
       } catch (watchErr) {
-        console.error('[OAuth Callback] Error during automated Calendar watch registration:', watchErr);
+        logger.error('[OAuth Callback] Error during automated Calendar watch registration:', watchErr);
       }
     }
 
     return NextResponse.redirect(`${origin}/onboarding`);
   } catch (error: unknown) {
-    console.error('Error in OAuth callback:', error);
+    logger.error('Error in OAuth callback:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to exchange token';
     // Redirect to onboarding with an error query param
     return NextResponse.redirect(

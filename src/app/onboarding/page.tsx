@@ -1,8 +1,8 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { UserButton } from '@clerk/nextjs';
 import { redirect } from 'next/navigation';
-import { db } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations } from '@/db/schema';
+import { db } from '@/lib/corsair';
+import { corsairAccounts, corsairIntegrations } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { Mail, Calendar, Sparkles, Lock, Link as LinkIcon } from 'lucide-react';
 import { ShinyText, SpotlightCard } from '@/components/ui/ReactBitsEffects';
