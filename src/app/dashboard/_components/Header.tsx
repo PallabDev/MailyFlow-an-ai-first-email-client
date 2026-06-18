@@ -93,14 +93,27 @@ export default function Header({
   // Update URL search params on search change
   const handleSearchChange = (val: string) => {
     setSearchVal(val);
-    const params = new URLSearchParams(searchParams.toString());
-    if (val.trim()) {
-      params.set('q', val);
-    } else {
-      params.delete('q');
-    }
-    router.push(`${pathname}?${params.toString()}`);
   };
+
+  // Debounced URL param updates to prevent focus loss and lag on keystrokes
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      const currentQuery = searchParams.get('q') || '';
+      if (searchVal === currentQuery) return;
+
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchVal.trim()) {
+        params.set('q', searchVal);
+      } else {
+        params.delete('q');
+      }
+      const queryStr = params.toString();
+      const targetUrl = queryStr ? `${pathname}?${queryStr}` : pathname;
+      router.replace(targetUrl, { scroll: false });
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchVal, pathname, router, searchParams]);
 
   return (
     <header className="h-16 border-b border-border flex items-center px-4 md:px-6 bg-card text-foreground shrink-0 transition-colors gap-3 justify-between">
