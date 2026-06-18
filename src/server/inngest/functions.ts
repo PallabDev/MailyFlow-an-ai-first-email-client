@@ -1,7 +1,7 @@
 import { inngest } from './client';
 import { db, corsair, hasActiveConnection } from '@/lib/corsair/utils';
 import { chatMessages, userSubscriptions, corsairAccounts, corsairIntegrations, corsairEntities, emailPriorities } from '@/server/db/schema';
-import { eq, and, desc, gte } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/lib/openai/client';
 import { getSystemInstruction } from '@/features/ai/services/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
@@ -390,6 +390,9 @@ export const syncGmailWebhook = inngest.createFunction(
                 return;
             }
 
+            // Query recent entities (last 30 min) without relying on updatedAt filter.
+            // shouldPublishEvent handles dedup via the webhook_dedup table.
+            const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
             const syncedEntities = await db
                 .select({ data: corsairEntities.data })
                 .from(corsairEntities)
@@ -397,9 +400,11 @@ export const syncGmailWebhook = inngest.createFunction(
                     and(
                         eq(corsairEntities.accountId, gmailAccount.id),
                         eq(corsairEntities.entityType, 'messages'),
-                        gte(corsairEntities.updatedAt, syncStartedAt)
+                        sql`${corsairEntities.createdAt} >= ${thirtyMinAgo}`
                     )
                 );
+
+            logger.info(`[Inngest Sync] Found ${syncedEntities.length} recent entities for tenant ${activeTenantId}`);
 
             // Check if user is on paid plan (once, not per email)
             let isPaidUser = false;
@@ -444,6 +449,34 @@ export const syncGmailWebhook = inngest.createFunction(
                         });
                     } catch (classifyErr) {
                         logger.error(`Failed to trigger classification for email ${msg.id}:`, classifyErr);
+                    }
+                }
+            }
+
+            // If processWebhook's corsair hook didn't fire (or failed), use fallback:
+            // List the 5 most recent inbox messages and publish any unseen ones
+            if (publishedIds.size === 0) {
+                try {
+                    const client = corsair.withTenant(activeTenantId);
+                    const listRes = await client.gmail.api.messages.list({
+                        maxResults: 5,
+                        labelIds: ['INBOX'],
+                    });
+
+                    if (listRes.messages?.length) {
+                        for (const m of listRes.messages) {
+                            if (!m.id || publishedIds.has(m.id)) continue;
+                            if (!(await shouldPublishEvent(activeTenantId, m.id))) continue;
+
+                            publishedIds.add(m.id);
+                            await publishNewEmailEvent(m.id, activeTenantId);
+                            logger.info(`✉️ [Inngest Sync] Fallback published realtime event for email ${m.id}, tenant ${activeTenantId}`);
+                        }
+                    }
+                } catch (fallbackErr) {
+                    logger.error('[Inngest Sync] Fallback inbox listing failed:', fallbackErr);
+                    if (isGmail429Error(fallbackErr)) {
+                        await setGmailCooldown(activeTenantId);
                     }
                 }
             }

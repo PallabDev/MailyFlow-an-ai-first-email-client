@@ -65,15 +65,25 @@ export const corsair = createCorsair({
             webhookHooks: {
                 messageChanged: {
                     after: async (ctx, response) => {
-                        logger.info(`[Gmail Hook after] Webhook hook callback triggered. Success: ${response.success}, Type: ${response.data?.type || 'unknown'}`);
+                        logger.info(`[Gmail Hook after] Webhook hook callback triggered. Success: ${response.success}, Type: ${response.data?.type || 'unknown'}, tenantId: ${ctx.tenantId || 'MISSING'}`);
                         if (response.success && response.data) {
                             const eventType = response.data.type;
                             if (eventType === 'messageReceived' || eventType === 'messageLabelChanged') {
                                 const newEmail = response.data.message;
-                                if (newEmail && newEmail.id && ctx.tenantId) {
-                                    logger.info(`📩 [Gmail Hook] Received and processing email event [${eventType}]`);
-                                    await publishNewEmailEvent(newEmail.id, ctx.tenantId);
+                                if (!newEmail) {
+                                    logger.warn(`[Gmail Hook] response.data.message is null/undefined for event ${eventType}`);
+                                    return;
                                 }
+                                if (!newEmail.id) {
+                                    logger.warn(`[Gmail Hook] response.data.message.id is missing for event ${eventType}`);
+                                    return;
+                                }
+                                if (!ctx.tenantId) {
+                                    logger.warn(`[Gmail Hook] ctx.tenantId is missing for event ${eventType}, email ${newEmail.id}`);
+                                    return;
+                                }
+                                logger.info(`📩 [Gmail Hook] Publishing realtime event for email ${newEmail.id}, tenant ${ctx.tenantId}`);
+                                await publishNewEmailEvent(newEmail.id, ctx.tenantId);
                             }
                         }
                     }
