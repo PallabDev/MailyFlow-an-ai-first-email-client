@@ -72,8 +72,9 @@ export async function GET(req: NextRequest) {
         const inboxRow = rows.find(r => r.entityId === 'INBOX');
         const draftsRow = rows.find(r => r.entityId === 'DRAFT');
         const spamRow = rows.find(r => r.entityId === 'SPAM');
+        const promotionsRow = rows.find(r => r.entityId === 'CATEGORY_PROMOTIONS');
 
-        if (inboxRow || draftsRow || spamRow || isCooldownActive) {
+        if (inboxRow || draftsRow || spamRow || promotionsRow || isCooldownActive) {
           const isGmailConnected = await hasActiveConnection(userId, 'gmail');
           const isCalendarConnected = await hasActiveConnection(userId, 'googlecalendar');
           return NextResponse.json({
@@ -86,6 +87,9 @@ export async function GET(req: NextRequest) {
             },
             spam: {
               total: spamRow ? ((spamRow.data as LabelData).messagesTotal ?? 0) : 0,
+            },
+            promotions: {
+              total: promotionsRow ? ((promotionsRow.data as LabelData).messagesTotal ?? 0) : 0,
             },
             connections: {
               gmail: isGmailConnected,
@@ -113,10 +117,11 @@ export async function GET(req: NextRequest) {
     };
 
     // Fetch inbox, drafts, spam label info from Gmail API (fallback)
-    const [inbox, drafts, spam] = await Promise.all([
+    const [inbox, drafts, spam, promotions] = await Promise.all([
       client.gmail.api.labels.get({ id: 'INBOX' }).catch(handleLabelError),
       client.gmail.api.labels.get({ id: 'DRAFT' }).catch(handleLabelError),
       client.gmail.api.labels.get({ id: 'SPAM' }).catch(handleLabelError),
+      client.gmail.api.labels.get({ id: 'CATEGORY_PROMOTIONS' }).catch(handleLabelError),
     ]);
 
     // Save fetched label counts to database cache
@@ -125,7 +130,8 @@ export async function GET(req: NextRequest) {
         const labelsToSave = [
           { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
           { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
-          { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } }
+          { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } },
+          { id: 'CATEGORY_PROMOTIONS', data: { messagesTotal: promotions?.messagesTotal ?? 0 } }
         ];
 
         for (const label of labelsToSave) {
@@ -164,6 +170,9 @@ export async function GET(req: NextRequest) {
       },
       spam: {
         total: spam?.messagesTotal ?? 0,
+      },
+      promotions: {
+        total: promotions?.messagesTotal ?? 0,
       },
       connections: {
         gmail: isGmailConnected,

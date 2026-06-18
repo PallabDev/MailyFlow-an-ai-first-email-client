@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun, Menu, Bell, Check, Trash } from 'lucide-react';
+import { Search, Moon, Sun, Menu, Bell, Check, Trash, SlidersHorizontal } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { useChatStore } from '@/store/chatStore';
@@ -20,13 +20,17 @@ type HeaderProps = {
   projectName: string;
   isLeftSidebarCollapsed: boolean;
   setIsLeftSidebarCollapsed: (v: boolean) => void;
+  isAdvancedSearchOpen?: boolean;
+  setIsAdvancedSearchOpen?: (v: boolean) => void;
 };
 
 export default function Header({
   user: _user,
   projectName: _projectName,
   isLeftSidebarCollapsed,
-  setIsLeftSidebarCollapsed
+  setIsLeftSidebarCollapsed,
+  isAdvancedSearchOpen,
+  setIsAdvancedSearchOpen
 }: HeaderProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -129,19 +133,34 @@ export default function Header({
       )}
 
       {/* Centered Search */}
-      <div className="flex-1 max-w-lg mx-auto relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          type="text"
-          ref={searchInputRef}
-          placeholder="Search mail, events, people..."
-          value={searchVal}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full bg-background border border-border rounded-xl py-1.5 pl-10 pr-12 text-sm text-foreground placeholder-slate-400 shadow-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all"
-        />
-        <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 border border-border bg-background px-1.5 py-0.5 rounded shadow-sm select-none">
-          ⌘K
-        </kbd>
+      <div className="flex-1 max-w-lg mx-auto relative flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            ref={searchInputRef}
+            placeholder="Search mail, events, people..."
+            value={searchVal}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full bg-background border border-border rounded-xl py-1.5 pl-10 pr-12 text-sm text-foreground placeholder-slate-400 shadow-sm focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-all"
+          />
+          <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 border border-border bg-background px-1.5 py-0.5 rounded shadow-sm select-none">
+            ⌘K
+          </kbd>
+        </div>
+        {setIsAdvancedSearchOpen && (
+          <button
+            onClick={() => setIsAdvancedSearchOpen(!isAdvancedSearchOpen)}
+            className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+              isAdvancedSearchOpen
+                ? 'border-success/40 bg-success/10 text-success'
+                : 'border-border bg-background text-slate-400 hover:text-foreground hover:border-slate-500'
+            }`}
+            title="Advanced filters"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Right Header Controls */}

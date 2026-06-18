@@ -1,7 +1,7 @@
 import { inngest } from './client';
 import { db, corsair, hasActiveConnection } from '@/utils/corsair';
-import { chatMessages, userSubscriptions, corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
-import { eq, and, desc, sql, gte } from 'drizzle-orm';
+import { chatMessages, userSubscriptions, corsairAccounts, corsairIntegrations, corsairEntities, emailPriorities } from '@/db/schema';
+import { eq, and, desc, gte } from 'drizzle-orm';
 import { openai, AI_MODEL } from '@/utils/openai';
 import { getSystemInstruction } from '@/system/ai_system';
 import { OpenAIAgentsProvider } from '@corsair-dev/mcp';
@@ -405,6 +405,23 @@ export const syncGmailWebhook = inngest.createFunction(
                 publishedIds.add(msg.id);
                 await publishNewEmailEvent(msg.id, activeTenantId);
                 console.log(`✉️ [Inngest Sync] Published realtime event for email ${msg.id}, tenant ${activeTenantId}`);
+
+                // Trigger priority classification for paid users
+                try {
+                    const msgData = row.data as { subject?: string; from?: string; snippet?: string };
+                    await inngest.send({
+                        name: 'email.classify.requested',
+                        data: {
+                            userId: activeTenantId,
+                            emailId: msg.id,
+                            subject: msgData?.subject || '',
+                            sender: msgData?.from || '',
+                            snippet: msgData?.snippet || '',
+                        },
+                    });
+                } catch (classifyErr) {
+                    console.error(`Failed to trigger classification for email ${msg.id}:`, classifyErr);
+                }
             }
         });
 
@@ -458,6 +475,22 @@ export const syncGmailWebhook = inngest.createFunction(
                         if (msg.id && !cachedIds.has(msg.id)) {
                             await publishNewEmailEvent(msg.id, activeTenantId);
                             console.log(`✉️ [Inngest Sync] Fallback published realtime event for email ${msg.id}`);
+
+                            // Trigger priority classification for fallback emails
+                            try {
+                                await inngest.send({
+                                    name: 'email.classify.requested',
+                                    data: {
+                                        userId: activeTenantId,
+                                        emailId: msg.id,
+                                        subject: msg.snippet || '',
+                                        sender: '',
+                                        snippet: msg.snippet || '',
+                                    },
+                                });
+                            } catch {
+                                // Silently ignore classification failures for fallback emails
+                            }
                         }
                     }
                 });
@@ -492,16 +525,18 @@ export const syncGmailWebhook = inngest.createFunction(
                 if (!gmailAccount) return;
 
                 const client = corsair.withTenant(activeTenantId);
-                const [inbox, drafts, spam] = await Promise.all([
+                const [inbox, drafts, spam, promotions] = await Promise.all([
                     client.gmail.api.labels.get({ id: 'INBOX' }).catch(() => null),
                     client.gmail.api.labels.get({ id: 'DRAFT' }).catch(() => null),
                     client.gmail.api.labels.get({ id: 'SPAM' }).catch(() => null),
+                    client.gmail.api.labels.get({ id: 'CATEGORY_PROMOTIONS' }).catch(() => null),
                 ]);
 
                 const labelsToSave = [
                     { id: 'INBOX', data: { messagesUnread: inbox?.messagesUnread ?? 0, messagesTotal: inbox?.messagesTotal ?? 0 } },
                     { id: 'DRAFT', data: { messagesTotal: drafts?.messagesTotal ?? 0 } },
-                    { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } }
+                    { id: 'SPAM', data: { messagesTotal: spam?.messagesTotal ?? 0 } },
+                    { id: 'CATEGORY_PROMOTIONS', data: { messagesTotal: promotions?.messagesTotal ?? 0 } }
                 ];
 
                 for (const label of labelsToSave) {
@@ -708,5 +743,115 @@ Content: ${bodyText.slice(0, 1500)}`;
             }
             throw err;
         }
+    }
+);
+
+export const classifyEmailPriority = inngest.createFunction(
+    {
+        id: 'classify-email-priority',
+        name: 'Classify Email Priority',
+        retries: 1,
+        triggers: [{ event: 'email.classify.requested' }],
+    },
+    async ({ event, step }) => {
+        const { userId, emailId, subject, sender, snippet } = event.data;
+
+        // Only classify for paid plans (Professional or Business)
+        const isPaid = await step.run('check-plan', async () => {
+            try {
+                const [sub] = await db
+                    .select({ planName: userSubscriptions.planName, status: userSubscriptions.status })
+                    .from(userSubscriptions)
+                    .where(eq(userSubscriptions.userId, userId))
+                    .limit(1);
+                const plan = sub?.planName || 'Starter';
+                const active = sub?.status === 'active';
+                return active && (plan === 'Professional' || plan === 'Business');
+            } catch {
+                return false;
+            }
+        });
+
+        if (!isPaid) {
+            return { skipped: true, reason: 'free_plan' };
+        }
+
+        const result = await step.run('llm-classify', async () => {
+            const prompt = `You are an email priority classifier. Analyze the following email and return a JSON object with exactly these fields:
+- "priority": a number from 1 to 5 (1=urgent, 2=important, 3=normal, 4=low, 5=promotional/spam)
+- "category": one of "urgent", "work", "personal", "promotional", "spam"
+- "reason": a short 1-sentence explanation
+
+Rules:
+- Emails from known contacts, managers, clients, or with action-required keywords → priority 1-2
+- Newsletter digests, marketing, offers → priority 4-5, category "promotional"
+- Automated system notifications → priority 3, category "work"
+- Phishing/spam indicators → priority 5, category "spam"
+
+Email details:
+Subject: ${subject}
+From: ${sender}
+Snippet: ${snippet?.slice(0, 300) || '(empty)'}
+
+Return ONLY valid JSON, no markdown fences, no extra text.`;
+
+            const response = await openai.chat.completions.create({
+                model: AI_MODEL,
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 200,
+                response_format: { type: 'json_object' },
+            });
+
+            const text = response.choices[0]?.message?.content || '{"priority":3,"category":"normal","reason":"Unable to classify"}';
+            try {
+                return JSON.parse(text) as { priority: number; category: string; reason: string };
+            } catch {
+                return { priority: 3, category: 'normal', reason: 'Classification parse error' };
+            }
+        });
+
+        await step.run('save-priority', async () => {
+            const id = `ep_${emailId}_${userId}`;
+            try {
+                await db
+                    .insert(emailPriorities)
+                    .values({
+                        id,
+                        userId,
+                        emailId,
+                        priority: result.priority,
+                        category: result.category,
+                        reason: result.reason,
+                        scoredAt: new Date(),
+                        updatedAt: new Date(),
+                    })
+                    .onConflictDoUpdate({
+                        target: emailPriorities.id,
+                        set: {
+                            priority: result.priority,
+                            category: result.category,
+                            reason: result.reason,
+                            updatedAt: new Date(),
+                        },
+                    });
+            } catch (dbErr) {
+                console.error('Failed to save email priority:', dbErr);
+            }
+        });
+
+        // Broadcast priority update via Socket.IO
+        await step.run('broadcast-priority', async () => {
+            const io = getSocketIO();
+            if (io) {
+                io.to(`user:${userId}`).emit('email-priority-updated', {
+                    emailId,
+                    priority: result.priority,
+                    category: result.category,
+                    reason: result.reason,
+                });
+            }
+        });
+
+        return { success: true, priority: result.priority, category: result.category };
     }
 );

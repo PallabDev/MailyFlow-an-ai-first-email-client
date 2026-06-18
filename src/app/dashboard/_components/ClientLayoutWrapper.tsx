@@ -9,6 +9,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEmailSocket } from '@/hooks/useEmailSocket';
 import { useNotificationStore } from '@/store/notificationStore';
 import ComposeModal from './ComposeModal';
+import AdvancedSearchPanel from './AdvancedSearchPanel';
 
 type ClientLayoutWrapperProps = {
   user: {
@@ -28,6 +29,7 @@ export default function ClientLayoutWrapper({
   children,
 }: ClientLayoutWrapperProps) {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -111,6 +113,9 @@ export default function ClientLayoutWrapper({
         case 'x':
           routeTarget = `${base}/trash`;
           break;
+        case 'm':
+          routeTarget = `${base}/promotions`;
+          break;
         case 'c':
           routeTarget = `${base}/calendar`;
           break;
@@ -172,7 +177,10 @@ export default function ClientLayoutWrapper({
           projectName={projectName}
           isLeftSidebarCollapsed={isLeftSidebarCollapsed}
           setIsLeftSidebarCollapsed={setIsLeftSidebarCollapsed}
+          isAdvancedSearchOpen={isAdvancedSearchOpen}
+          setIsAdvancedSearchOpen={setIsAdvancedSearchOpen}
         />
+        <AdvancedSearchPanel isOpen={isAdvancedSearchOpen} onClose={() => setIsAdvancedSearchOpen(false)} />
         {children}
       </div>
 

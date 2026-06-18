@@ -78,14 +78,34 @@ export const userSubscriptions = pgTable('user_subscriptions', {
 });
 
 export const userUsage = pgTable('user_usage', {
-    userId: text('user_id').primaryKey(),
-    aiCallsCount: integer('ai_calls_count').notNull().default(0),
-    gmailCallsCount: integer('gmail_calls_count').notNull().default(0),
-    calendarCallsCount: integer('calendar_calls_count').notNull().default(0),
-    lastResetDate: text('last_reset_date').notNull(), // 'YYYY-MM-DD'
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  userId: text('user_id').primaryKey(),
+  aiCallsCount: integer('ai_calls_count').notNull().default(0),
+  gmailCallsCount: integer('gmail_calls_count').notNull().default(0),
+  calendarCallsCount: integer('calendar_calls_count').notNull().default(0),
+  summaryCallsCount: integer('summary_calls_count').notNull().default(0),
+  replyCallsCount: integer('reply_calls_count').notNull().default(0),
+  lastResetDate: text('last_reset_date').notNull(), // 'YYYY-MM-DD'
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const emailPriorities = pgTable('email_priorities', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  emailId: text('email_id').notNull(),
+  priority: integer('priority').notNull().default(3), // 1=urgent, 2=important, 3=normal, 4=low, 5=promo
+  category: text('category').notNull().default('normal'), // urgent, work, personal, promotional, spam
+  reason: text('reason').notNull().default(''),
+  scoredAt: timestamp('scored_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => {
+  return [
+    index('email_priorities_user_id_idx').on(table.userId),
+    index('email_priorities_email_id_idx').on(table.emailId),
+    index('email_priorities_user_email_idx').on(table.userId, table.emailId),
+  ];
+});
+
 
 
 

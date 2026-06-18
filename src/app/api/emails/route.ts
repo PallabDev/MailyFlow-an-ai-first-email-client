@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db, corsair, ensureGoogleCredentialsSynced, hasActiveConnection } from '@/utils/corsair';
-import { corsairAccounts, corsairIntegrations, corsairEntities } from '@/db/schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { corsairAccounts, corsairIntegrations, corsairEntities, emailPriorities } from '@/db/schema';
+import { eq, and, desc, sql, inArray } from 'drizzle-orm';
 import { getGmailCooldownExpiration, setGmailCooldown } from '@/utils/cooldown';
 import { EmailItem, GmailMessageSummary, GmailHeader, CorsairEntityRow, GmailMessageDetails } from './_types';
 import { checkRateLimit } from '@/utils/rate-limit';
@@ -127,6 +127,7 @@ export async function GET(req: NextRequest) {
       sent: ['SENT'],
       spam: ['SPAM'],
       trash: ['TRASH'],
+      promotions: ['CATEGORY_PROMOTIONS'],
     };
     const targetLabels = labelIdsMap[folder] || ['INBOX'];
 
@@ -268,6 +269,7 @@ export async function GET(req: NextRequest) {
           sent: ['SENT'],
           spam: ['SPAM'],
           trash: ['TRASH'],
+          promotions: ['CATEGORY_PROMOTIONS'],
         };
         const labelIds = labelIdsMap[folder] || ['INBOX'];
 
@@ -471,8 +473,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Fetch priority data for all emails if user is on a paid plan
+    const priorityMap: Record<string, { priority: number; category: string; reason: string }> = {};
+    if (userId && emails.length > 0) {
+      try {
+        const emailIds = emails.map((e) => e.id);
+        const priorities = await db
+          .select()
+          .from(emailPriorities)
+          .where(
+            and(
+              eq(emailPriorities.userId, userId),
+              inArray(emailPriorities.emailId, emailIds)
+            )
+          );
+        for (const p of priorities) {
+          priorityMap[p.emailId] = { priority: p.priority, category: p.category, reason: p.reason };
+        }
+      } catch {
+        // Priority table may not exist yet, silently ignore
+      }
+    }
+
     return NextResponse.json({
-      emails,
+      emails: emails.map((e) => ({
+        ...e,
+        priority: priorityMap[e.id] || null,
+      })),
       nextPageToken: apiNextPageToken,
       isDevFallback: false,
     });

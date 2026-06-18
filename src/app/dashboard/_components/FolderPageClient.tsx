@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   Trash2,
   Check,
-  Star
+  Star,
+  Megaphone
 } from 'lucide-react';
 import { parseSender, getInitials, getAvatarColor, formatEmailDate } from '@/utils/emailHelper';
 import EmailDetail from './EmailDetail';
@@ -29,12 +30,13 @@ type Email = {
   body: string;
   labelIds?: string[];
   internalDate?: string;
+  priority?: { priority: number; category: string; reason: string } | null;
 };
 
 type FolderPageClientProps = {
   initialEmails: Email[];
   initialNextPageToken: string | null;
-  folder: 'inbox' | 'starred' | 'drafts' | 'sent' | 'spam' | 'trash';
+  folder: 'inbox' | 'starred' | 'drafts' | 'sent' | 'spam' | 'trash' | 'promotions';
   title: string;
   emailError: string | null;
 };
@@ -81,6 +83,8 @@ function emailMatchesFolder(email: Email, folder: FolderPageClientProps['folder'
       return labels.includes('DRAFT');
     case 'sent':
       return labels.includes('SENT');
+    case 'promotions':
+      return labels.includes('CATEGORY_PROMOTIONS');
     default:
       return true;
   }
@@ -237,6 +241,7 @@ export default function FolderPageClient({
   const openCompose = useComposeStore((state) => state.openCompose);
   const [emailErrorState, setEmailErrorState] = useState<string | null>(emailError);
   const pendingEmailFetchesRef = useRef(new Set<string>());
+  const [sortMode, setSortMode] = useState<'date' | 'priority'>('date');
 
   const fetchEmails = async (force: boolean = false, isBackground: boolean = false) => {
     if (force) {
@@ -522,7 +527,14 @@ export default function FolderPageClient({
     return isNaN(dateParsed) ? 0 : dateParsed;
   };
 
-  const sortedEmails = [...emailsState].sort((a, b) => getEmailTimestamp(b) - getEmailTimestamp(a));
+  const sortedEmails = sortMode === 'priority'
+    ? [...emailsState].sort((a, b) => {
+        const aPriority = a.priority?.priority ?? 3;
+        const bPriority = b.priority?.priority ?? 3;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return getEmailTimestamp(b) - getEmailTimestamp(a);
+      })
+    : [...emailsState].sort((a, b) => getEmailTimestamp(b) - getEmailTimestamp(a));
 
   // Filter based on query and folder
   const filteredEmails = sortedEmails.filter((email) => {
@@ -551,7 +563,6 @@ export default function FolderPageClient({
 
     if (folder === 'inbox') {
       if (!labels.includes('INBOX')) {
-        // Fallback for mock emails if they don't have the INBOX label but we are in inbox
         if (!email.id.startsWith('mock-') || email.id.includes('draft') || email.id.includes('sent')) {
           return false;
         }
@@ -564,6 +575,8 @@ export default function FolderPageClient({
       if (!labels.includes('SPAM') && !email.id.includes('spam')) return false;
     } else if (folder === 'trash') {
       if (!labels.includes('TRASH') && !email.id.includes('trash')) return false;
+    } else if (folder === 'promotions') {
+      if (!labels.includes('CATEGORY_PROMOTIONS')) return false;
     }
 
     return true;
@@ -718,6 +731,7 @@ export default function FolderPageClient({
       case 'sent': return <Send className="h-5 w-5 text-slate-600 shrink-0" />;
       case 'spam': return <AlertCircle className="h-5 w-5 text-slate-600 shrink-0" />;
       case 'trash': return <Clock className="h-5 w-5 text-slate-600 shrink-0" />;
+      case 'promotions': return <Megaphone className="h-5 w-5 text-slate-600 shrink-0" />;
     }
   };
 
@@ -796,6 +810,23 @@ export default function FolderPageClient({
                 title="Refresh messages"
               >
                 <RefreshCw className="h-4 w-4" />
+              </button>
+
+              {/* Sort Toggle */}
+              <button
+                onClick={() => setSortMode(sortMode === 'date' ? 'priority' : 'date')}
+                className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
+                  sortMode === 'priority'
+                    ? 'text-success bg-success/10'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-sidebar-hover'
+                }`}
+                title={sortMode === 'date' ? 'Sort by priority' : 'Sort by date'}
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="16" y2="12" />
+                  <line x1="4" y1="18" x2="12" y2="18" />
+                </svg>
               </button>
 
               {folder !== 'inbox' && (
@@ -1033,6 +1064,24 @@ export default function FolderPageClient({
 
                     {/* Desktop layout: single line */}
                     <div className="hidden md:flex items-center flex-1 min-w-0 space-x-4">
+                      {/* Priority Badge */}
+                      {email.priority && (
+                        <span
+                          className={`shrink-0 h-2 w-2 rounded-full ${
+                            email.priority.priority === 1
+                              ? 'bg-red-500'
+                              : email.priority.priority === 2
+                              ? 'bg-orange-400'
+                              : email.priority.priority === 4
+                              ? 'bg-blue-400'
+                              : email.priority.priority === 5
+                              ? 'bg-slate-400'
+                              : 'bg-success'
+                          }`}
+                          title={`${email.priority.category}: ${email.priority.reason}`}
+                        />
+                      )}
+
                       {/* Sender */}
                       <span className={`text-sm truncate w-48 shrink-0 ${isUnread ? 'font-bold text-text-primary' : 'font-normal text-text-secondary'}`}>
                         {sender.name}

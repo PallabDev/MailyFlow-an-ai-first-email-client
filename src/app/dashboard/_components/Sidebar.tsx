@@ -17,7 +17,8 @@ import {
   CreditCard,
   X,
   Star,
-  Keyboard
+  Keyboard,
+  Megaphone
 } from 'lucide-react';
 
 type SidebarProps = {
@@ -164,6 +165,20 @@ export default function Sidebar({
                 <Mail className="h-4.5 w-4.5 shrink-0" />
                 {!isLeftSidebarCollapsed && (
                   <span className="ml-3 flex-1 text-left">Inbox</span>
+                )}
+              </button>
+
+              <button
+                onClick={() => navigateToTab('promotions')}
+                className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+                  activeTab === 'promotions'
+                    ? 'bg-sidebar-active-bg text-sidebar-active-text font-bold'
+                    : 'text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active-text'
+                }`}
+              >
+                <Megaphone className="h-4.5 w-4.5 shrink-0" />
+                {!isLeftSidebarCollapsed && (
+                  <span className="ml-3 flex-1 text-left">Promotions</span>
                 )}
               </button>
 

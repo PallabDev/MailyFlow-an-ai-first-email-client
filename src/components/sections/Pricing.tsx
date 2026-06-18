@@ -5,7 +5,6 @@ import Container from "../ui/Container";
 import SectionHeading from "../ui/SectionHeading";
 import Reveal from "../ui/Reveal";
 import Button from "../ui/Button";
-import GlassCard from "../ui/GlassCard";
 import { useAuth } from "@clerk/nextjs";
 import { SpotlightCard } from "../ui/ReactBitsEffects";
 import { useRouter } from "next/navigation";
@@ -37,13 +36,17 @@ const PLANS: Plan[] = [
     },
     {
         name: "Professional",
-        price: "₹599",
+        price: "\u20B9999",
         priceNote: "/month",
-        ops: "30 AI operations / day",
+        ops: "50 AI calls / day + 20 summaries + 20 replies",
         features: [
             "Everything in Starter",
             "Smart Workflows & webhooks",
-            "30 daily AI Operations/calls",
+            "50 daily AI Operations/calls",
+            "20 AI Email Summaries / day",
+            "20 AI Reply Drafts / day",
+            "Priority Email Sorting (AI-powered)",
+            "Advanced Search Filters",
             "Priority response speed",
         ],
         cta: "Get Professional",
@@ -53,13 +56,17 @@ const PLANS: Plan[] = [
     },
     {
         name: "Business",
-        price: "₹999",
+        price: "\u20B91999",
         priceNote: "/month",
-        ops: "100 AI operations / day",
+        ops: "150 AI calls / day + 40 summaries + 40 replies",
         features: [
             "Everything in Pro",
             "Advanced Automation chains",
-            "100 daily AI Operations/calls",
+            "150 daily AI Operations/calls",
+            "40 AI Email Summaries / day",
+            "40 AI Reply Drafts / day",
+            "Priority Email Sorting (AI-powered)",
+            "Advanced Search Filters",
             "Dedicated workflow support",
         ],
         cta: "Contact sales",
