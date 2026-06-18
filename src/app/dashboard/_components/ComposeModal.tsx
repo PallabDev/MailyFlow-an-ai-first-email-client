@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Send, CheckCircle2, AlertCircle, Info as InfoIcon, Minus, Paperclip } from 'lucide-react';
 import { useComposeStore } from '@/store/composeStore';
+import { motion } from 'motion/react';
 
 export default function ComposeModal() {
   const {
@@ -171,35 +172,6 @@ export default function ComposeModal() {
 
   if (!isOpen) return null;
 
-  // Minimized state at bottom center (desktop style)
-  if (isMinimized) {
-    return (
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-[100] w-80 md:w-96 bg-card border border-border rounded-t-xl shadow-2xl flex items-center justify-between px-4 py-3 cursor-pointer text-text-primary transition-all duration-300 animate-slide-up hover:bg-hover-row" onClick={restoreCompose}>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold truncate">
-            {subject.trim() ? `Draft: ${subject}` : 'New Message'}
-          </p>
-        </div>
-        <div className="flex items-center space-x-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={restoreCompose}
-            className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
-            title="Restore compose window"
-          >
-            <Minus className="h-4 w-4 rotate-180" />
-          </button>
-          <button
-            onClick={closeCompose}
-            className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
-            title="Discard draft"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // Active / Opened State
   return (
     <>
@@ -222,44 +194,70 @@ export default function ComposeModal() {
       {/* 2. COMPOSE DIALOG */}
       {/* 
         On Mobile (<768px): fixed centered modal with backdrop grey blur
-        On Desktop (>=768px): floating draggable popup at the bottom-right, NO backdrop background or blur
+        On Desktop (>=768px): floating draggable popup at the bottom-right, NO backdrop background or blur (unless active/not minimized)
       */}
-      <div className="fixed md:pointer-events-none inset-0 z-[100] flex items-center justify-center p-4 md:p-0 md:bg-transparent md:backdrop-blur-none bg-black/45 backdrop-blur-xs">
-        <div
+      <div className={`fixed inset-0 z-[100] ${
+        isMinimized
+          ? "pointer-events-none bg-transparent"
+          : "md:pointer-events-none md:bg-transparent md:backdrop-blur-none bg-black/45 backdrop-blur-xs flex items-center justify-center p-4 md:p-0"
+      }`}>
+        <motion.div
+          layout
+          transition={{ type: 'spring', stiffness: 320, damping: 32 }}
           style={
             window.innerWidth >= 768
-              ? {
-                  transform: `translate(${position.x}px, ${position.y}px)`,
-                  position: 'fixed',
-                  bottom: '16px',
-                  right: '16px',
-                }
+              ? isMinimized
+                ? {
+                    position: 'fixed',
+                    bottom: '0px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                  }
+                : {
+                    position: 'fixed',
+                    bottom: '16px',
+                    right: '16px',
+                    transform: `translate(${position.x}px, ${position.y}px)`,
+                  }
               : undefined
           }
-          className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl relative animate-zoom-in text-text-primary pointer-events-auto md:w-[500px]"
+          className={`bg-card border border-border shadow-2xl text-text-primary flex flex-col overflow-hidden pointer-events-auto transition-colors duration-200 ${
+            isMinimized
+              ? "rounded-t-xl w-80 md:w-96 cursor-pointer hover:bg-hover-row"
+              : "rounded-2xl w-full max-w-lg md:w-[500px]"
+          }`}
+          onClick={isMinimized ? restoreCompose : undefined}
         >
-          {/* Header (Draggable) */}
+          {/* Header Bar */}
           <div
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="h-14 px-6 border-b border-border flex items-center justify-between bg-surface-subtle rounded-t-2xl md:cursor-move select-none"
+            onPointerDown={!isMinimized ? handlePointerDown : undefined}
+            onPointerMove={!isMinimized ? handlePointerMove : undefined}
+            onPointerUp={!isMinimized ? handlePointerUp : undefined}
+            className={`px-6 border-b border-border flex items-center justify-between bg-surface-subtle select-none ${
+              isMinimized ? 'h-12 rounded-t-xl cursor-pointer' : 'h-14 rounded-t-2xl md:cursor-move'
+            }`}
           >
-            <span className="font-bold text-text-primary text-sm">New Message</span>
-            <div className="flex items-center space-x-1">
-              {/* Minimize button (Desktop only) */}
+            <div className="flex-1 min-w-0" onClick={isMinimized ? restoreCompose : undefined}>
+              <span className="font-bold text-text-primary text-sm truncate block">
+                {isMinimized
+                  ? (subject.trim() ? `Draft: ${subject}` : 'New Message')
+                  : 'New Message'}
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                onClick={minimizeCompose}
-                className="hidden md:block p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
-                title="Minimize compose"
+                onClick={isMinimized ? restoreCompose : minimizeCompose}
+                className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center animate-zoom-in"
+                title={isMinimized ? "Restore compose" : "Minimize compose"}
               >
-                <Minus className="h-4.5 w-4.5" />
+                <Minus className={`h-4.5 w-4.5 transition-transform duration-200 ${isMinimized ? 'rotate-180' : ''}`} />
               </button>
               <button
                 type="button"
                 onClick={closeCompose}
-                className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-text-secondary hover:bg-sidebar-hover hover:text-text-primary transition-colors cursor-pointer flex items-center justify-center"
                 title="Discard draft"
               >
                 <X className="h-4.5 w-4.5" />
@@ -268,121 +266,123 @@ export default function ComposeModal() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSendEmail} className="p-6 space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider">To</label>
-              <input
-                type="text"
-                placeholder="recipient@example.com"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all animate-zoom-in"
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Subject</label>
-              <input
-                type="text"
-                placeholder="Subject Line"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all"
-                required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Body</label>
-              <textarea
-                rows={window.innerWidth >= 768 ? 8 : 5}
-                placeholder="Write your email body here..."
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all resize-none"
-                required
-              />
-            </div>
-
-            {/* Hidden File Input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              multiple
-              className="hidden"
-            />
-
-            {/* Attachments Display List */}
-            {attachments.length > 0 && (
-              <div className="space-y-1 pt-1">
-                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Attachments ({attachments.length})</span>
-                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pr-1">
-                  {attachments.map((file, idx) => (
-                    <div
-                      key={`file-${idx}`}
-                      className="flex items-center space-x-1.5 bg-sidebar-hover text-text-primary px-3 py-1.5 rounded-lg border border-border text-xs font-semibold animate-zoom-in"
-                    >
-                      <span className="truncate max-w-[150px]">{file.name}</span>
-                      <span className="text-text-muted text-[10px] font-normal">({(file.size / 1024).toFixed(1)} KB)</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(idx)}
-                        className="text-text-muted hover:text-danger p-0.5 rounded cursor-pointer transition-colors"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+          {!isMinimized && (
+            <form onSubmit={handleSendEmail} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">To</label>
+                <input
+                  type="text"
+                  placeholder="recipient@example.com"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all animate-zoom-in"
+                  required
+                />
               </div>
-            )}
 
-            {/* Buttons Area */}
-            <div className="flex items-center justify-between pt-2">
-              {/* Attach File Button */}
-              <button
-                type="button"
-                onClick={triggerFileInput}
-                className="inline-flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border border-border text-xs font-bold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card"
-              >
-                <Paperclip className="h-4.5 w-4.5 text-slate-500" />
-                <span>Attach files</span>
-              </button>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Subject</label>
+                <input
+                  type="text"
+                  placeholder="Subject Line"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all"
+                  required
+                />
+              </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Body</label>
+                <textarea
+                  rows={window.innerWidth >= 768 ? 8 : 5}
+                  placeholder="Write your email body here..."
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  className="w-full bg-background border border-border rounded-xl py-2 px-3.5 text-sm text-text-primary placeholder-slate-400 focus:outline-none focus:border-slate-500 shadow-sm transition-all resize-none"
+                  required
+                />
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                multiple
+                className="hidden"
+              />
+
+              {/* Attachments Display List */}
+              {attachments.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Attachments ({attachments.length})</span>
+                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pr-1">
+                    {attachments.map((file, idx) => (
+                      <div
+                        key={`file-${idx}`}
+                        className="flex items-center space-x-1.5 bg-sidebar-hover text-text-primary px-3 py-1.5 rounded-lg border border-border text-xs font-semibold animate-zoom-in"
+                      >
+                        <span className="truncate max-w-[150px]">{file.name}</span>
+                        <span className="text-text-muted text-[10px] font-normal">({(file.size / 1024).toFixed(1)} KB)</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(idx)}
+                          className="text-text-muted hover:text-danger p-0.5 rounded cursor-pointer transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Buttons Area */}
+              <div className="flex items-center justify-between pt-2">
+                {/* Attach File Button */}
                 <button
                   type="button"
-                  onClick={handleSaveDraft}
-                  disabled={savingDraft || sendingEmail}
-                  className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card disabled:opacity-50"
+                  onClick={triggerFileInput}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2.5 rounded-xl border border-border text-xs font-bold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card"
                 >
-                  {savingDraft ? 'Saving...' : 'Save Draft'}
+                  <Paperclip className="h-4.5 w-4.5 text-slate-500" />
+                  <span>Attach files</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={sendingEmail || savingDraft}
-                  className="inline-flex items-center space-x-1.5 rounded-xl bg-success hover:opacity-90 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                >
-                  {sendingEmail ? (
-                    <div className="flex items-center space-x-1">
-                      <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></div>
-                      <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></div>
-                      <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce"></div>
-                      <span className="pl-1">Sending...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      <span>Send</span>
-                    </>
-                  )}
-                </button>
+
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={savingDraft || sendingEmail}
+                    className="px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-text-secondary hover:bg-hover-row hover:text-text-primary transition-all cursor-pointer bg-card disabled:opacity-50"
+                  >
+                    {savingDraft ? 'Saving...' : 'Save Draft'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendingEmail || savingDraft}
+                    className="inline-flex items-center space-x-1.5 rounded-xl bg-success hover:opacity-90 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                  >
+                    {sendingEmail ? (
+                      <div className="flex items-center space-x-1">
+                        <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></div>
+                        <div className="h-1.5 w-1.5 rounded-full bg-white animate-bounce"></div>
+                        <span className="pl-1">Sending...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        <span>Send</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          </form>
-        </div>
+            </form>
+          )}
+        </motion.div>
       </div>
     </>
   );

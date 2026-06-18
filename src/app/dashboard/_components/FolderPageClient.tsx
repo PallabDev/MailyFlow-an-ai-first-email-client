@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion } from 'motion/react';
 import {
   Inbox as InboxIcon,
@@ -113,7 +113,21 @@ export default function FolderPageClient({
   emailError,
 }: FolderPageClientProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchQuery = searchParams.get('q') || '';
+
+  const updateOpenEmailParam = useCallback((emailId: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (emailId) {
+      params.set('openEmailId', emailId);
+    } else {
+      params.delete('openEmailId');
+    }
+    const queryStr = params.toString();
+    const targetUrl = queryStr ? `${pathname}?${queryStr}` : pathname;
+    router.replace(targetUrl, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   // Debounced search query state to prevent excessive API hits
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
@@ -370,6 +384,8 @@ export default function FolderPageClient({
         };
         fetchAndSelect();
       }
+    } else {
+      setSelectedEmail(null);
     }
   }, [openEmailId, emailsState]);
 
@@ -437,6 +453,7 @@ export default function FolderPageClient({
       });
     }
     setSelectedEmail(null);
+    updateOpenEmailParam(null);
 
     if (!emailId.startsWith('mock-')) {
       try {
@@ -592,7 +609,9 @@ export default function FolderPageClient({
             // Detail view: open next email
             const currentIndex = uniqueEmails.findIndex(m => m.id === selectedEmail.id);
             if (currentIndex !== -1 && currentIndex < uniqueEmails.length - 1) {
-              setSelectedEmail(uniqueEmails[currentIndex + 1]);
+              const nextMail = uniqueEmails[currentIndex + 1];
+              setSelectedEmail(nextMail);
+              updateOpenEmailParam(nextMail.id);
             }
           } else {
             // List view: navigate focus index down
@@ -609,7 +628,9 @@ export default function FolderPageClient({
             // Detail view: open previous email
             const currentIndex = uniqueEmails.findIndex(m => m.id === selectedEmail.id);
             if (currentIndex > 0) {
-              setSelectedEmail(uniqueEmails[currentIndex - 1]);
+              const prevMail = uniqueEmails[currentIndex - 1];
+              setSelectedEmail(prevMail);
+              updateOpenEmailParam(prevMail.id);
             }
           } else {
             // List view: navigate focus index up
@@ -623,7 +644,9 @@ export default function FolderPageClient({
         case 'Enter': {
           if (!selectedEmail && focusedEmailIndex >= 0 && focusedEmailIndex < uniqueEmails.length) {
             e.preventDefault();
-            setSelectedEmail(uniqueEmails[focusedEmailIndex]);
+            const targetMail = uniqueEmails[focusedEmailIndex];
+            setSelectedEmail(targetMail);
+            updateOpenEmailParam(targetMail.id);
           }
           break;
         }
@@ -632,6 +655,7 @@ export default function FolderPageClient({
           if (selectedEmail) {
             e.preventDefault();
             setSelectedEmail(null);
+            updateOpenEmailParam(null);
           }
           break;
         }
@@ -795,7 +819,10 @@ export default function FolderPageClient({
       {selectedEmail ? (
         <EmailDetail
           email={selectedEmail}
-          onBack={() => setSelectedEmail(null)}
+          onBack={() => {
+            setSelectedEmail(null);
+            updateOpenEmailParam(null);
+          }}
           onTrash={handleTrashEmail}
           onStar={toggleStarEmail}
         />
@@ -904,6 +931,7 @@ export default function FolderPageClient({
                       toggleSelectEmail(email.id);
                     } else {
                       setSelectedEmail(email);
+                      updateOpenEmailParam(email.id);
                       if (isUnread) {
                         setEmailsState((prev) => {
                           const updated = prev.map((e) => {

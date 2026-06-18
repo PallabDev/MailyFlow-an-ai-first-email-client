@@ -2,12 +2,13 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { Search, Moon, Sun, MessageSquare, Menu, Bell, Check, Trash } from 'lucide-react';
+import { Search, Moon, Sun, Menu, Bell, Check, Trash } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
 import { dark } from '@clerk/themes';
 import { useChatStore } from '@/store/chatStore';
 import { useNotificationStore } from '@/store/notificationStore';
 import { formatEmailDate } from '@/utils/emailHelper';
+import AISvg from './AISvg';
 
 type HeaderProps = {
   user: {
@@ -132,17 +133,16 @@ export default function Header({
 
       {/* Right Header Controls */}
       <div className="flex items-center space-x-3 text-slate-500">
-        <button
-          onClick={toggleAIChat}
-          className={`p-1.5 rounded-lg transition-all duration-200 cursor-pointer md:hidden flex items-center justify-center ${
-            !isRightSidebarCollapsed
-              ? 'text-[#6e9b7e] bg-accent-soft/40 dark:bg-accent-soft/10 scale-105'
-              : 'text-slate-500 hover:text-foreground hover:bg-sidebar-hover'
-          }`}
-          title={isRightSidebarCollapsed ? 'Open AI Assistant Chat' : 'Close AI Assistant Chat'}
-        >
-          <MessageSquare className="h-4.5 w-4.5" />
-        </button>
+        {isRightSidebarCollapsed && (
+          <button
+            onClick={() => setIsRightSidebarCollapsed(false)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 border border-success/30 hover:border-success/60 bg-success/5 hover:bg-success/10 text-success text-xs font-bold rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm shrink-0"
+            title="Open AI Assistant"
+          >
+            <AISvg className="h-4.5 w-4.5 shrink-0" />
+            <span>AI Assistant</span>
+          </button>
+        )}
 
         <button
           onClick={toggleTheme}
